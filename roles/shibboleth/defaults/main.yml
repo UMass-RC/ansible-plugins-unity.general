@@ -1,0 +1,4 @@
+---
+# defaults file for shibboleth
+shib_entityid: https://unity.rc.umass.edu/shibboleth
+shib_discovery_url: https://unity.rc.umass.edu/shibboleth-ds

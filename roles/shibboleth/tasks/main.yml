@@ -1,0 +1,73 @@
+---
+# tasks file for shibboleth
+- name: add Unity Service Nodes ppa
+  ansible.builtin.apt_repository:
+    repo: ppa:umass-rc/unity-service-nodes
+    state: present
+- name: install shibboleth
+  package:
+    name: shibboleth-sp-utils
+    state: latest
+    update_cache: yes
+- name: install nginx-module-shibboleth
+  package:
+    name: nginx-module-shibboleth
+    state: latest
+    update_cache: yes
+- name: install supervisor
+  package:
+    name: supervisor
+    state: latest
+    update_cache: yes
+- name: add nginx shibboleth module config
+  copy:
+    src: etc/nginx/modules-enabled/99-mod-shibboleth.conf
+    dest: /etc/nginx/modules-enabled/99-mod-shibboleth.conf
+- name: add shibboleth nginx headers configuration
+  copy:
+    src: etc/nginx/shib_clear_headers
+    dest: /etc/nginx/shib_clear_headers
+    owner: root
+    group: root
+    mode: 0644
+#- name: add shibboleth InCommon metadata
+#  copy:
+#    src: etc/shibboleth/InCommon-metadata.xml
+#    dest: /etc/shibboleth/InCommon-metadata.xml
+#- name: add shibboleth encryption/signing keys
+#  ansible.builtin.command:
+#    cmd: /usr/sbin/shib-keygen -n {{ item }}
+#    creates: /etc/shibboleth/{{ item }}-cert.pem
+#  loop:
+#    - sp-encrypt
+#    - sp-signing
+- name: add shibboleth key/cert
+  copy:
+    src: etc/shibboleth/{{ item }}
+    dest: /etc/shibboleth/{{ item }}
+  loop:
+    - sp-key.pem
+    - sp-cert.pem
+- name: add shibboleth SP configuration
+  template:
+    src: etc/shibboleth/shibboleth2.xml.j2
+    dest: /etc/shibboleth/shibboleth2.xml
+  notify: restart shibd
+- name: add shibboleth attribute mapping
+  copy:
+    src: etc/shibboleth/attribute-map.xml
+    dest: /etc/shibboleth/attribute-map.xml
+- name: add supervisord fcgi configuration
+  copy:
+    src: etc/supervisor/conf.d/shibboleth.conf
+    dest: /etc/supervisor/conf.d/shibboleth.conf
+- name: start supervisor service
+  service:
+    name: supervisor
+    enabled: yes
+    state: started
+- name: start shibd service
+  service:
+    name: shibd
+    enabled: yes
+    state: started
