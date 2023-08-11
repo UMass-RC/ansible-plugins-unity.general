@@ -5,6 +5,6 @@
       include_role:
         name: "{{ this_role }}"
       loop:
-      - shibboleth-discovery
+        - shibboleth-discovery
       loop_control:
         loop_var: this_role
