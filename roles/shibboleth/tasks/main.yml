@@ -8,17 +8,17 @@
   package:
     name: shibboleth-sp-utils
     state: latest
-    update_cache: yes
+    update_cache: true
 - name: install nginx-module-shibboleth
   package:
     name: nginx-module-shibboleth
     state: latest
-    update_cache: yes
+    update_cache: true
 - name: install supervisor
   package:
     name: supervisor
     state: latest
-    update_cache: yes
+    update_cache: true
 - name: add nginx shibboleth module config
   copy:
     src: etc/nginx/modules-enabled/99-mod-shibboleth.conf
@@ -64,10 +64,10 @@
 - name: start supervisor service
   service:
     name: supervisor
-    enabled: yes
+    enabled: true
     state: started
 - name: start shibd service
   service:
     name: shibd
-    enabled: yes
+    enabled: true
     state: started
