@@ -1,4 +1,4 @@
 ---
 # handlers file for shibboleth
 - name: restart shibd
-  command: systemctl restart shibd
+  ansible.builtin.command: systemctl restart shibd

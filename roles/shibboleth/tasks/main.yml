@@ -5,33 +5,33 @@
     repo: ppa:umass-rc/unity-service-nodes
     state: present
 - name: install shibboleth
-  package:
+  ansible.builtin.package:
     name: shibboleth-sp-utils
     state: latest
     update_cache: true
 - name: install nginx-module-shibboleth
-  package:
+  ansible.builtin.package:
     name: nginx-module-shibboleth
     state: latest
     update_cache: true
 - name: install supervisor
-  package:
+  ansible.builtin.package:
     name: supervisor
     state: latest
     update_cache: true
 - name: add nginx shibboleth module config
-  copy:
+  ansible.builtin.copy:
     src: etc/nginx/modules-enabled/99-mod-shibboleth.conf
     dest: /etc/nginx/modules-enabled/99-mod-shibboleth.conf
 - name: add shibboleth nginx headers configuration
-  copy:
+  ansible.builtin.copy:
     src: etc/nginx/shib_clear_headers
     dest: /etc/nginx/shib_clear_headers
     owner: root
     group: root
     mode: 0644
 #- name: add shibboleth InCommon metadata
-#  copy:
+#  ansible.builtin.copy:
 #    src: etc/shibboleth/InCommon-metadata.xml
 #    dest: /etc/shibboleth/InCommon-metadata.xml
 #- name: add shibboleth encryption/signing keys
@@ -42,32 +42,32 @@
 #    - sp-encrypt
 #    - sp-signing
 - name: add shibboleth key/cert
-  copy:
+  ansible.builtin.copy:
     src: etc/shibboleth/{{ item }}
     dest: /etc/shibboleth/{{ item }}
   loop:
     - sp-key.pem
     - sp-cert.pem
 - name: add shibboleth SP configuration
-  template:
+  ansible.builtin.template:
     src: etc/shibboleth/shibboleth2.xml.j2
     dest: /etc/shibboleth/shibboleth2.xml
   notify: restart shibd
 - name: add shibboleth attribute mapping
-  copy:
+  ansible.builtin.copy:
     src: etc/shibboleth/attribute-map.xml
     dest: /etc/shibboleth/attribute-map.xml
 - name: add supervisord fcgi configuration
-  copy:
+  ansible.builtin.copy:
     src: etc/supervisor/conf.d/shibboleth.conf
     dest: /etc/supervisor/conf.d/shibboleth.conf
 - name: start supervisor service
-  service:
+  ansible.builtin.service:
     name: supervisor
     enabled: true
     state: started
 - name: start shibd service
-  service:
+  ansible.builtin.service:
     name: shibd
     enabled: true
     state: started
