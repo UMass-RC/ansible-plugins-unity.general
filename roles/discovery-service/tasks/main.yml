@@ -1,0 +1,15 @@
+- name: install git
+  ansible.builtin.apt:
+    name:
+      - git
+
+- name: make sure install prefix is a directory
+  ansible.builtin.file:
+    path: "{{ discovery_service_install_prefix }}"
+    state: directory
+
+- name: git pull discovery service # noqa: latest[git]
+  ansible.builtin.git:
+    repo: https://github.com/UMass-RC/unity-discovery-service.git
+    dest: "{{ discovery_service_install_prefix }}"
+    depth: 1 # shallow clone
