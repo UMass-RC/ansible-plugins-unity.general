@@ -1,0 +1,18 @@
+- name: check if previous backup of /etc/shibboleth exists
+  ansible.builtin.command: test -e /etc/shibboleth.bak.d
+  changed_when: false
+  failed_when: false
+  register: test_exists_etc_shib_backup
+
+- name: fail if previous backup of /etc/shibboleth exists
+  ansible.builtin.fail:
+    msg: |
+      A previous backup of /etc/shibboleth exists! (/etc/shibboleth.bak.d)
+      At the end of a successful ansible role, it should have been deleted.
+      This could indicate that the last anisble role failed, in which case this backup is important!
+      Please save or delete it manually.
+  when: test_exists_etc_shib_backup.rc == 0
+
+- name: backup /etc/shibboleth # noqa: command-instead-of-module
+  ansible.builtin.command: /usr/bin/rsync -a /etc/shibboleth/ /etc/shibboleth.bak.d/
+  changed_when: false

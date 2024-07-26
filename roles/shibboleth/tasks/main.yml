@@ -1,73 +1,108 @@
----
-# tasks file for shibboleth
-- name: add Unity Service Nodes ppa
-  ansible.builtin.apt_repository:
-    repo: ppa:umass-rc/unity-service-nodes
-    state: present
-- name: install shibboleth
-  ansible.builtin.package:
+- name: apt update && apt install shibboleth-sp-utils
+  ansible.builtin.apt:
     name: shibboleth-sp-utils
-    state: latest
+    state: present
     update_cache: true
-- name: install nginx-module-shibboleth
-  ansible.builtin.package:
-    name: nginx-module-shibboleth
-    state: latest
-    update_cache: true
-- name: install supervisor
-  ansible.builtin.package:
-    name: supervisor
-    state: latest
-    update_cache: true
-- name: add nginx shibboleth module config
-  ansible.builtin.copy:
-    src: etc/nginx/modules-enabled/99-mod-shibboleth.conf
-    dest: /etc/nginx/modules-enabled/99-mod-shibboleth.conf
-- name: add shibboleth nginx headers configuration
-  ansible.builtin.copy:
-    src: etc/nginx/shib_clear_headers
-    dest: /etc/nginx/shib_clear_headers
+  notify: systemctl daemon-reload
+
+- name: initial sanity check
+  ansible.builtin.command: /usr/sbin/shibd -t
+  failed_when: false
+  changed_when: false
+  register: sanity_check0
+  when: not ansible_check_mode
+
+- name: backup /etc/shibboleth
+  ansible.builtin.include_tasks: backup.yml
+  when: not ansible_check_mode
+
+- name: overwrite systemd unit
+  unity.template_multi_diff.template:
+    src: "{{ shib_systemd_unit_template }}"
+    dest: "{{ shib_systemd_unit_path }}"
     owner: root
     group: root
-    mode: 0644
-#- name: add shibboleth InCommon metadata
-#  ansible.builtin.copy:
-#    src: etc/shibboleth/InCommon-metadata.xml
-#    dest: /etc/shibboleth/InCommon-metadata.xml
-#- name: add shibboleth encryption/signing keys
-#  ansible.builtin.command:
-#    cmd: /usr/sbin/shib-keygen -n {{ item }}
-#    creates: /etc/shibboleth/{{ item }}-cert.pem
-#  loop:
-#    - sp-encrypt
-#    - sp-signing
-- name: add shibboleth key/cert
-  ansible.builtin.copy:
-    src: etc/shibboleth/{{ item }}
-    dest: /etc/shibboleth/{{ item }}
-  loop:
-    - sp-key.pem
-    - sp-cert.pem
-- name: add shibboleth SP configuration
-  ansible.builtin.template:
-    src: etc/shibboleth/shibboleth2.xml.j2
-    dest: /etc/shibboleth/shibboleth2.xml
-  notify: restart shibd
-- name: add shibboleth attribute mapping
-  ansible.builtin.copy:
-    src: etc/shibboleth/attribute-map.xml
-    dest: /etc/shibboleth/attribute-map.xml
-- name: add supervisord fcgi configuration
-  ansible.builtin.copy:
-    src: etc/supervisor/conf.d/shibboleth.conf
-    dest: /etc/supervisor/conf.d/shibboleth.conf
-- name: start supervisor service
-  ansible.builtin.service:
-    name: supervisor
-    enabled: true
-    state: started
-- name: start shibd service
-  ansible.builtin.service:
+    mode: "0644"
+  when: shib_systemd_unit_template
+  notify: systemctl daemon-reload
+
+# ideally I could set permissions when creating a new directory but not override permissions
+# on an existing directory, but that's not a thing
+- name: template directory exists # noqa: risky-file-permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  loop: "{{ shib_templates | map(attribute='dest') | map('dirname') | unique | reject('equalto', '') }}"
+
+- name: install template
+  unity.template_multi_diff.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+  notify: systemctl restart shibd
+  loop: "{{ shib_templates }}"
+
+- name: sanity check
+  ansible.builtin.command: /usr/sbin/shibd -t
+  changed_when: false
+  failed_when: false
+  register: sanity_check1
+  when: not ansible_check_mode
+
+- name: handle failed sanity check
+  ansible.builtin.include_tasks: sanity-check-failed.yml
+  when: not ansible_check_mode and "error" in sanity_check1.stdout
+
+- name: delete backup
+  ansible.builtin.file:
+    path: /etc/shibboleth.bak.d
+    state: absent
+  changed_when: false
+  when: not ansible_check_mode and "error" not in sanity_check1.stdout
+
+- name: setup supervisor
+  ansible.builtin.import_tasks: supervisor.yml
+  when: (shib_enable_supervisor | bool) is true
+
+# I could enable & disable in one task, but then it's not clear in the task name what is going on
+- name: systemctl enable shibd
+  ansible.builtin.systemd:
     name: shibd
     enabled: true
+  when: (shib_systemd_enabled | bool) is true
+
+- name: systemctl disable shibd
+  ansible.builtin.systemd:
+    name: shibd
+    enabled: false
+  when: (shib_systemd_enabled | bool) is false
+
+- name: systemctl mask shibd
+  ansible.builtin.systemd:
+    name: shibd
+    masked: true
+  when: (shib_systemd_masked | bool) is true
+
+- name: systemctl unmask shibd
+  ansible.builtin.systemd:
+    name: shibd
+    masked: false
+  when: (shib_systemd_masked | bool) is false
+
+# systemctl start shibd should come after systemctl daemon-reload
+- name: flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: systemctl start shibd
+  ansible.builtin.systemd:
+    name: shibd
     state: started
+  when: (shib_systemd_running | bool) is true
+
+- name: systemctl stop shibd
+  ansible.builtin.systemd:
+    name: shibd
+    state: stopped
+  when: (shib_systemd_running | bool) is false

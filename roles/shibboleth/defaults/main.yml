@@ -1,4 +1,16 @@
----
-# defaults file for shibboleth
-shib_entityid: https://unity.rc.umass.edu/shibboleth
-shib_discovery_url: https://unity.rc.umass.edu/shibboleth-ds
+shib_systemd_enabled: true
+shib_systemd_running: true
+shib_systemd_masked: false
+shib_allow_restart: false
+
+shib_templates: []
+# - src: /path/to/shibbolteh2.xml.j2
+#   dest: /etc/shibboleth/shibboleth2.xml
+#   mode: "0644"
+#   owner: root
+#   group: root
+
+shib_enable_supervisor: false
+
+shib_systemd_unit_path: /lib/systemd/system/shibd.service
+shib_systemd_unit_template: null # /path/to/new/shibd.service.j2

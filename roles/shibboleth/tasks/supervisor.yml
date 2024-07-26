@@ -1,0 +1,21 @@
+- name: apt install supervisor
+  ansible.builtin.apt:
+    name: supervisor
+    state: present
+  notify: systemctl daemon-reload
+
+- name: systemctl enable supervisor && systemctl start supervisor
+  ansible.builtin.systemd:
+    name: supervisor
+    state: started
+    enabled: true
+
+- name: setup supervisor for shibboleth
+  ansible.builtin.copy:
+    src: etc/supervisor/conf.d/shibboleth.conf
+    dest: /etc/supervisor/conf.d/shibboleth.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - systemctl reload supervisor

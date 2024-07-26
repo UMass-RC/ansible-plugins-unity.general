@@ -1,0 +1,66 @@
+- name: delete /etc/shibboleth.broken.d if it exists
+  ansible.builtin.file:
+    path: /etc/shibboleth.broken.d
+    state: absent
+
+- name: move broken /etc/shibboleth aside and restore backup
+  ansible.builtin.shell: /usr/bin/mv /etc/shibboleth /etc/shibboleth.broken.d && /usr/bin/mv /etc/shibboleth.bak.d /etc/shibboleth
+  changed_when: true
+
+- name: check if we pass sanity check now
+  ansible.builtin.command: /usr/sbin/shibd -t
+  failed_when: false
+  changed_when: false
+  register: sanity_check2
+
+- name: fail with working config in place
+  ansible.builtin.fail:
+    msg: |
+      After installing config files, shibboleth failed its sanity check.
+      A backup has been restored, and the sanity check passes now.
+      The broken version of /etc/shibboleth/ has been copied to /etc/shibboleth.broken.d/
+
+      Initial:
+      {{ sanity_check0 | to_nice_json }}
+
+      After installing config files:
+      {{ sanity_check1 | to_nice_json }}
+
+      After restoring backup:
+      {{ sanity_check2 | to_nice_json }}
+  when: "'error' not in sanity_check2.stdout"
+
+- name: fail with bad config in place
+  ansible.builtin.fail:
+    msg: |
+      Shibboleth is in a broken state! The service should still be running, but it will fail to restart.
+      After installing config files, shibboleth failed its sanity check.
+      A backup has been restored, but it's still not passing!
+      Since it passed at the beginning of this playbook, the problem must exist outside /etc/shibboleth/
+
+      Initial:
+      {{ sanity_check0 | to_nice_json }}
+
+      After installing config files:
+      {{ sanity_check1 | to_nice_json }}
+
+      After restoring backup:
+      {{ sanity_check2 | to_nice_json }}
+  when: "'error' not in sanity_check0.stdout and 'error' not in sanity_check2.stdout"
+
+- name: fail with bad config in place with failed initial sanity check
+  ansible.builtin.fail:
+    msg: |
+      Shibboleth is in a broken state! The service should still be running, but it will fail to restart.
+      A backup has been restored. The sanity check failed at the start of the
+      playbook (before I made any changes), and it's still failing now.
+
+      Initial:
+      {{ sanity_check0 | to_nice_json }}
+
+      After installing config files:
+      {{ sanity_check1 | to_nice_json }}
+
+      After restoring backup:
+      {{ sanity_check2 | to_nice_json }}
+  when: "'error' in sanity_check0.stdout and 'error' in sanity_check2.stdout"
