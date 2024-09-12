@@ -13,22 +13,20 @@
   listen: systemctl restart shibd
 
 - name: systemctl restart shibd disallowed due to `shib_allow_restart` # noqa: ignore-errors
-  ansible.builtin.fail:
+  warning:
     msg: |
       #### ACTION REQUIRED ####
       the shibd service needs to be restarted, but I am not allowed to do this.
       you should wait to restart until your web server has little to no traffic.
       in the future, you can allow me to restart with the `shib_allow_restart` parameter.
-  ignore_errors: true
   when: (shib_allow_restart | bool) is false
   listen: systemctl restart shibd
 
 - name: systemctl restart shibd disallowed due to `shib_systemd_running` # noqa: ignore-errors
-  ansible.builtin.fail:
+  warning:
     msg: |
       #### WARNING ####
       the shibd service needs to be restarted to apply changes, but shibd isn't supposed to be running.
-  ignore_errors: true
   when: (shib_systemd_running | bool) is false
   listen: systemctl restart shibd
 
