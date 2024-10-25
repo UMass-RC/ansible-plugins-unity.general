@@ -13,3 +13,13 @@
     repo: https://github.com/UMass-RC/unity-discovery-service.git
     dest: "{{ discovery_service_install_prefix }}"
     depth: 1 # shallow clone
+
+# before the noble upgrade, this wasn't necessary, and I don't know why. see proxmox VM ood-head-old-20.04
+- name: reminder to configure apache
+  ansible.builtin.debug:
+    msg: |
+      the discovery service is installed, but you will have to configure apache to allow access to it.
+      example:
+      <Directory "{{ discovery_service_install_prefix }}">
+          Require all granted
+      </Directory>
