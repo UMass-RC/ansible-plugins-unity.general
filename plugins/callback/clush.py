@@ -97,11 +97,11 @@ STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 STATUSES_PRINT_MSG_ONLY = ["ok", "changed", "unreachable", "skipped", "ignored"]
 
 
-def indent(prepend, text):
+def _indent(prepend, text):
     return prepend + text.replace("\n", "\n" + prepend)
 
 
-def format_hostnames(hosts) -> str:
+def _format_hostnames(hosts) -> str:
     if DO_NODESET:
         return str(NodeSet.fromlist(sorted(list(hosts))))
     else:
@@ -114,7 +114,7 @@ def _tty_width() -> int:
 
 
 # from http://stackoverflow.com/a/15423007/115478
-def should_use_block(value):
+def _should_use_block(value):
     """Returns true if string should be in block format"""
     for c in "\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
         if c in value:
@@ -127,7 +127,7 @@ class HumanReadableYamlDumper(AnsibleDumper):
     def represent_scalar(self, tag, value, style=None):
         """Uses block style for multi-line strings"""
         if style is None:
-            if should_use_block(value):
+            if _should_use_block(value):
                 style = "|"
             else:
                 style = self.default_style
@@ -238,7 +238,7 @@ class CallbackModule(DedupeCallback):
                     f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
                 )
                 result._result.pop("stderr_lines")
-            msg = f"[{hostname}]: {status.upper()} =>\n{indent("  ", _yaml_dump(result._result))}"
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
         self._clear_line()
         self._display.display(
             msg,
@@ -340,14 +340,14 @@ class CallbackModule(DedupeCallback):
         self._clear_line()
         for diff, hostnames in sorted_diffs_and_hostnames:
             self._display.display(self._format_result_diff(diff))
-            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
+            self._display.display(f"changed: {_format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
             color = _STATUS_COLORS[status]
-            self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
+            self._display.display(f"{status}: {_format_hostnames(hostnames)}", color=color)
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")

@@ -68,11 +68,11 @@ DOCUMENTATION = r"""
 STATUSES_PRINT_IMMEDIATELY = ["failed"]
 
 
-def indent(prepend, text):
+def _indent(prepend, text):
     return prepend + text.replace("\n", "\n" + prepend)
 
 
-def format_hostnames(hosts) -> str:
+def _format_hostnames(hosts) -> str:
     if DO_NODESET:
         return str(NodeSet.fromlist(sorted(list(hosts))))
     else:
@@ -80,7 +80,7 @@ def format_hostnames(hosts) -> str:
 
 
 # from http://stackoverflow.com/a/15423007/115478
-def should_use_block(value):
+def _should_use_block(value):
     """Returns true if string should be in block format"""
     for c in "\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
         if c in value:
@@ -93,7 +93,7 @@ class HumanReadableYamlDumper(AnsibleDumper):
     def represent_scalar(self, tag, value, style=None):
         """Uses block style for multi-line strings"""
         if style is None:
-            if should_use_block(value):
+            if _should_use_block(value):
                 style = "|"
             else:
                 style = self.default_style
@@ -111,6 +111,10 @@ def _yaml_dump(x):
         Dumper=HumanReadableYamlDumper,
         default_flow_style=False,
     )
+
+
+def _banner(x, banner_len=80) -> str:
+    return x + " " * (banner_len - len(x))
 
 
 class CallbackModule(DedupeCallback):
@@ -163,19 +167,19 @@ class CallbackModule(DedupeCallback):
                     f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
                 )
                 result._result.pop("stderr_lines")
-            msg = f"[{hostname}]: {status.upper()} =>\n{indent("  ", _yaml_dump(result._result))}"
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
         self._flush_display_buffer()
         self._display.display(msg, stderr=self.get_option("display_failed_stderr"))
 
     def deduped_play_start(self, play: Play):
         play_name = play.get_name().strip()
         if play.check_mode:
-            self._display_buffer.append(f"PLAY [{play_name}] [CHECK MODE]")
+            self._display_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
         else:
-            self._display_buffer.append(f"PLAY [{play_name}]")
+            self._display_buffer.append(_banner(f"PLAY [{play_name}]"))
 
     def deduped_task_start(self, task: Task, prefix: str):
-        self._display_buffer.append(f"{prefix} [{task.get_name().strip()}] ")
+        self._display_buffer.append(_banner(f"{prefix} [{task.get_name().strip()}] "))
 
     def deduped_task_end(
         self,
@@ -185,7 +189,7 @@ class CallbackModule(DedupeCallback):
         for diff, hostnames in sorted_diffs_and_hostnames:
             self._flush_display_buffer()
             self._display.display(self._get_diff(diff))
-            self._display.display(f"changed: {format_hostnames(hostnames)}")
+            self._display.display(f"changed: {_format_hostnames(hostnames)}")
 
     def deduped_playbook_stats(self, stats: AggregateStats):
         pass
