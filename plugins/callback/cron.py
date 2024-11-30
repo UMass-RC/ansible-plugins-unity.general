@@ -24,7 +24,7 @@ except ImportError:
 
 
 DOCUMENTATION = r"""
-  name: cron_dedupe_yaml
+  name: cron
   type: stdout
   short_description: suitable for a cron job, with deduped output and pretty YAML
   version_added: 0.1.0
@@ -33,6 +33,8 @@ DOCUMENTATION = r"""
     * no color
     * only warnings, changes, failures, and exceptions are printed
     * task/play banners are withheld until something needs to be printed
+    * results are not printed right away unless verbose mode or result has errors. when they are
+      printed, they are formatted nicely with yaml
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
       is used as the diff. Effectively, diff mode is always on.
@@ -120,7 +122,7 @@ def _banner(x, banner_len=80) -> str:
 class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
-    CALLBACK_NAME = "cron_dedupe_yaml"
+    CALLBACK_NAME = "cron"
 
     def __init__(self):
         super(CallbackModule, self).__init__()

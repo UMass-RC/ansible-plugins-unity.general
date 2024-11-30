@@ -43,6 +43,8 @@ DOCUMENTATION = r"""
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
+    * results are not printed right away unless verbose mode or result has errors. when they are
+      printed, they are formatted nicely with yaml
     * rather than showing each task-host-status on one line, display the total of number of hosts
       with each status all on one line and update that same line using carriage return.
     * at the end of the task, print the list of hosts that returned each status.

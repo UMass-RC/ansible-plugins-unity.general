@@ -2,13 +2,10 @@ import os
 import re
 import sys
 import yaml
-import time
 import json
 import atexit
 import socket
-import tempfile
 
-# from ansible import context
 from ansible.module_utils.common.text.converters import to_text
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -41,7 +38,8 @@ DOCUMENTATION = r"""
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
-    * task results are discarded except for "status" and "diff"
+    * results are not printed right away unless verbose mode or result has errors. when they are
+      printed, they are formatted nicely with yaml
     * at the end of the task, print the list of hosts that returned each status.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
@@ -153,6 +151,7 @@ class CallbackModule(DedupeCallback):
     def __init__(self):
         super(CallbackModule, self).__init__()
         self.disabled = False
+        self._always_check_mode = True
         self.username = os.getlogin()
         self.hostname = socket.gethostname()
         # defined in v2_playbook_on_start
@@ -219,6 +218,7 @@ class CallbackModule(DedupeCallback):
         if play.check_mode:
             self._text_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
         else:
+            self._always_check_mode = False
             self._text_buffer.append(_banner(f"PLAY [{play_name}]"))
 
     def deduped_task_start(self, task: Task, prefix: str):
@@ -250,8 +250,12 @@ class CallbackModule(DedupeCallback):
         if not self._text_buffer:
             return
         try:
+            if self._always_check_mode:
+                filename = f"{self.playbook_name}-checkmode-{self.username}-{self.hostname}.log"
+            else:
+                filename = f"{self.playbook_name}-{self.username}-{self.hostname}.log"
             kwargs = dict(
-                filename=f"{self.playbook_name}-{self.username}-{self.hostname}.log",
+                filename=filename,
                 content=ANSI_COLOR_REGEX.sub("", "\n".join(self._text_buffer)),
                 snippet_type="diff",
                 channel=self.channel_id,
