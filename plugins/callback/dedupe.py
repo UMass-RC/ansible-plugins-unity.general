@@ -13,7 +13,6 @@ from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
-# I removed "type: stdout" from DOCUMENTATION, I hope it doesn't break
 DOCUMENTATION = r"""
   name: dedupe
   short_description: remove duplicate output
@@ -64,7 +63,6 @@ def _remove_word_from_values(word: str, x: dict) -> dict:
 
 class CallbackModule(DefaultCallback):
     CALLBACK_VERSION = 1.0
-    # CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "dedupe"
 
     def _sigint_handler(self, signum, frame):
