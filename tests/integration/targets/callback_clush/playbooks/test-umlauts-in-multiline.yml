@@ -1,0 +1,6 @@
+- hosts: testhost
+  gather_facts: false
+  tasks:
+    - name: Umlaut output
+      debug:
+        msg: "äöü\néêè\nßï☺"

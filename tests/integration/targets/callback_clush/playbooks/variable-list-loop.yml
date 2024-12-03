@@ -1,0 +1,12 @@
+- name: foo play
+  hosts: testhost
+  gather_facts: false
+  tasks:
+    - name: foo
+      debug:
+        msg: "{{ item }}"
+      loop: "{{ list }}"
+  vars:
+    list:
+      - foo
+      - bar

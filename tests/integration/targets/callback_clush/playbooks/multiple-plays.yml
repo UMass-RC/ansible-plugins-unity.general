@@ -1,0 +1,14 @@
+- name: foo play
+  hosts: testhost
+  gather_facts: false
+  tasks:
+    - name: foo
+      debug:
+        msg: foo
+- name: bar play
+  hosts: testhost
+  gather_facts: false
+  tasks:
+    - name: bar
+      debug:
+        msg: bar
