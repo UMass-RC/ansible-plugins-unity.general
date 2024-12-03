@@ -43,8 +43,6 @@ DOCUMENTATION = r"""
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
-    * results are not printed right away unless verbose mode or result has errors. when they are
-      printed, they are formatted nicely with yaml
     * rather than showing each task-host-status on one line, display the total of number of hosts
       with each status all on one line and update that same line using carriage return.
     * at the end of the task, print the list of hosts that returned each status.
@@ -260,22 +258,35 @@ class CallbackModule(DedupeCallback):
         self.task_start_time = datetime.datetime.now()
 
     def _format_result_diff(self, diff: dict) -> str:
+        output = ""
+        if "before_header" in diff or "after_header" in diff:
+            output += stringc(
+                f"\"{diff.get('before_header', None)}\" -> \"{diff.get('after_header', None)}\"\n",
+                C.COLOR_CHANGED,
+            )
         if "prepared" in diff:
-            return diff["prepared"]
+            output += diff["prepared"]
+            return output
         if "src_binary" in diff:
-            return stringc("diff skipped: source file appears to be binary\n", C.COLOR_CHANGED)
+            output += stringc("diff skipped: source file appears to be binary\n", C.COLOR_CHANGED)
+            return output
         if "dst_binary" in diff:
-            return stringc("diff skipped: destination file appears to be binary\n", C.COLOR_CHANGED)
+            output += stringc(
+                "diff skipped: destination file appears to be binary\n", C.COLOR_CHANGED
+            )
+            return output
         if "src_larger" in diff:
-            return stringc(
+            output += stringc(
                 f"diff skipped: source file size is greater than {diff['src_larger']}\n",
                 C.COLOR_CHANGED,
             )
+            return output
         if "dst_larger" in diff:
-            return stringc(
+            output += stringc(
                 f"diff skipped: destination file size is greater than {diff['dst_larger']}\n",
                 C.COLOR_CHANGED,
             )
+            return output
         output = ""
         if "before" in diff and "after" in diff:
             # Format complex structures into 'files'
@@ -287,11 +298,6 @@ class CallbackModule(DedupeCallback):
             if diff["before"] == diff["after"]:
                 return stringc(
                     "diff skipped: before and after are equal\n",
-                    C.COLOR_CHANGED,
-                )
-            if "before_header" in diff or "after_header" in diff:
-                output += stringc(
-                    f"\"{diff.get('before_header', None)}\" -> \"{diff.get('after_header', None)}\"\n",
                     C.COLOR_CHANGED,
                 )
             before_read_fd, before_write_fd = os.pipe()
