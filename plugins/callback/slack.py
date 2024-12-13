@@ -132,7 +132,7 @@ def _yaml_dump(x):
     return yaml.dump(
         x,
         allow_unicode=True,
-        width=1000,
+        width=-1,
         Dumper=HumanReadableYamlDumper,
         default_flow_style=False,
     )
