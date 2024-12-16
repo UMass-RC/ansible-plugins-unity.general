@@ -8,20 +8,12 @@ from ansible.executor.stats import AggregateStats
 from ansible.vars.clean import strip_internal_keys
 from ansible.executor.task_result import TaskResult
 from ansible.parsing.yaml.dumper import AnsibleDumper
-from ansible_collections.unity.general.plugins.callback.dedupe import (
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
-
-try:
-    from ClusterShell.NodeSet import NodeSet
-
-    DO_NODESET = True
-
-except ImportError:
-    print("unable to import clustershell. hostname lists will not be folded.", file=sys.stderr)
-
-    DO_NODESET = False
-
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
+from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 
 DOCUMENTATION = r"""
   name: cron
@@ -86,47 +78,6 @@ def _indent(prepend, text):
     return prepend + text.replace("\n", "\n" + prepend)
 
 
-def _format_hostnames(hosts) -> str:
-    if DO_NODESET:
-        return str(NodeSet.fromlist(sorted(list(hosts))))
-    else:
-        return ",".join(sorted(list(hosts)))
-
-
-# from http://stackoverflow.com/a/15423007/115478
-def _should_use_block(value):
-    """Returns true if string should be in block format"""
-    for c in "\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
-        if c in value:
-            return True
-    return False
-
-
-# stolen from community.general.yaml callback plugin
-class HumanReadableYamlDumper(AnsibleDumper):
-    def represent_scalar(self, tag, value, style=None):
-        """Uses block style for multi-line strings"""
-        if style is None:
-            if _should_use_block(value):
-                style = "|"
-            else:
-                style = self.default_style
-        node = yaml.representer.ScalarNode(tag, value, style=style)
-        if self.alias_key is not None:
-            self.represented_objects[self.alias_key] = node
-        return node
-
-
-def _yaml_dump(x):
-    return yaml.dump(
-        x,
-        allow_unicode=True,
-        width=-1,
-        Dumper=HumanReadableYamlDumper,
-        default_flow_style=False,
-    )
-
-
 def _banner(x, banner_len=80) -> str:
     return x + " " * (banner_len - len(x))
 
@@ -154,9 +105,9 @@ class CallbackModule(DedupeCallback):
         if C.ACTION_WARNINGS:
             if "warnings" in result and result["warnings"]:
                 for warning in result["warnings"]:
-                    self._display.warning(_yaml_dump(warning))
+                    self._display.warning(yaml_dump(warning))
         if "exception" in result:
-            msg = f"An exception occurred during task execution.\n{_yaml_dump(result['exception'])}"
+            msg = f"An exception occurred during task execution.\n{yaml_dump(result['exception'])}"
             self._display.display(msg, stderr=self.get_option("display_failed_stderr"))
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
@@ -183,7 +134,7 @@ class CallbackModule(DedupeCallback):
                     f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
                 )
                 result._result.pop("stderr_lines")
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._flush_display_buffer()
         self._display.display(msg)
 
@@ -204,8 +155,8 @@ class CallbackModule(DedupeCallback):
     ):
         self._flush_display_buffer()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(self._get_diff(diff))
-            self._display.display(f"changed: {_format_hostnames(hostnames)}")
+            self._display.display(format_result_diff(diff))
+            self._display.display(f"changed: {format_hostnames(hostnames)}")
 
     def deduped_playbook_stats(self, stats: AggregateStats):
         pass

@@ -1,40 +1,21 @@
-import os
-import sys
 import shutil
 import datetime
-import threading
-import subprocess
 
 import yaml
 
 from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
-from ansible.utils.color import stringc
 from ansible.executor.stats import AggregateStats
 from ansible.vars.clean import strip_internal_keys
-from ansible.utils.color import colorize, hostcolor
+from ansible.utils.color import stringc, colorize, hostcolor
 from ansible.executor.task_result import TaskResult
-from ansible.parsing.yaml.dumper import AnsibleDumper
-from ansible_collections.unity.general.plugins.callback.dedupe import (
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
-
-try:
-    from ClusterShell.NodeSet import NodeSet
-
-    DO_NODESET = True
-
-except ImportError:
-    print("unable to import clustershell. hostname lists will not be folded.", file=sys.stderr)
-
-    DO_NODESET = False
-
-if shutil.which("diffr"):
-    DO_DIFFR = True
-else:
-    print("unable to locate the diffr command. diffs will not be highlighted.", file=sys.stderr)
-    DO_DIFFR = False
+from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 
 DOCUMENTATION = r"""
   name: clush
@@ -101,50 +82,9 @@ def _indent(prepend, text):
     return prepend + text.replace("\n", "\n" + prepend)
 
 
-def _format_hostnames(hosts) -> str:
-    if DO_NODESET:
-        return str(NodeSet.fromlist(sorted(list(hosts))))
-    else:
-        return ",".join(sorted(list(hosts)))
-
-
 def _tty_width() -> int:
     output, _ = shutil.get_terminal_size()
     return output
-
-
-# from http://stackoverflow.com/a/15423007/115478
-def _should_use_block(value):
-    """Returns true if string should be in block format"""
-    for c in "\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
-        if c in value:
-            return True
-    return False
-
-
-# stolen from community.general.yaml callback plugin
-class HumanReadableYamlDumper(AnsibleDumper):
-    def represent_scalar(self, tag, value, style=None):
-        """Uses block style for multi-line strings"""
-        if style is None:
-            if _should_use_block(value):
-                style = "|"
-            else:
-                style = self.default_style
-        node = yaml.representer.ScalarNode(tag, value, style=style)
-        if self.alias_key is not None:
-            self.represented_objects[self.alias_key] = node
-        return node
-
-
-def _yaml_dump(x):
-    return yaml.dump(
-        x,
-        allow_unicode=True,
-        width=-1,
-        Dumper=HumanReadableYamlDumper,
-        default_flow_style=False,
-    )
 
 
 class CallbackModule(DedupeCallback):
@@ -199,12 +139,12 @@ class CallbackModule(DedupeCallback):
         if C.ACTION_WARNINGS:
             if "warnings" in result and result["warnings"]:
                 for warning in result["warnings"]:
-                    self._display.warning(_yaml_dump(warning))
+                    self._display.warning(yaml_dump(warning))
             if "deprecations" in result and result["deprecations"]:
                 for deprecation in result["deprecations"]:
                     self._display.deprecated(**deprecation)
         if "exception" in result:
-            msg = f"An exception occurred during task execution.\n{_yaml_dump(result['exception'])}"
+            msg = f"An exception occurred during task execution.\n{yaml_dump(result['exception'])}"
             self._display.display(
                 msg, color=C.COLOR_ERROR, stderr=self.get_option("display_failed_stderr")
             )
@@ -238,7 +178,7 @@ class CallbackModule(DedupeCallback):
                     f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
                 )
                 result._result.pop("stderr_lines")
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._clear_line()
         self._display.display(
             msg,
@@ -257,89 +197,6 @@ class CallbackModule(DedupeCallback):
         self._display.banner(f"{prefix} [{task.get_name().strip()}] ")
         self.task_start_time = datetime.datetime.now()
 
-    def _format_result_diff(self, diff: dict) -> str:
-        output = ""
-        if "before_header" in diff or "after_header" in diff:
-            output += stringc(
-                f"\"{diff.get('before_header', None)}\" -> \"{diff.get('after_header', None)}\"\n",
-                C.COLOR_CHANGED,
-            )
-        if "prepared" in diff:
-            output += diff["prepared"]
-            return output
-        if "src_binary" in diff:
-            output += stringc("diff skipped: source file appears to be binary\n", C.COLOR_CHANGED)
-            return output
-        if "dst_binary" in diff:
-            output += stringc(
-                "diff skipped: destination file appears to be binary\n", C.COLOR_CHANGED
-            )
-            return output
-        if "src_larger" in diff:
-            output += stringc(
-                f"diff skipped: source file size is greater than {diff['src_larger']}\n",
-                C.COLOR_CHANGED,
-            )
-            return output
-        if "dst_larger" in diff:
-            output += stringc(
-                f"diff skipped: destination file size is greater than {diff['dst_larger']}\n",
-                C.COLOR_CHANGED,
-            )
-            return output
-        output = ""
-        if "before" in diff and "after" in diff:
-            # Format complex structures into 'files'
-            for x in ["before", "after"]:
-                if not isinstance(diff[x], str):
-                    diff[x] = self._serialize_diff(diff[x])
-                elif diff[x] is None:
-                    diff[x] = ""
-            if diff["before"] == diff["after"]:
-                return stringc(
-                    "diff skipped: before and after are equal\n",
-                    C.COLOR_CHANGED,
-                )
-            before_read_fd, before_write_fd = os.pipe()
-            after_read_fd, after_write_fd = os.pipe()
-            diff_proc = subprocess.Popen(
-                [
-                    "diff",
-                    "-u",
-                    "--color=always",
-                    f"/dev/fd/{before_read_fd}",
-                    f"/dev/fd/{after_read_fd}",
-                ],
-                pass_fds=[before_read_fd, after_read_fd],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
-
-            def write_and_close(fd, data):
-                os.write(fd, data)
-                os.close(fd)
-
-            before_write_thread = threading.Thread(
-                target=write_and_close, args=(before_write_fd, diff["before"].encode())
-            )
-            after_write_thread = threading.Thread(
-                target=write_and_close, args=(after_write_fd, diff["after"].encode())
-            )
-            before_write_thread.start()
-            after_write_thread.start()
-            before_write_thread.join()
-            after_write_thread.join()
-            diff_output, _ = diff_proc.communicate()
-            if DO_DIFFR:
-                diffr_proc = subprocess.Popen(
-                    "diffr", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-                )
-                diffr_output, _ = diffr_proc.communicate(input=diff_output)
-                output += diffr_output.decode()
-            else:
-                output += diff_output.decode()
-        return output
-
     def deduped_task_end(
         self,
         sorted_diffs_and_hostnames: list[dict, list[str]],
@@ -347,15 +204,15 @@ class CallbackModule(DedupeCallback):
     ):
         self._clear_line()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(self._format_result_diff(diff))
-            self._display.display(f"changed: {_format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
+            self._display.display(format_result_diff(diff))
+            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
             color = _STATUS_COLORS[status]
-            self._display.display(f"{status}: {_format_hostnames(hostnames)}", color=color)
+            self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")

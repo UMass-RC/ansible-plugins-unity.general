@@ -9,27 +9,17 @@ import socket
 from ansible.module_utils.common.text.converters import to_text
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from slack_sdk.web import SlackResponse
 
+from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
 from ansible.vars.clean import strip_internal_keys
 from ansible.executor.task_result import TaskResult
-from ansible.parsing.yaml.dumper import AnsibleDumper
-from ansible_collections.unity.general.plugins.callback.dedupe import (
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
-
-try:
-    from ClusterShell.NodeSet import NodeSet
-
-    DO_NODESET = True
-
-except ImportError:
-    print("unable to import clustershell. hostname lists will not be folded.", file=sys.stderr)
-
-    DO_NODESET = False
+from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 
 DOCUMENTATION = r"""
   name: slack
@@ -92,50 +82,20 @@ STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 # if a runner returns a result with "msg", print only "msg" rather than the full result dictionary
 STATUSES_PRINT_MSG_ONLY = ["ok", "changed", "unreachable", "skipped", "ignored"]
 
+_STATUS_COLORS = {
+    "changed": C.COLOR_CHANGED,
+    "failed": C.COLOR_ERROR,
+    "ignored": C.COLOR_WARN,
+    "interrupted": C.COLOR_ERROR,
+    "ok": C.COLOR_OK,
+    "running": "normal",
+    "skipped": C.COLOR_SKIP,
+    "unreachable": C.COLOR_UNREACHABLE,
+}
+
 
 def _indent(prepend, text):
     return prepend + text.replace("\n", "\n" + prepend)
-
-
-def _format_hostnames(hosts) -> str:
-    if DO_NODESET:
-        return str(NodeSet.fromlist(sorted(list(hosts))))
-    else:
-        return ",".join(sorted(list(hosts)))
-
-
-# from http://stackoverflow.com/a/15423007/115478
-def _should_use_block(value):
-    """Returns true if string should be in block format"""
-    for c in "\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
-        if c in value:
-            return True
-    return False
-
-
-# stolen from community.general.yaml callback plugin
-class HumanReadableYamlDumper(AnsibleDumper):
-    def represent_scalar(self, tag, value, style=None):
-        """Uses block style for multi-line strings"""
-        if style is None:
-            if _should_use_block(value):
-                style = "|"
-            else:
-                style = self.default_style
-        node = yaml.representer.ScalarNode(tag, value, style=style)
-        if self.alias_key is not None:
-            self.represented_objects[self.alias_key] = node
-        return node
-
-
-def _yaml_dump(x):
-    return yaml.dump(
-        x,
-        allow_unicode=True,
-        width=-1,
-        Dumper=HumanReadableYamlDumper,
-        default_flow_style=False,
-    )
 
 
 def _banner(x, banner_len=80) -> str:
@@ -208,7 +168,7 @@ class CallbackModule(DedupeCallback):
                     f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
                 )
                 result._result.pop("stderr_lines")
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._text_buffer.append(msg)
 
     def deduped_play_start(self, play: Play):
