@@ -113,7 +113,7 @@ class CallbackModule(DedupeCallback):
         self.disabled = False
         self._always_check_mode = True
         self.username = os.getlogin()
-        self.hostname = socket.gethostname()
+        self.hostname = socket.gethostname().split(".", 1)[0]
         # defined in v2_playbook_on_start
         self.playbook_name = None
         # defined in set_options()
