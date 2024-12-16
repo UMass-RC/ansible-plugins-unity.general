@@ -62,12 +62,24 @@ DOCUMENTATION = r"""
       item in the loop.
     * since we use yaml block for multiline strings, stderr_lines / stdout_lines are deleted
       if stderr/stdout exist, respectively.
+  options:
+    ignore_unreachable:
+      default: false
+      type: bool
+      ini:
+        - section: unity.general.cron
+          key: ignore_unreachable
+      env:
+        - name: CRON_IGNORE_UNREACHABLE
+
+
   author: Simon Leary
   extends_documentation_fragment:
     default_callback
 """
 
-STATUSES_PRINT_IMMEDIATELY = ["failed"]
+# ignore_unreachable option takes precedence over this
+STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
 def _indent(prepend, text):
@@ -152,6 +164,8 @@ class CallbackModule(DedupeCallback):
         self._display_warnings_deprecations_exceptions(result._result)
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
             return
+        if status == "unreachable" and self.get_option("ignore_unreachable"):
+            return
         strip_internal_keys(result._result)  # this must come after _run_is_verbose()
         if "invocation" in result._result:
             del result._result["invocation"]
@@ -171,7 +185,7 @@ class CallbackModule(DedupeCallback):
                 result._result.pop("stderr_lines")
             msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", _yaml_dump(result._result))}"
         self._flush_display_buffer()
-        self._display.display(msg, stderr=self.get_option("display_failed_stderr"))
+        self._display.display(msg)
 
     def deduped_play_start(self, play: Play):
         play_name = play.get_name().strip()
@@ -188,8 +202,8 @@ class CallbackModule(DedupeCallback):
         sorted_diffs_and_hostnames: list[dict, list[str]],
         status2hostnames: dict[str, list[str]],
     ):
+        self._flush_display_buffer()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._flush_display_buffer()
             self._display.display(self._get_diff(diff))
             self._display.display(f"changed: {_format_hostnames(hostnames)}")
 
