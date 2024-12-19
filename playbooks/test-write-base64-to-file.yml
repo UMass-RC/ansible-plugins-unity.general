@@ -1,0 +1,53 @@
+- name: play
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: /tmp/deleteme and /tmp/deleteme2 do not exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/deleteme
+        - /tmp/deleteme2
+
+    - name: write to /tmp/deleteme (check mode)
+      unity.bitwarden.write_base64_to_file:
+        dest: /tmp/deleteme
+        owner: simon
+        group: staff
+        mode: "0644"
+        content: "{{ 'hello, world!\n' | b64encode }}"
+      check_mode: true
+
+    # test condition false -> nonzero exit code -> failed=true
+    - name: assert that file was not created
+      ansible.builtin.command: test ! -f /tmp/deleteme
+      changed_when: false
+
+    - name: write to /tmp/deleteme for real
+      unity.bitwarden.write_base64_to_file:
+        dest: /tmp/deleteme
+        owner: simon
+        group: staff
+        mode: "0644"
+        content: "{{ 'hello, world!\n' | b64encode }}"
+
+    - name: write to /tmp/deleteme2 using ansible.builtin.copy
+      ansible.builtin.copy:
+        dest: /tmp/deleteme2
+        owner: simon
+        group: staff
+        mode: "0644"
+        content: "hello, world!\n"
+
+    # different -> returns nonzero exit code -> failed=true
+    - name: assert that /tmp/deleteme and /tmp/deleteme2 have same content
+      ansible.builtin.command: diff /tmp/deleteme /tmp/deleteme2
+      changed_when: false
+
+    # different -> returns nonzero exit code -> failed=true
+    - name: assert that /tmp/deleteme and /tmp/deleteme2 have same owner group mode
+      ansible.builtin.shell:
+        cmd: diff <(stat --format='%a %u %g' /tmp/deleteme) <(stat --format='%a %u %g' /tmp/deleteme2)
+        executable: /bin/bash
+      changed_when: false
