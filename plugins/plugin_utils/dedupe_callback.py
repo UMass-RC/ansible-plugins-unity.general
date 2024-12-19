@@ -88,6 +88,7 @@ class CallbackModule(DefaultCallback):
         self.unknown_loop_size = None
         self.results_printed = {}
         self.task_item_failure_already_reported = False
+        self.task_end_done = None
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._sigint_handler)
@@ -103,6 +104,7 @@ class CallbackModule(DefaultCallback):
         self._task_start(task, "RUNNING HANDLER")
 
     def _task_start(self, task: Task, prefix: str):
+        self._maybe_task_end()
         self.task_name = task.get_name()
         del self.status2hostnames
         self.status2hostnames = {
@@ -125,7 +127,7 @@ class CallbackModule(DefaultCallback):
         self.results_printed = {}
         del self.task_item_failure_already_reported
         self.task_item_failure_already_reported = False
-        self._maybe_task_end()
+        self.task_end_done = False
         self.deduped_task_start(task, prefix)
 
     def v2_runner_on_start(self, host: Host, task: Task):
@@ -147,11 +149,12 @@ class CallbackModule(DefaultCallback):
         I thought I could detect this by comparing the number of unique hostnames of completed
         runners against `ansible_play_hosts_all`, but this won't work for skipped tasks because
         there will never be any completed runners.
-        To make up for this, I call this function multiple times later, make it destroy the task
-        data, and make it do nothing if the data has already been destroyed / does not exist yet.
+        To make up for this, I call this function multiple times later and make sure it only
+        runs once.
         """
-        if self.task_name == None:
+        if self.task_end_done:
             return
+        self.task_end_done = True
         self._update_status_totals()
         # sort the diff groupings such that the biggest groupings (most hostnames) go last
         sorted_diffs_and_hostnames = []
