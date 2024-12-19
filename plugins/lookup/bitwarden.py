@@ -47,10 +47,10 @@ from ansible.utils.display import Display
 
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
     RamDiskCachedLookupBase,
+    get_cache_path,
 )
 
 display = Display()
-username = getpass.getuser()
 
 
 def make_shell_command(terms, **kwargs) -> str:
@@ -126,6 +126,6 @@ class LookupModule(RamDiskCachedLookupBase):
         cache_key = hashlib.sha1((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
         return self.cache_lambda(
             cache_key,
-            f".unity.general.cache-{username}",
+            get_cache_path("bitwarden"),
             lambda: do_bitwarden_lookup(terms, variables, **kwargs),
         )

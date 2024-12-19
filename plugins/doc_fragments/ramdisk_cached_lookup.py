@@ -27,9 +27,8 @@ class ModuleDocFragment(object):
         cache_path:
           description: ignore /dev/shm or ~/tmpdisk/shm and create tempfiles in a different directory
           type: str
-          ini:
-            - section: ramdisk_cache
-              key: path
+          # since I want to be able to access this value without actually invoking the plugin
+          # properly, I use os.environ instead of get_option() for this option
           env:
             - name: RAMDISK_CACHE_PATH
     """

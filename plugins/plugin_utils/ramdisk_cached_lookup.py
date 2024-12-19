@@ -2,6 +2,7 @@ import os
 import json
 import time
 import fcntl
+import getpass
 import subprocess
 
 from ansible.errors import AnsibleError
@@ -10,50 +11,49 @@ from ansible.plugins.lookup import LookupBase
 
 display = Display()
 
+username = getpass.getuser()
+
 UNAME2RAMDISK_PATH = {
     "linux": "/dev/shm",
     "darwin": "~/.tmpdisk/shm",  # https://github.com/imothee/tmpdisk
 }
 
 
-def get_ramdisk_path() -> str:
+def get_cache_path(prefix) -> str:
     """
     return the path to a directory on a ramdisk / ramfs / memory-backed filesystem
     in our case, ansible does not provide the infrastructure to share memory, so we use a file
     use RAM to avoid leaving behind artifacts on disk hardware, with automatic delete on reboot
     """
-    try:
-        uname = subprocess.check_output("uname", text=True).strip().lower()
-    except FileNotFoundError as e:
-        raise AnsibleError("unsupported operating system: `uname` command not found.") from e
-    try:
-        tmpdir = os.path.expanduser(UNAME2RAMDISK_PATH[uname])
-    except KeyError as e:
-        raise AnsibleError(
-            f'unsupported OS: "{uname}". supported: {UNAME2RAMDISK_PATH.keys()}'
-        ) from e
-    if not os.path.isdir(tmpdir):
-        if uname == "darwin":
+    # sidestep usual ansible get_option() so that this function can be called by a callback plugin
+    if "RAMDISK_CACHE_PATH" in os.environ:
+        ramdisk_path = os.environ["RAMDISK_CACHE_PATH"]
+    else:
+        try:
+            uname = subprocess.check_output("uname", text=True).strip().lower()
+        except FileNotFoundError as e:
+            raise AnsibleError("unsupported operating system: `uname` command not found.") from e
+        try:
+            ramdisk_path = os.path.expanduser(UNAME2RAMDISK_PATH[uname])
+        except KeyError as e:
             raise AnsibleError(
-                f'"{tmpdir}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
-            )
-        else:
-            raise AnsibleError(f'"{tmpdir}" is not a directory!')
-    return tmpdir
+                f'unsupported OS: "{uname}". supported: {UNAME2RAMDISK_PATH.keys()}'
+            ) from e
+        if not os.path.isdir(ramdisk_path):
+            if uname == "darwin":
+                raise AnsibleError(
+                    f'"{ramdisk_path}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
+                )
+            else:
+                raise AnsibleError(f'"{ramdisk_path}" is not a directory!')
+    return os.path.join(ramdisk_path, f".{prefix}-{username}")
 
 
 class RamDiskCachedLookupBase(LookupBase):
-
-    def get_cache_dir_path(self):
-        if cache_path_option := self.get_option("cache_path"):
-            return cache_path_option
-        else:
-            return get_ramdisk_path()
-
     def cache_lambda(
         self,
         key,
-        cache_basename: str,
+        cache_path: str,
         lambda_func,
     ):
         """
@@ -67,8 +67,6 @@ class RamDiskCachedLookupBase(LookupBase):
             display.v(f"({key}) cache is disabled")
             return lambda_func()
         cache_timeout_seconds = self.get_option("cache_timeout_seconds")
-        cache_dir_path = self.get_cache_dir_path()
-        cache_path = os.path.join(cache_dir_path, cache_basename)
         try:
             if not os.path.exists(cache_path):
                 open(cache_path, "w").close()

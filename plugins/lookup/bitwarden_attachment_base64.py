@@ -42,42 +42,42 @@ import subprocess
 from ansible.plugins.lookup import LookupBase
 from ansible.plugins.loader import lookup_loader
 from ansible.errors import AnsibleError
+from ansible.utils.display import Display
 
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
     RamDiskCachedLookupBase,
-    get_ramdisk_path,
+    get_cache_path,
 )
 
-UNAME2TMPDIR = {
-    "linux": "/dev/shm",
-    "darwin": "~/.tmpdisk/shm",  # https://github.com/imothee/tmpdisk
-}
+display = Display()
 
 
 class LookupModule(RamDiskCachedLookupBase):
     def get_attachment_base64(self, bw_item_id, bw_attachment_filename) -> str:
-        tmpdir = self.get_cache_dir_path()
-        fd, tempfile_path = tempfile.mkstemp(dir=tmpdir, prefix="snap.bw.")
-        os.close(fd)
+        tempfile_path = get_cache_path(f"{bw_item_id}.{bw_attachment_filename}")
+        open(tempfile_path, "w").close()
         os.chmod(tempfile_path, 0o600)
+        display.v(f"got tempfile for attachment download: '{tempfile_path}'.")
+        argv = [
+            "bw",
+            "get",
+            "attachment",
+            bw_attachment_filename,
+            "--itemid",
+            bw_item_id,
+            "--output",
+            tempfile_path,
+        ]
+        display.v(f"executing command: {argv}")
         subprocess.run(
-            [
-                "bw",
-                "get",
-                "attachment",
-                bw_attachment_filename,
-                "--itemid",
-                bw_item_id,
-                "--output",
-                tempfile_path,
-            ],
+            argv,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=True,
         )
+        display.v(f"done.")
         with open(tempfile_path, "rb") as fd:
             output = base64.b64encode(fd.read()).decode("utf8")
-        os.remove(tempfile_path)
         return output
 
     def run(self, terms, variables=None, **kwargs):
@@ -91,7 +91,7 @@ class LookupModule(RamDiskCachedLookupBase):
 
         output = self.cache_lambda(
             f"{bw_item_id}.{bw_attachment_filename}",
-            ".unity.general.cache",
+            get_cache_path("bitwarden"),
             lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
         )
 

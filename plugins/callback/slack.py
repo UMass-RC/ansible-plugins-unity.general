@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import yaml
+import datetime
 import json
 import atexit
 import socket
@@ -22,6 +23,9 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
+    get_cache_path,
+)
 
 DOCUMENTATION = r"""
   name: slack
@@ -72,6 +76,15 @@ DOCUMENTATION = r"""
       ini:
         - section: callback_slack
           key: channel_id
+    redact_secrets:
+      default: true
+      type: bool
+      description: check bitwarden cache file for secrets and remove them from slack output if they exist
+      env:
+        - name: SLACK_REDACT_SECRETS
+      ini:
+        - section: callback_slack
+          key: redact_secrets
   author: Simon Leary
   extends_documentation_fragment:
     default_callback
@@ -102,6 +115,28 @@ def _indent(prepend, text):
 
 def _banner(x, banner_len=80) -> str:
     return x + ("*" * (banner_len - len(x)))
+
+
+def get_secrets():
+    bitwarden_cache_path = get_cache_path("bitwarden")
+    if not os.path.isfile(bitwarden_cache_path):
+        return []
+    with open(bitwarden_cache_path, "r") as fp:
+        bitwarden_cache = json.load(fp)
+        secrets = []
+        for value in bitwarden_cache.values():
+            if isinstance(value, list):
+                secrets += value
+            else:
+                secrets.append(value)
+        return secrets
+
+
+def make_redacted_string(length, replacement="REDACTED_"):
+    if length < len(replacement):
+        return replacement[:length]
+    multiples, remaining_chars = divmod(length, len(replacement))
+    return replacement * multiples + replacement[:remaining_chars]
 
 
 class CallbackModule(DedupeCallback):
@@ -211,6 +246,21 @@ class CallbackModule(DedupeCallback):
             return
         if not self._text_buffer:
             return
+        if self.get_option("redact_secrets") and (secrets := get_secrets()):
+            num_secrets_redacted = 0
+            start_time = datetime.datetime.now()
+            for i, line in enumerate(self._text_buffer):
+                for secret in secrets:
+                    if secret in line:
+                        replacement = make_redacted_string(len(secret))
+                        self._text_buffer[i] = line.replace(secret, replacement)
+                        num_secrets_redacted += 1
+
+            seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
+            self._display.v(
+                f"slack: it took {seconds_elapsed} seconds to remove {num_secrets_redacted} secrets from the output buffer."
+            )
+
         try:
             if self._always_check_mode:
                 filename = f"{self.playbook_name}-checkmode-{self.username}-{self.hostname}.log"
