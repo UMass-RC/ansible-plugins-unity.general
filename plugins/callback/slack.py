@@ -1,7 +1,5 @@
 import os
 import re
-import sys
-import yaml
 import datetime
 import json
 import atexit
@@ -11,7 +9,6 @@ from ansible.module_utils.common.text.converters import to_text
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
@@ -97,17 +94,6 @@ ANSI_COLOR_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 # if a runner returns a result with "msg", print only "msg" rather than the full result dictionary
 STATUSES_PRINT_MSG_ONLY = ["ok", "changed", "unreachable", "skipped", "ignored"]
-
-_STATUS_COLORS = {
-    "changed": C.COLOR_CHANGED,
-    "failed": C.COLOR_ERROR,
-    "ignored": C.COLOR_WARN,
-    "interrupted": C.COLOR_ERROR,
-    "ok": C.COLOR_OK,
-    "running": "normal",
-    "skipped": C.COLOR_SKIP,
-    "unreachable": C.COLOR_UNREACHABLE,
-}
 
 
 def _indent(prepend, text):
