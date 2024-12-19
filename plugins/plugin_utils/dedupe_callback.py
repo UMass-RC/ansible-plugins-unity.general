@@ -117,7 +117,7 @@ class CallbackModule(DefaultCallback):
             "interrupted": [],
         }
         del self.running_hosts
-        self.running_hosts = []
+        self.running_hosts = set()
         del self.diff_hash2hostnames
         self.diff_hash2hostnames = {}
         del self.diff_hash2diff
@@ -136,7 +136,7 @@ class CallbackModule(DefaultCallback):
         if task.loop:
             self.unknown_loop_size = True
         else:
-            self.running_hosts.append(hostname)
+            self.running_hosts.add(hostname)
         self._update_status_totals()
 
     def _maybe_task_end(self):
@@ -260,6 +260,11 @@ class CallbackModule(DefaultCallback):
         status_totals = {
             status: len(hostnames) for status, hostnames in self.status2hostnames.items()
         }
+        # I have to work around this edge case because _runner_on_completed removes hostname
+        # from the running_hosts list, and the same host can't be removed multiple times.
+        # if I knew the length of the loop I could add the same host multiple times so that
+        # it could be removed multiple times, but I don't because the loop variable has not
+        # been evaluated.
         if self.unknown_loop_size:
             status_totals["running"] = "?"
         else:
