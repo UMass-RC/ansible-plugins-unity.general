@@ -95,7 +95,7 @@ class CallbackModule(DedupeCallback):
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
 
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(self, status_totals: dict[str, str]):
         components = []
         for status, total in status_totals.items():
             color = _STATUS_COLORS[status]
