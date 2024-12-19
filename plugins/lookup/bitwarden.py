@@ -34,7 +34,7 @@ DOCUMENTATION = """
     - plugin: community.general.bitwarden
       plugin_type: lookup
   extends_documentation_fragment:
-    - unity.bitwarden.ramdisk_cached_lookup
+    - unity.general.ramdisk_cached_lookup
 """
 
 import hashlib
@@ -126,6 +126,6 @@ class LookupModule(RamDiskCachedLookupBase):
         cache_key = hashlib.sha1((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
         return self.cache_lambda(
             cache_key,
-            f".unity.bitwarden.cache-{username}",
+            f".unity.general.cache-{username}",
             lambda: do_bitwarden_lookup(terms, variables, **kwargs),
         )

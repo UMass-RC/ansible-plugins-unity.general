@@ -27,10 +27,10 @@ DOCUMENTATION = """
   seealso:
     - plugin: community.general.bitwarden
       plugin_type: lookup
-    - plugin: unity.bitwarden.bitwarden
+    - plugin: unity.general.bitwarden
       plugin_type: lookup
   extends_documentation_fragment:
-    - unity.bitwarden.ramdisk_cached_lookup
+    - unity.general.ramdisk_cached_lookup
 """
 
 import os
@@ -85,13 +85,13 @@ class LookupModule(RamDiskCachedLookupBase):
         bw_item_name = self.get_option("item_name")
         bw_attachment_filename = self.get_option("attachment_filename")
 
-        bw_item_id = lookup_loader.get("unity.bitwarden.bitwarden").run(
+        bw_item_id = lookup_loader.get("unity.general.bitwarden").run(
             [bw_item_name], variables, field="id"
         )[0]
 
         output = self.cache_lambda(
             f"{bw_item_id}.{bw_attachment_filename}",
-            ".unity.bitwarden.cache",
+            ".unity.general.cache",
             lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
         )
 
