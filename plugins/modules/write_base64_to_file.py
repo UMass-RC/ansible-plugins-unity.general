@@ -181,7 +181,7 @@ def main():
             result["diff"] = format_diffs(examination_before_min, examination_tmp_min)
             os.remove(tmp_path)
         else:
-            module.atomic_move(tmp_path, dest)
+            module.atomic_move(tmp_path, dest, keep_dest_attrs=False)
             examination_after = examine_file(dest)
             result["diff"] = format_diffs(examination_before, examination_after)
     module.exit_json(**result)
