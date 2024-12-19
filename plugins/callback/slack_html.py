@@ -157,7 +157,7 @@ class CallbackModule(DedupeCallback):
     def v2_playbook_on_start(self, playbook):
         self.playbook_name = os.path.basename(playbook._file_name)
 
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(self, status_totals: dict[str, str]):
         pass
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):

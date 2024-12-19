@@ -137,7 +137,7 @@ class CallbackModule(DefaultCallback):
             self.unknown_loop_size = True
         else:
             self.running_hosts.add(hostname)
-        self._update_status_totals()
+        self._display_status_totals()
 
     def _maybe_task_end(self):
         """
@@ -155,7 +155,7 @@ class CallbackModule(DefaultCallback):
         if self.task_end_done:
             return
         self.task_end_done = True
-        self._update_status_totals()
+        self._display_status_totals()
         # sort the diff groupings such that the biggest groupings (most hostnames) go last
         sorted_diffs_and_hostnames = []
         sorted_diff_hash2hostnames = dict(
@@ -195,7 +195,7 @@ class CallbackModule(DefaultCallback):
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
         self.status2hostnames[status].append(hostname)
-        self._update_status_totals()
+        self._display_status_totals()
 
     def v2_runner_on_ok(self, result: TaskResult):
         hostname = result._host.get_name()
@@ -256,7 +256,7 @@ class CallbackModule(DefaultCallback):
         self._maybe_task_end()  # weird edge case
         self.deduped_play_start(play)
 
-    def _update_status_totals(self):
+    def _display_status_totals(self):
         status_totals = {
             status: len(hostnames) for status, hostnames in self.status2hostnames.items()
         }
@@ -269,10 +269,10 @@ class CallbackModule(DefaultCallback):
             status_totals["running"] = "?"
         else:
             status_totals["running"] = len(self.running_hosts)
-        self.deduped_update_status_totals(status_totals)
+        self.deduped_display_status_totals(status_totals)
 
     # implement these yourself!
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(self, status_totals: dict[str, str]):
         """
         status_totals: dictionary from status to a string representing the total number of runners
         or runner items that returned that status. the total is usually digits, but it will have

@@ -97,7 +97,7 @@ class CallbackModule(DedupeCallback):
             del self._display_buffer
             self._display_buffer = []
 
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(self, status_totals: dict[str, str]):
         pass
 
     def _display_warnings_deprecations_exceptions(self, result: TaskResult) -> None:
