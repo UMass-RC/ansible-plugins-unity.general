@@ -236,7 +236,7 @@ class CallbackModule(DedupeCallback):
                     num_secrets_redacted += 1
             seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
             self._display.v(
-                f"slack: it took {seconds_elapsed} seconds to remove {num_secrets_redacted} secrets from the output buffer."
+                f"slack: it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} secrets from the output buffer."
             )
         try:
             if self._always_check_mode:
