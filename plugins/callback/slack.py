@@ -37,6 +37,7 @@ DOCUMENTATION = r"""
     * results are not printed right away unless verbose mode or result has errors. when they are
       printed, they are formatted nicely with yaml
     * at the end of the task, print the list of hosts that returned each status.
+    * OK results are not printed, even in verbose mode.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
       is used as the diff. Effectively, diff mode is always on.
@@ -181,9 +182,9 @@ class CallbackModule(DedupeCallback):
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
         hostname = result._host.get_name()
-        if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
+        if status not in STATUSES_PRINT_IMMEDIATELY:
             return
-        strip_internal_keys(result._result)  # this must come after _run_is_verbose()
+        strip_internal_keys(result._result)
         if "invocation" in result._result:
             del result._result["invocation"]
         if dupe_of is not None:
