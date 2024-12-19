@@ -88,15 +88,22 @@ class CallbackModule(DefaultCallback):
         self.unknown_loop_size = None
         self.results_printed = {}
         self.task_item_failure_already_reported = False
-        self._reset_current_task_stats()
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._sigint_handler)
         self.pid_where_sigint_trapped = os.getpid()
 
-    def _reset_current_task_stats(self):
-        del self.task_name
-        self.task_name = None
+    def v2_playbook_on_task_start(self, task: Task, is_conditional):
+        self._task_start(task, "TASK")
+
+    def v2_playbook_on_cleanup_task_start(self, task: Task):
+        self._task_start(task, "CLEANUP TASK")
+
+    def v2_playbook_on_handler_task_start(self, task: Task):
+        self._task_start(task, "RUNNING HANDLER")
+
+    def _task_start(self, task: Task, prefix: str):
+        self.task_name = task.get_name()
         del self.status2hostnames
         self.status2hostnames = {
             "ok": [],
@@ -118,21 +125,8 @@ class CallbackModule(DefaultCallback):
         self.results_printed = {}
         del self.task_item_failure_already_reported
         self.task_item_failure_already_reported = False
-
-    def v2_playbook_on_task_start(self, task: Task, is_conditional):
-        self._maybe_task_end()  # previous task, if any exists
-        self.task_name = task.get_name()
-        self.deduped_task_start(task, "TASK")
-
-    def v2_playbook_on_cleanup_task_start(self, task: Task):
-        self._maybe_task_end()  # previous task, if any exists
-        self.task_name = task.get_name()
-        self.deduped_task_start(task, "CLEANUP TASK")
-
-    def v2_playbook_on_handler_task_start(self, task: Task):
-        self._maybe_task_end()  # previous task, if any exists
-        self.task_name = task.get_name()
-        self.deduped_task_start(task, "RUNNING HANDLER")
+        self._maybe_task_end()
+        self.deduped_task_start(task, prefix)
 
     def v2_runner_on_start(self, host: Host, task: Task):
         hostname = host.get_name()
@@ -168,7 +162,6 @@ class CallbackModule(DefaultCallback):
             diff = self.diff_hash2diff[diff_hash]
             sorted_diffs_and_hostnames.append((diff, hostnames))
         self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
-        self._reset_current_task_stats()
 
     def _host_with_already_printed_result(self, result: dict, anonymous_result: dict) -> str | None:
         for hostname, (past_result, past_anon_result) in self.results_printed.items():
