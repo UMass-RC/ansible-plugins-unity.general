@@ -153,6 +153,8 @@ class CallbackModule(DefaultCallback):
         I thought I could detect this by comparing the number of unique hostnames of completed
         runners against `ansible_play_hosts_all`, but this won't work for skipped tasks because
         there will never be any completed runners.
+        To make up for this, I call this function multiple times later, make it destroy the task
+        data, and make it do nothing if the data has already been destroyed / does not exist yet.
         """
         if self.task_name == None:
             return
