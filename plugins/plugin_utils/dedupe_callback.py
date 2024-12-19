@@ -81,13 +81,13 @@ class CallbackModule(DefaultCallback):
     def __init__(self):
         super(CallbackModule, self).__init__()
         self.task_name = None
-        self.status2hostnames = {}
-        self.running_hosts = []
-        self.diff_hash2hostnames = {}
-        self.diff_hash2diff = {}
+        self.status2hostnames = None
+        self.running_hosts = None
+        self.diff_hash2hostnames = None
+        self.diff_hash2diff = None
         self.unknown_loop_size = None
-        self.results_printed = {}
-        self.task_item_failure_already_reported = False
+        self.results_printed = None
+        self.task_item_failure_already_reported = None
         self.task_end_done = None
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
