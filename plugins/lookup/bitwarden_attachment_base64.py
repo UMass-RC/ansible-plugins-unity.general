@@ -35,14 +35,11 @@ DOCUMENTATION = """
 
 import os
 import base64
-import tempfile
 import subprocess
 
-
-from ansible.plugins.lookup import LookupBase
 from ansible.plugins.loader import lookup_loader
-from ansible.errors import AnsibleError
 from ansible.utils.display import Display
+from ansible.module_utils.common.text.converters import to_text
 
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
     RamDiskCachedLookupBase,
@@ -94,6 +91,22 @@ class LookupModule(RamDiskCachedLookupBase):
             get_cache_path("bitwarden"),
             lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
         )
+
+        # add decoded string to cache so that slack callback plugin can redact it
+        # if not text then it should not be included in the task result
+        is_text = False
+        decoded_bytes = base64.b64decode(output)
+        try:
+            decoded_str = to_text(decoded_bytes)
+            is_text = True
+        except:
+            pass
+        if is_text:
+            self.cache_lambda(
+                f"{bw_item_id}.{bw_attachment_filename}-decoded",
+                get_cache_path("bitwarden"),
+                lambda: decoded_str,
+            )
 
         # ansible requires that lookup returns a list
         return [output]
