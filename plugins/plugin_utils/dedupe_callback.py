@@ -127,10 +127,12 @@ class CallbackModule(DefaultCallback):
 
     def v2_playbook_on_cleanup_task_start(self, task: Task):
         self._maybe_task_end()  # previous task, if any exists
+        self.task_name = task.get_name()
         self.deduped_task_start(task, "CLEANUP TASK")
 
     def v2_playbook_on_handler_task_start(self, task: Task):
         self._maybe_task_end()  # previous task, if any exists
+        self.task_name = task.get_name()
         self.deduped_task_start(task, "RUNNING HANDLER")
 
     def v2_runner_on_start(self, host: Host, task: Task):
