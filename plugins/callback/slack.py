@@ -116,7 +116,7 @@ def get_secrets():
                 secrets += value
             else:
                 secrets.append(value)
-        return secrets
+        return [x.strip() for x in secrets]
 
 
 class CallbackModule(DedupeCallback):
