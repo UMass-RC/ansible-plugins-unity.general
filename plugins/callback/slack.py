@@ -20,6 +20,8 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
     CallbackModule as DedupeCallback,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
+from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 DOCUMENTATION = r"""
   name: slack
@@ -194,14 +196,14 @@ class CallbackModule(DedupeCallback):
         if self.disabled:
             return
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._text_buffer.append(self._get_diff(diff).strip())
-            self._text_buffer.append(f"changed: {_format_hostnames(hostnames)}")
+            self._text_buffer.append(format_result_diff(diff).strip())
+            self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
         for status, hostnames in status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
-            self._text_buffer.append(f"{status}: {_format_hostnames(hostnames)}")
+            self._text_buffer.append(f"{status}: {format_hostnames(hostnames)}")
         self._text_buffer.append("")
 
     def send_buffer_to_slack(self):
