@@ -133,13 +133,6 @@ def get_secrets():
         return secrets
 
 
-def make_redacted_string(length, replacement="REDACTED_"):
-    if length < len(replacement):
-        return replacement[:length]
-    multiples, remaining_chars = divmod(length, len(replacement))
-    return replacement * multiples + replacement[:remaining_chars]
-
-
 class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
@@ -247,21 +240,18 @@ class CallbackModule(DedupeCallback):
             return
         if not self._text_buffer:
             return
+        content = ANSI_COLOR_REGEX.sub("", "\n".join(self._text_buffer))
         if self.get_option("redact_secrets") and (secrets := get_secrets()):
             num_secrets_redacted = 0
             start_time = datetime.datetime.now()
-            for i, line in enumerate(self._text_buffer):
-                for secret in secrets:
-                    if secret in line:
-                        replacement = make_redacted_string(len(secret))
-                        self._text_buffer[i] = line.replace(secret, replacement)
-                        num_secrets_redacted += 1
-
+            for secret in secrets:
+                if secret in content:
+                    content = content.replace(secret, "REDACTED")
+                    num_secrets_redacted += 1
             seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
             self._display.v(
                 f"slack: it took {seconds_elapsed} seconds to remove {num_secrets_redacted} secrets from the output buffer."
             )
-
         try:
             if self._always_check_mode:
                 filename = f"{self.playbook_name}-checkmode-{self.username}-{self.hostname}.log"
@@ -269,7 +259,7 @@ class CallbackModule(DedupeCallback):
                 filename = f"{self.playbook_name}-{self.username}-{self.hostname}.log"
             kwargs = dict(
                 filename=filename,
-                content=ANSI_COLOR_REGEX.sub("", "\n".join(self._text_buffer)),
+                content=content,
                 snippet_type="diff",
                 channel=self.channel_id,
                 title="",
