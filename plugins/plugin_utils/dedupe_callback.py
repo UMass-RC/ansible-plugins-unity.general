@@ -88,7 +88,7 @@ class CallbackModule(DefaultCallback):
         self.unknown_loop_size = None
         self.results_printed = None
         self.task_item_failure_already_reported = None
-        self.task_end_done = None
+        self.task_end_done = True  # skip _task_end before the 1st task starts
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._sigint_handler)
