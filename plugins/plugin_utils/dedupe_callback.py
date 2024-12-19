@@ -145,6 +145,16 @@ class CallbackModule(DefaultCallback):
         self._update_status_totals()
 
     def _maybe_task_end(self):
+        """
+        The ansible callback API does not have any notion of task end.
+        I thought I could detect this by keeping a number of running__hosts, incrementing on
+        v2_runner_start and decrementing on v2_runner_*, but this has false positives:
+        there can be times when the number of running runners is 0 but more runners will still
+        be spawned in the future.
+        I thought I could detect this by comparing the number of unique hostnames of completed
+        runners against `ansible_play_hosts_all`, but this won't work for skipped tasks because
+        there will never be any completed runners.
+        """
         if self.task_name == None:
             return
         self._update_status_totals()
