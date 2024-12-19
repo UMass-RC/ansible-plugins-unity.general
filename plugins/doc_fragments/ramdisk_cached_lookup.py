@@ -29,6 +29,7 @@ class ModuleDocFragment(object):
           type: str
           # since I want to be able to access this value without actually invoking the plugin
           # properly, I use os.environ instead of get_option() for this option
+          # so it can't be configured via ini
           env:
             - name: RAMDISK_CACHE_PATH
     """
