@@ -83,7 +83,6 @@ class CallbackModule(DefaultCallback):
         self.task_name = None
         self.status2hostnames = {}
         self.running_hosts = []
-        self.total_hosts = None
         self.diff_hash2hostnames = {}
         self.diff_hash2diff = {}
         self.unknown_loop_size = None
