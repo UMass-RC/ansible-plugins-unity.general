@@ -31,10 +31,9 @@ DOCUMENTATION = r"""
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
-    * results are not printed right away unless verbose mode or result has errors. when they are
-      printed, they are formatted nicely with yaml
+    * results are not printed unless they has errors. when they are printed, they are
+      formatted nicely with yaml.
     * at the end of the task, print the list of hosts that returned each status.
-    * OK results are not printed, even in verbose mode.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
       is used as the diff. Effectively, diff mode is always on.
