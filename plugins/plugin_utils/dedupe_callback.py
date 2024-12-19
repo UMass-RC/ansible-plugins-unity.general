@@ -88,7 +88,10 @@ class CallbackModule(DefaultCallback):
         self.unknown_loop_size = None
         self.results_printed = None
         self.task_item_failure_already_reported = None
-        self.task_end_done = True  # skip _task_end before the 1st task starts
+        self.task_end_done = None
+        # the above data is set/reset at the start of each task
+        # don't try to access above data before the 1st task has started
+        self.first_task_started = False
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._sigint_handler)
@@ -105,6 +108,8 @@ class CallbackModule(DefaultCallback):
 
     def _task_start(self, task: Task, prefix: str):
         self._maybe_task_end()
+        if not self.first_task_started:
+            self.first_task_started = True
         self.task_name = task.get_name()
         del self.status2hostnames
         self.status2hostnames = {
@@ -152,7 +157,7 @@ class CallbackModule(DefaultCallback):
         To make up for this, I call this function multiple times later and make sure it only
         runs once.
         """
-        if self.task_end_done:
+        if (not self.first_task_started) or self.task_end_done:
             return
         self.task_end_done = True
         self._display_status_totals()
