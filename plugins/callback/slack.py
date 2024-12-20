@@ -5,15 +5,15 @@ import json
 import atexit
 import socket
 
-from ansible.module_utils.common.text.converters import to_text
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
-from ansible.vars.clean import strip_internal_keys
 from ansible.executor.task_result import TaskResult
+from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
@@ -23,6 +23,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.hostlist import form
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
     get_cache_path,
 )
+from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 
 DOCUMENTATION = r"""
   name: slack
@@ -162,9 +163,6 @@ class CallbackModule(DedupeCallback):
         hostname = result._host.get_name()
         if status not in STATUSES_PRINT_IMMEDIATELY:
             return
-        strip_internal_keys(result._result)
-        if "invocation" in result._result:
-            del result._result["invocation"]
         if dupe_of is not None:
             msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
         # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
@@ -173,17 +171,7 @@ class CallbackModule(DedupeCallback):
         ):
             msg = f"[{hostname}]: {status.upper()} => {result._result['msg']}"
         else:
-            # since we use block for multiline, no need for list of lines
-            if "stdout" in result._result and "stdout_lines" in result._result:
-                self._display.debug(
-                    f"removing stdout_lines since stdout exists: {result._result["stdout_lines"]}"
-                )
-                result._result.pop("stdout_lines")
-            if "stderr" in result._result and "stderr_lines" in result._result:
-                self._display.debug(
-                    f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
-                )
-                result._result.pop("stderr_lines")
+            cleanup_result(result._result)
             msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._text_buffer.append(msg)
 

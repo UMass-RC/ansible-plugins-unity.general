@@ -1,19 +1,15 @@
-import sys
-import yaml
-
 from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
-from ansible.vars.clean import strip_internal_keys
 from ansible.executor.task_result import TaskResult
-from ansible.parsing.yaml.dumper import AnsibleDumper
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
+from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 
 DOCUMENTATION = r"""
   name: cron
@@ -119,23 +115,10 @@ class CallbackModule(DedupeCallback):
             return
         if status == "unreachable" and self.get_option("ignore_unreachable"):
             return
-        strip_internal_keys(result._result)  # this must come after _run_is_verbose()
-        if "invocation" in result._result:
-            del result._result["invocation"]
         if dupe_of is not None:
             msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
         else:
-            # since we use block for multiline, no need for list of lines
-            if "stdout" in result._result and "stdout_lines" in result._result:
-                self._display.debug(
-                    f"removing stdout_lines since stdout exists: {result._result["stdout_lines"]}"
-                )
-                result._result.pop("stdout_lines")
-            if "stderr" in result._result and "stderr_lines" in result._result:
-                self._display.debug(
-                    f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
-                )
-                result._result.pop("stderr_lines")
+            cleanup_result(result._result)
             msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._flush_display_buffer()
         self._display.display(msg)

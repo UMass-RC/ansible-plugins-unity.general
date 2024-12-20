@@ -1,21 +1,20 @@
 import shutil
 import datetime
 
-import yaml
-
 from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
-from ansible.vars.clean import strip_internal_keys
 from ansible.utils.color import stringc, colorize, hostcolor
 from ansible.executor.task_result import TaskResult
+
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     CallbackModule as DedupeCallback,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
+from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 
 DOCUMENTATION = r"""
   name: clush
@@ -159,9 +158,6 @@ class CallbackModule(DedupeCallback):
         # ansible.builtin.debug sets verbose
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
             return
-        strip_internal_keys(result._result)  # this must come after _run_is_verbose()
-        if "invocation" in result._result:
-            del result._result["invocation"]
         if dupe_of is not None:
             msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
         # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
@@ -170,17 +166,7 @@ class CallbackModule(DedupeCallback):
         ):
             msg = f"[{hostname}]: {status.upper()} => {result._result['msg']}"
         else:
-            # since we use block for multiline, no need for list of lines
-            if "stdout" in result._result and "stdout_lines" in result._result:
-                self._display.debug(
-                    f"removing stdout_lines since stdout exists: {result._result["stdout_lines"]}"
-                )
-                result._result.pop("stdout_lines")
-            if "stderr" in result._result and "stderr_lines" in result._result:
-                self._display.debug(
-                    f"removing stderr_lines since stderr exists: {result._result["stderr_lines"]}"
-                )
-                result._result.pop("stderr_lines")
+            cleanup_result(result._result)
             msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._clear_line()
         self._display.display(
