@@ -76,6 +76,7 @@ def make_shell_command(terms, **kwargs) -> str:
 def do_bitwarden_lookup(terms, variables, **kwargs):
     display.v(f"running bitwarden lookup with terms: {terms} and kwargs: {kwargs}")
     results = lookup_loader.get("community.general.bitwarden").run(terms, variables, **kwargs)
+    display.v("done.")
     # results is a nested list
     # the first index represents each term in terms
     # the second index represents each item that matches that term
