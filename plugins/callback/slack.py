@@ -109,7 +109,10 @@ def get_secrets():
     if not os.path.isfile(bitwarden_cache_path):
         return []
     with open(bitwarden_cache_path, "r") as fp:
-        bitwarden_cache = json.load(fp)
+        try:
+            bitwarden_cache = json.load(fp)
+        except json.JSONDecodeError:
+            return []
         secrets = []
         for value in bitwarden_cache.values():
             if isinstance(value, list):
