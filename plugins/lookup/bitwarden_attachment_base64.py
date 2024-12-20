@@ -92,21 +92,5 @@ class LookupModule(RamDiskCachedLookupBase):
             lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
         )
 
-        # add decoded string to cache so that slack callback plugin can redact it
-        # if not text then it should not be included in the task result
-        is_text = False
-        decoded_bytes = base64.b64decode(output)
-        try:
-            decoded_str = to_text(decoded_bytes)
-            is_text = True
-        except:
-            pass
-        if is_text:
-            self.cache_lambda(
-                f"{bw_item_id}.{bw_attachment_filename}-decoded",
-                get_cache_path("bitwarden"),
-                lambda: decoded_str,
-            )
-
         # ansible requires that lookup returns a list
         return [output]

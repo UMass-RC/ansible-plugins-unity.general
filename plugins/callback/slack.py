@@ -55,6 +55,7 @@ DOCUMENTATION = r"""
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
     * you can prevent a certain task from being logged by setting `vars: _slack_no_log=true`
+      or by setting _slack_no_log: true in the task result dictionary
   requirements:
       - whitelist in configuration
       - slack-sdk (python library)
@@ -167,7 +168,10 @@ class CallbackModule(DedupeCallback):
         if self.disabled:
             return
         hostname = result._host.get_name()
-        if result._task.vars.get("_slack_no_log", False) is True and "diff" in result._result:
+        if (
+            result._task.vars.get("_slack_no_log", False) is True
+            or result._result.get("_slack_no_log", False) is True
+        ) and "diff" in result._result:
             diff_or_diffs = result._result["diff"]
             if not isinstance(diff_or_diffs, list):
                 diffs = [diff_or_diffs]
