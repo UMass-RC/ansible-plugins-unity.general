@@ -160,6 +160,8 @@ class CallbackModule(DedupeCallback):
         pass
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
+        if self.disabled:
+            return
         hostname = result._host.get_name()
         if status not in STATUSES_PRINT_IMMEDIATELY:
             return
@@ -247,4 +249,6 @@ class CallbackModule(DedupeCallback):
         self._text_buffer = []
 
     def deduped_playbook_stats(self, stats: AggregateStats):
+        if self.disabled:
+            return
         self.send_buffer_to_slack()
