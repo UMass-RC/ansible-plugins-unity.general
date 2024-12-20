@@ -38,9 +38,7 @@ DOCUMENTATION = """
 """
 
 import hashlib
-import getpass
 
-from ansible.plugins.lookup import LookupBase
 from ansible.plugins.loader import lookup_loader
 from ansible.errors import AnsibleError
 from ansible.utils.display import Display

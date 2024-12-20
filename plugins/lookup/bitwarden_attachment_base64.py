@@ -39,7 +39,6 @@ import subprocess
 
 from ansible.plugins.loader import lookup_loader
 from ansible.utils.display import Display
-from ansible.module_utils.common.text.converters import to_text
 
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
     RamDiskCachedLookupBase,
