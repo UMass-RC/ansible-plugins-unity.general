@@ -280,7 +280,7 @@ class CallbackModule(DefaultCallback):
     def deduped_display_status_totals(self, status_totals: dict[str, str]):
         """
         status_totals: dictionary from status to a string representing the total number of runners
-        or runner items that returned that status. the total is usually digits, but it will have
+        or runner items that have that status. the total is usually digits, but it will have
         the value "?" when using a loop. possible values for status are:
         ok changed unreachable failed skipped ignored interrupted running
         """
