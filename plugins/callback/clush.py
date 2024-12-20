@@ -140,14 +140,17 @@ class CallbackModule(DedupeCallback):
             if "warnings" in result and result["warnings"]:
                 for warning in result["warnings"]:
                     self._display.warning(yaml_dump(warning))
+                del result["warnings"]
             if "deprecations" in result and result["deprecations"]:
                 for deprecation in result["deprecations"]:
                     self._display.deprecated(**deprecation)
+                del result["deprecations"]
         if "exception" in result:
             msg = f"An exception occurred during task execution.\n{yaml_dump(result['exception'])}"
             self._display.display(
                 msg, color=C.COLOR_ERROR, stderr=self.get_option("display_failed_stderr")
             )
+            del result["exception"]
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
         hostname = result._host.get_name()
