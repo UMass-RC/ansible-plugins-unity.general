@@ -1,6 +1,5 @@
 import os
 import re
-import datetime
 import json
 import atexit
 import socket
@@ -10,6 +9,7 @@ from slack_sdk.errors import SlackApiError
 
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
+from ansible.utils.display import Display
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.module_utils.common.text.converters import to_text
@@ -21,6 +21,8 @@ from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dum
 from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
+
+display = Display()
 
 DOCUMENTATION = r"""
   name: slack
@@ -73,15 +75,15 @@ DOCUMENTATION = r"""
       ini:
         - section: callback_slack
           key: channel_id
-    redact_secrets:
+    redact_bitwarden_secrets:
       default: true
       type: bool
       description: check bitwarden cache file for secrets and remove them from slack output if they exist
       env:
-        - name: SLACK_REDACT_SECRETS
+        - name: SLACK_CALLBACK_REDACT_BITWARDEN_SECRETS
       ini:
         - section: callback_slack
-          key: redact_secrets
+          key: redact_bitwarden_secrets
   author: Simon Leary
   extends_documentation_fragment:
     default_callback
@@ -111,14 +113,14 @@ class CallbackModule(DedupeCallback):
 
     def __init__(self):
         super(CallbackModule, self).__init__()
-        self.disabled = False
+        self._disabled = False
         self._always_check_mode = True
-        self.username = os.getlogin()
-        self.hostname = socket.gethostname().split(".", 1)[0]
+        self._username = os.getlogin()
+        self._hostname = socket.gethostname().split(".", 1)[0]
         # defined in v2_playbook_on_start
-        self.playbook_name = None
+        self._playbook_name = None
         # defined in set_options()
-        self.web_client = self.channel_id = self.bot_user_oauth_token = None
+        self._web_client = self.channel_id = self.bot_user_oauth_token = None
 
         self._text_buffer = []
         atexit.register(self.send_buffer_to_slack)
@@ -130,21 +132,21 @@ class CallbackModule(DedupeCallback):
         self.bot_user_oauth_token = self.get_option("bot_user_oauth_token")
         self.channel_id = self.get_option("channel_id")
         if self.bot_user_oauth_token is None:
-            self.disabled = True
-            self._display.warning(
+            self._disabled = True
+            display.warning(
                 "bot user oauth token was not provided. this can be provided using the `SLACK_BOT_USER_OAUTH_TOKEN` environment variable."
             )
         else:
-            self.web_client = WebClient(token=self.bot_user_oauth_token)
+            self._web_client = WebClient(token=self.bot_user_oauth_token)
 
     def v2_playbook_on_start(self, playbook):
-        self.playbook_name = os.path.basename(playbook._file_name)
+        self._playbook_name = os.path.basename(playbook._file_name)
 
     def deduped_display_status_totals(self, status_totals: dict[str, str]):
         pass
 
     def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
-        if self.disabled:
+        if self._disabled:
             return
         hostname = result._host.get_name()
         if (
@@ -173,7 +175,7 @@ class CallbackModule(DedupeCallback):
         self._text_buffer.append(msg)
 
     def deduped_play_start(self, play: Play):
-        if self.disabled:
+        if self._disabled:
             return
         play_name = play.get_name().strip()
         if play.check_mode:
@@ -183,7 +185,7 @@ class CallbackModule(DedupeCallback):
             self._text_buffer.append(_banner(f"PLAY [{play_name}]"))
 
     def deduped_task_start(self, task: Task, prefix: str):
-        if self.disabled:
+        if self._disabled:
             return
         self._text_buffer.append(_banner(f"{prefix} [{task.get_name().strip()}]"))
 
@@ -192,7 +194,7 @@ class CallbackModule(DedupeCallback):
         sorted_diffs_and_hostnames: list[dict, list[str]],
         status2hostnames: dict[str, list[str]],
     ):
-        if self.disabled:
+        if self._disabled:
             return
         for diff, hostnames in sorted_diffs_and_hostnames:
             if diff.get("_slack_no_log", False) is True:
@@ -217,16 +219,16 @@ class CallbackModule(DedupeCallback):
         self._text_buffer.append("")
 
     def send_buffer_to_slack(self):
-        if self.disabled:
+        if self._disabled:
             return
         if not self._text_buffer:
             return
         content = ANSI_COLOR_REGEX.sub("", "\n".join(self._text_buffer))
         try:
             if self._always_check_mode:
-                filename = f"{self.playbook_name}-checkmode-{self.username}-{self.hostname}.log"
+                filename = f"{self._playbook_name}-checkmode-{self._username}-{self._hostname}.log"
             else:
-                filename = f"{self.playbook_name}-{self.username}-{self.hostname}.log"
+                filename = f"{self._playbook_name}-{self._username}-{self._hostname}.log"
             kwargs = dict(
                 filename=filename,
                 content=content,
@@ -235,15 +237,15 @@ class CallbackModule(DedupeCallback):
                 title="",
                 initial_comment=f"",
             )
-            response = self.web_client.files_upload_v2(**kwargs)
+            response = self._web_client.files_upload_v2(**kwargs)
         except SlackApiError as e:
             msg = f"failed to send message to slack! {to_text(e)}\n{json.dumps(kwargs, indent=4)}"
             for line in msg.splitlines():
-                self._display.warning(line)
+                display.warning(line)
         del self._text_buffer
         self._text_buffer = []
 
     def deduped_playbook_stats(self, stats: AggregateStats):
-        if self.disabled:
+        if self._disabled:
             return
         self.send_buffer_to_slack()
