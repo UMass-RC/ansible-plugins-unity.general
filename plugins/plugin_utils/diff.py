@@ -1,12 +1,17 @@
 import os
 import sys
+import json
 import shutil
+import datetime
 import threading
 import subprocess
 
 from ansible import constants as C
 from ansible.utils.color import stringc
+from ansible.utils.display import Display
 from ansible.plugins.callback.default import CallbackModule
+
+display = Display()
 
 if shutil.which("diffr"):
     DO_DIFFR = True
@@ -15,7 +20,44 @@ else:
     DO_DIFFR = False
 
 
-def format_result_diff(diff: dict) -> str:
+from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
+    get_cache_path,
+)
+
+
+def _get_bitwarden_secrets():
+    bitwarden_cache_path = get_cache_path("bitwarden")
+    if not os.path.isfile(bitwarden_cache_path):
+        return []
+    with open(bitwarden_cache_path, "r") as fp:
+        try:
+            bitwarden_cache = json.load(fp)
+        except json.JSONDecodeError:
+            return []
+        secrets = []
+        for value in bitwarden_cache.values():
+            if isinstance(value, list):
+                secrets += value
+            else:
+                secrets.append(value)
+        return [x.strip() for x in secrets]
+
+
+def _redact_bitwarden_secrets(content: str) -> str:
+    num_secrets_redacted = 0
+    start_time = datetime.datetime.now()
+    for secret in _get_bitwarden_secrets():
+        if secret in content:
+            content = content.replace(secret, "REDACTED")
+            num_secrets_redacted += 1
+    seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
+    display.v(
+        f"slack: it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} secrets from the output buffer."
+    )
+    return content
+
+
+def format_result_diff(diff: dict, do_redact_bitwarden_secrets=False) -> str:
     output = ""
     if "before_header" in diff or "after_header" in diff:
         output += stringc(
@@ -50,13 +92,16 @@ def format_result_diff(diff: dict) -> str:
             if not isinstance(diff[x], str):
                 callback_obj = CallbackModule()
                 diff[x] = callback_obj._serialize_diff(diff[x])
-            elif diff[x] is None:
+            if diff[x] is None:
                 diff[x] = ""
         if diff["before"] == diff["after"]:
             return stringc(
                 "diff skipped: before and after are equal\n",
                 C.COLOR_CHANGED,
             )
+        if do_redact_bitwarden_secrets:
+            for x in ["before", "after"]:
+                diff[x] = _redact_bitwarden_secrets(diff[x])
         before_read_fd, before_write_fd = os.pipe()
         after_read_fd, after_write_fd = os.pipe()
         diff_proc = subprocess.Popen(

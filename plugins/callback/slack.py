@@ -20,9 +20,6 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
-    get_cache_path,
-)
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 
 DOCUMENTATION = r"""
@@ -104,24 +101,6 @@ def _indent(prepend, text):
 
 def _banner(x, banner_len=80) -> str:
     return x + ("*" * (banner_len - len(x)))
-
-
-def get_secrets():
-    bitwarden_cache_path = get_cache_path("bitwarden")
-    if not os.path.isfile(bitwarden_cache_path):
-        return []
-    with open(bitwarden_cache_path, "r") as fp:
-        try:
-            bitwarden_cache = json.load(fp)
-        except json.JSONDecodeError:
-            return []
-        secrets = []
-        for value in bitwarden_cache.values():
-            if isinstance(value, list):
-                secrets += value
-            else:
-                secrets.append(value)
-        return [x.strip() for x in secrets]
 
 
 class CallbackModule(DedupeCallback):
@@ -219,7 +198,15 @@ class CallbackModule(DedupeCallback):
             if diff.get("_slack_no_log", False) is True:
                 self._text_buffer.append("diff redacted due to _slack_no_log")
             else:
-                self._text_buffer.append(format_result_diff(diff).strip())
+                for x in ["before", "after"]:
+                    if x in diff and not isinstance(x, str):
+                        diff[x] = self._serialize_diff(diff[x])
+                self._text_buffer.append(
+                    format_result_diff(
+                        diff,
+                        do_redact_bitwarden_secrets=self.get_option("redact_bitwarden_secrets"),
+                    ).strip()
+                )
             self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
         for status, hostnames in status2hostnames.items():
             if status == "changed":
@@ -235,17 +222,6 @@ class CallbackModule(DedupeCallback):
         if not self._text_buffer:
             return
         content = ANSI_COLOR_REGEX.sub("", "\n".join(self._text_buffer))
-        if self.get_option("redact_secrets") and (secrets := get_secrets()):
-            num_secrets_redacted = 0
-            start_time = datetime.datetime.now()
-            for secret in secrets:
-                if secret in content:
-                    content = content.replace(secret, "REDACTED")
-                    num_secrets_redacted += 1
-            seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
-            self._display.v(
-                f"slack: it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} secrets from the output buffer."
-            )
         try:
             if self._always_check_mode:
                 filename = f"{self.playbook_name}-checkmode-{self.username}-{self.hostname}.log"
