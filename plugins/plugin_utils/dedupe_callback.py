@@ -162,8 +162,7 @@ class CallbackModule(DefaultCallback):
 
     def v2_runner_on_start(self, host: Host, task: Task):
         hostname = host.get_name()
-        if not task.loop:
-            self.running_hosts.add(hostname)
+        self.running_hosts.add(hostname)
         self._display_status_totals()
 
     def _maybe_task_end(self):
