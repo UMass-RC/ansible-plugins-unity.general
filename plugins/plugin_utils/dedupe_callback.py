@@ -90,13 +90,6 @@ class CallbackModule(DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_NAME = "dedupe"
 
-    def register_runner_status(self, hostname: str, status: str, item=None):
-        self.status2hostname2items[status].setdefault(hostname, [])
-        if item is not None:
-            item_str = to_text(item)
-            self.status2hostname2items[status][hostname].append(item_str)
-            self.hostname2item2status.setdefault(hostname, {})[item_str] = status
-
     def _sigint_handler(self, signum, frame):
         """
         make sure the user knows which runners were interrupted
@@ -105,7 +98,7 @@ class CallbackModule(DefaultCallback):
         # only the original parent process, no children
         if os.getpid() == self.pid_where_sigint_trapped:
             for hostname in self.running_hosts:
-                self.register_runner_status(hostname, "interrupted")
+                self.runner_status2hostnames["interrupted"].add(hostname)
             self._maybe_task_end()
         # execute normal interrupt signal handler
         self.original_sigint_handler(signum, frame)
@@ -117,10 +110,10 @@ class CallbackModule(DefaultCallback):
         self.diff_hash2hostnames = None
         self.diff_hash2diff = None
         self.task_is_loop = None
-        self.results_printed = None
+        self.hostname2results_printed = None
         self.task_end_done = None
-        self.status2hostname2items = None
-        self.hostname2item2status = None
+        self.runner_status2hostnames = None
+        self.runner_item_status2hostname2items = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
@@ -149,12 +142,20 @@ class CallbackModule(DefaultCallback):
         self.diff_hash2hostnames = {}
         del self.diff_hash2diff
         self.diff_hash2diff = {}
-        del self.results_printed
-        self.results_printed = {}
-        del self.hostname2item2status
-        self.hostname2item2status = {}
-        del self.status2hostname2items
-        self.status2hostname2items = {
+        del self.hostname2results_printed
+        self.hostname2results_printed = {}
+        del self.runner_status2hostnames
+        self.runner_status2hostnames = {
+            "ok": set(),
+            "changed": set(),
+            "unreachable": set(),
+            "failed": set(),
+            "skipped": set(),
+            "ignored": set(),
+            "interrupted": set(),
+        }
+        del self.runner_item_status2hostname2items
+        self.runner_item_status2hostname2items = {
             "ok": {},
             "changed": {},
             "unreachable": {},
@@ -197,14 +198,18 @@ class CallbackModule(DefaultCallback):
         for diff_hash, hostnames in sorted_diff_hash2hostnames.items():
             diff = self.diff_hash2diff[diff_hash]
             sorted_diffs_and_hostnames.append((diff, hostnames))
-        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostname2items)
+        self.deduped_task_end(
+            sorted_diffs_and_hostnames,
+            self.runner_status2hostnames,
+            self.runner_item_status2hostname2items,
+        )
 
     def _duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
         """
         return value is either a hostname or "{hostname} (item={item})" or None
         """
-        for hostname, host_results_printed in self.results_printed.items():
-            for printed_result, printed_anonymous_result in host_results_printed:
+        for hostname, results_printed in self.hostname2results_printed.items():
+            for printed_result, printed_anonymous_result in results_printed:
                 if (result == printed_result) or (anonymous_result == printed_anonymous_result):
                     if "item" in printed_result:
                         return f"{hostname} (item={printed_result["item"]})"
@@ -212,34 +217,27 @@ class CallbackModule(DefaultCallback):
                         return hostname
         return None
 
+    # TODO should I rename this to runner_or_runner_item_on_completed?
     def _runner_on_completed(self, result: TaskResult, status: str):
         display.v(f"{status}: {json.dumps(result._result)}")
         hostname = result._host.get_name()
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self._duplicate_result_of(result._result, anonymous_result)
-        completed_item_statuses = self.hostname2item2status.get(hostname, {})
-        if (
-            self.task_is_loop
-            and "item" not in result._result
-            and "failed" in completed_item_statuses.values()
-        ):
-            display.debug(
-                f"task result truncated to just 'msg' (and 'item_statuses' added) since one of the loop items already reported an error"
-            )
-            result._result = {
-                "msg": result._result["msg"],
-                "item_statuses": completed_item_statuses,
-            }
         self.deduped_runner_end(result, status, duplicate_of)
-        self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
-        if not self.task_is_loop:
+        self.hostname2results_printed.setdefault(hostname, []).append(
+            [result._result, anonymous_result]
+        )
+        if item := result._result.get("item", None):
+            item_str = to_text(item)
+            self.runner_item_status2hostname2items[status].setdefault(hostname, {}).append(item_str)
+        else:
+            self.runner_status2hostnames[status].add(hostname)
             try:
                 self.running_hosts.remove(hostname)
             except KeyError:
                 display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
-        self.register_runner_status(hostname, status, result._result.get("item", None))
         self._display_status_totals()
 
     def v2_runner_on_ok(self, result: TaskResult):
@@ -302,32 +300,32 @@ class CallbackModule(DefaultCallback):
         self.deduped_play_start(play)
 
     def _display_status_totals(self):
-        host_status_totals = {}
-        item_status_totals = {}
-        for status, hostname2items in self.status2hostname2items.items():
-            for hostname, items in hostname2items.items():
-                host_status_totals.setdefault(status, 0)
-                host_status_totals[status] += len(hostname2items)
-                if items:
-                    item_status_totals.setdefault(status, 0)
-                    item_status_totals[status] += len(items)
-        host_status_totals["running"] = len(self.running_hosts)
+        runner_status_totals = {k: str(len(v)) for k, v in self.runner_status2hostnames.items()}
+        runner_item_status_totals = {
+            k: str(len(v)) for k, v in self.runner_item_status2hostname2items.items()
+        }
+        runner_status_totals["running"] = len(self.running_hosts)
         # "running" is based on v2_on_task_start, and the task loop variable has not yet been
         # evaluated when it is passed to v2_on_task_start, so number of running
         if self.task_is_loop:
-            item_status_totals["running"] = "?"
+            runner_item_status_totals["running"] = "?"
         else:
-            item_status_totals["running"] = 0
-        self.deduped_display_status_totals(host_status_totals, item_status_totals)
+            runner_item_status_totals["running"] = 0
+        self.deduped_display_status_totals(runner_status_totals, runner_item_status_totals)
 
     # implement these yourself!
     def deduped_display_status_totals(
-        self, host_status_totals: dict[str, int], item_status_totals: dict[str, str]
+        self, runner_status_totals: dict[str, str], runner_item_status_totals: dict[str, str]
     ):
         """
-        status_totals: dictionary from status to a string representing the total number of runners
-        or runner items that have that status. the total is usually digits, but it will have
-        the value "?" when using a loop. possible values for status are:
+        runner_status_totals: dictionary from status to a string representing the total number of
+        runners that have that status. the total is digits.
+
+        runner_item_status_totals: dictionary from status to a string representing the total number
+        of runner items that have that status. when the current task is not a loop, all totals
+        are 0. when the task is a loop, "running" is "?".
+
+        possible values for status are:
         ok changed unreachable failed skipped ignored interrupted running
         """
         pass
@@ -336,9 +334,9 @@ class CallbackModule(DefaultCallback):
         """
         this is called when a runner or runner item finishes. possible values for status are:
         ok changed unreachable failed skipped ignored interrupted
-        if this same result has already been returned by another runner for this task, then
-        dupe_of will be the hostname of that runner.
-        hostnames are ignored when checking if another host has made the same result.
+        if this same result has already been returned by another runner or runner item for this
+        task, then dupe_of will be the hostname and/or item of that runner.
+        hostnames and items are ignored when checking for duplicate results.
         """
         pass
 
@@ -359,7 +357,8 @@ class CallbackModule(DefaultCallback):
     def deduped_task_end(
         self,
         sorted_diffs_and_hostnames: list[tuple[dict, list[str]]],
-        status2hostnames: dict[str, list[str]],
+        runner_status2hostnames: dict[str, set[str]],
+        runner_item_status2hostname2items: dict[str, dict[str, list[str]]],
     ):
         """
         sorted_diffs_and_hostnames: list of tuples where the first element of each tuple is a
@@ -367,9 +366,13 @@ class CallbackModule(DefaultCallback):
         is sorted such that the largest lists of hostnames are last. these are only the diffs from
         results where changed==True.
 
-        status2hostnames: dict from status to list of hostnames. possible values for status are:
+        runner_status2hostnames: dict from status to set of hostnames.
+
+        runner_item_status2hostname2items: nested dictionary from status to hostname to list of
+        items. the items are in the order in which the runner items completed.
+
+        possible values for status are:
         ok changed unreachable failed skipped ignored interrupted running
-        not sorted.
         """
         pass
 

@@ -94,13 +94,20 @@ class CallbackModule(DedupeCallback):
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
 
-    def deduped_display_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(
+        self, runner_status_totals: dict[str, str], runner_item_status_totals: dict[str, str]
+    ):
         components = []
-        for status, total in status_totals.items():
+        for status in runner_status_totals:
+            runner_total = runner_status_totals[status]
+            runner_item_total = runner_item_status_totals[status]
             color = _STATUS_COLORS[status]
-            if total == 0:
+            if runner_total == "0":
                 continue
-            components.append((f"{status}={total}", color))
+            if runner_item_total == "0":
+                components.append((f"{status}={runner_total}", color))
+            else:
+                components.append((f"{status}={runner_total} ({runner_status_totals})", color))
 
         # build a new list of components which, when printed, will not exceed the tty width
         at_least_one_component_stripped = False
@@ -194,20 +201,38 @@ class CallbackModule(DedupeCallback):
 
     def deduped_task_end(
         self,
-        sorted_diffs_and_hostnames: list[dict, list[str]],
-        status2hostnames: dict[str, list[str]],
+        sorted_diffs_and_hostnames: list[tuple[dict, list[str]]],
+        runner_status2hostnames: dict[str, set[str]],
+        runner_item_status2hostname2items: dict[str, dict[str, list[str]]],
     ):
-        self._clear_line()
-        for diff, hostnames in sorted_diffs_and_hostnames:
+        self._display.display("\n")  # preserve status totals line
+        for diff, runner_hostnames in sorted_diffs_and_hostnames:
             self._display.display(format_result_diff(diff))
-            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
-        for status, hostnames in status2hostnames.items():
+            self._display.display(
+                f"changed: {format_hostnames(runner_hostnames)}", color=C.COLOR_CHANGED
+            )
+        for status, hostnames in runner_status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
             color = _STATUS_COLORS[status]
             self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
+        for status, hostname2items in runner_item_hostname2items.items():
+            for hostname, items in hostname2items.items():
+                runner_hostnames = runner_status2hostnames[status]
+                runner_item_hostname2items = runner_item_status2hostname2items[status]
+                if status == "changed":
+                    continue  # we already did this
+                if len(runner_hostnames) == 0:
+                    continue
+                msg = f"{status}: {format_hostnames(runner_hostnames)}"
+                if len(runner_item_hostname2items) > 0:
+                    for hostname, items in runner_item_hostname2items.items():
+                        msg += f", {hostname} items={items}"
+                color = _STATUS_COLORS[status]
+                self._display.display(msg, color=color)
+
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
