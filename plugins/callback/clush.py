@@ -159,7 +159,9 @@ class CallbackModule(DedupeCallback):
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
             return
         if "item" in result._result:
-            header = f"[{hostname}]: {status.upper()} (item={result._result["item"]}) =>"
+            header = (
+                f"[{hostname}]: {status.upper()} (item={self._get_item_label(result._result)}) =>"
+            )
         else:
             header = f"[{hostname}]: {status.upper()} =>"
         if dupe_of is not None:
