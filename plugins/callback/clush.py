@@ -158,16 +158,20 @@ class CallbackModule(DedupeCallback):
         # ansible.builtin.debug sets verbose
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
             return
+        if "item" in result._result:
+            header = f"[{hostname}]: {status.upper()} (item={result._result["item"]}) =>"
+        else:
+            header = f"[{hostname}]: {status.upper()} =>"
         if dupe_of is not None:
-            msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
+            msg = f'{header} same result as "{dupe_of}"'
         # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
         elif "msg" in result._result and (
             status in STATUSES_PRINT_MSG_ONLY or len(result._result.keys()) == 1
         ):
-            msg = f"[{hostname}]: {status.upper()} => {result._result['msg']}"
+            msg = f"{header} {result._result['msg']}"
         else:
             cleanup_result(result._result)
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
+            msg = f"{header}\n{_indent(" ", yaml_dump(result._result))}"
         self._clear_line()
         self._display.display(
             msg,
