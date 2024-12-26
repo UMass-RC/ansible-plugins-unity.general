@@ -90,6 +90,13 @@ class CallbackModule(DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_NAME = "dedupe"
 
+    def register_runner_status(self, hostname: str, status: str, item=None):
+        self.status2hostname2items[status].setdefault(hostname, [])
+        if item is not None:
+            item_str = to_text(item)
+            self.status2hostname2items[status][hostname].append(item_str)
+            self.hostname2item2status.setdefault(hostname, {})[item_str] = status
+
     def _sigint_handler(self, signum, frame):
         """
         make sure the user knows which runners were interrupted
@@ -98,7 +105,7 @@ class CallbackModule(DefaultCallback):
         # only the original parent process, no children
         if os.getpid() == self.pid_where_sigint_trapped:
             for hostname in self.running_hosts:
-                self.status2hostnames["interrupted"].append(hostname)
+                self.register_runner_status(hostname, "interrupted")
             self._maybe_task_end()
         # execute normal interrupt signal handler
         self.original_sigint_handler(signum, frame)
@@ -106,14 +113,14 @@ class CallbackModule(DefaultCallback):
     def __init__(self):
         super(CallbackModule, self).__init__()
         self.task_name = None
-        self.status2hostnames = None
         self.running_hosts = None
         self.diff_hash2hostnames = None
         self.diff_hash2diff = None
         self.task_is_loop = None
         self.results_printed = None
         self.task_end_done = None
-        self.hostname2loop_item_statuses = None
+        self.status2hostname2items = None
+        self.hostname2item2status = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
@@ -136,16 +143,6 @@ class CallbackModule(DefaultCallback):
         if not self.first_task_started:
             self.first_task_started = True
         self.task_name = task.get_name()
-        del self.status2hostnames
-        self.status2hostnames = {
-            "ok": [],
-            "changed": [],
-            "unreachable": [],
-            "failed": [],
-            "skipped": [],
-            "ignored": [],
-            "interrupted": [],
-        }
         del self.running_hosts
         self.running_hosts = set()
         del self.diff_hash2hostnames
@@ -154,8 +151,18 @@ class CallbackModule(DefaultCallback):
         self.diff_hash2diff = {}
         del self.results_printed
         self.results_printed = {}
-        del self.hostname2loop_item_statuses
-        self.hostname2loop_item_statuses = {}
+        del self.hostname2item2status
+        self.hostname2item2status = {}
+        del self.status2hostname2items
+        self.status2hostname2items = {
+            "ok": {},
+            "changed": {},
+            "unreachable": {},
+            "failed": {},
+            "skipped": {},
+            "ignored": {},
+            "interrupted": {},
+        }
         self.task_end_done = False
         self.task_is_loop = bool(task.loop)
         self.deduped_task_start(task, prefix)
@@ -190,7 +197,7 @@ class CallbackModule(DefaultCallback):
         for diff_hash, hostnames in sorted_diff_hash2hostnames.items():
             diff = self.diff_hash2diff[diff_hash]
             sorted_diffs_and_hostnames.append((diff, hostnames))
-        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
+        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostname2items)
 
     def _duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
         """
@@ -210,23 +217,21 @@ class CallbackModule(DefaultCallback):
         hostname = result._host.get_name()
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self._duplicate_result_of(result._result, anonymous_result)
+        completed_item_statuses = self.hostname2item2status.get(hostname, {})
         if (
             self.task_is_loop
             and "item" not in result._result
-            and "failed" in self.hostname2loop_item_statuses.get(hostname, {}).values()
+            and "failed" in completed_item_statuses.values()
         ):
             display.debug(
                 f"task result truncated to just 'msg' (and 'item_statuses' added) since one of the loop items already reported an error"
             )
             result._result = {
                 "msg": result._result["msg"],
-                "item_statuses": self.hostname2loop_item_statuses[hostname],
+                "item_statuses": completed_item_statuses,
             }
         self.deduped_runner_end(result, status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
-        if "item" in result._result:
-            item_str = to_text(result._result["item"])
-            self.hostname2loop_item_statuses.setdefault(hostname, {})[item_str] = status
         if not self.task_is_loop:
             try:
                 self.running_hosts.remove(hostname)
@@ -234,7 +239,7 @@ class CallbackModule(DefaultCallback):
                 display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
-        self.status2hostnames[status].append(hostname)
+        self.register_runner_status(hostname, status, result._result.get("item", None))
         self._display_status_totals()
 
     def v2_runner_on_ok(self, result: TaskResult):
@@ -297,22 +302,28 @@ class CallbackModule(DefaultCallback):
         self.deduped_play_start(play)
 
     def _display_status_totals(self):
-        status_totals = {
-            status: len(hostnames) for status, hostnames in self.status2hostnames.items()
-        }
-        # I have to work around this edge case because _runner_on_completed removes hostname
-        # from the running_hosts list, and the same host can't be removed multiple times.
-        # if I knew the length of the loop I could add the same host multiple times so that
-        # it could be removed multiple times, but I don't because the loop variable has not
-        # been evaluated.
+        host_status_totals = {}
+        item_status_totals = {}
+        for status, hostname2items in self.status2hostname2items.items():
+            for hostname, items in hostname2items.items():
+                host_status_totals.setdefault(status, 0)
+                host_status_totals[status] += len(hostname2items)
+                if items:
+                    item_status_totals.setdefault(status, 0)
+                    item_status_totals[status] += len(items)
+        host_status_totals["running"] = len(self.running_hosts)
+        # "running" is based on v2_on_task_start, and the task loop variable has not yet been
+        # evaluated when it is passed to v2_on_task_start, so number of running
         if self.task_is_loop:
-            status_totals["running"] = "?"
+            item_status_totals["running"] = "?"
         else:
-            status_totals["running"] = len(self.running_hosts)
-        self.deduped_display_status_totals(status_totals)
+            item_status_totals["running"] = 0
+        self.deduped_display_status_totals(host_status_totals, item_status_totals)
 
     # implement these yourself!
-    def deduped_display_status_totals(self, status_totals: dict[str, str]):
+    def deduped_display_status_totals(
+        self, host_status_totals: dict[str, int], item_status_totals: dict[str, str]
+    ):
         """
         status_totals: dictionary from status to a string representing the total number of runners
         or runner items that have that status. the total is usually digits, but it will have
