@@ -9,8 +9,10 @@ from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.inventory.host import Host
 from ansible.utils.color import stringc
+from ansible.utils.display import Display
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
 DOCUMENTATION = r"""
@@ -38,12 +40,14 @@ DOCUMENTATION = r"""
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
     * if at least one item in a loop returns a failure, the result for the loop as whole will be
-      truncated to just the 'msg' property. This avoids dumping out all of the data for every
-      item in the loop.
+      truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
+      item in the loop. 'item_statuses' is a simple overview of all the items.
   author: Simon Leary
   extends_documentation_fragment:
     default_callback
 """
+
+display = Display()
 
 
 def _hash_object(x) -> str:
@@ -51,14 +55,35 @@ def _hash_object(x) -> str:
     return hashlib.md5(json_bytes).hexdigest()
 
 
-def _remove_word_from_values(word: str, x: dict) -> dict:
-    output = {}
-    for key, val in x.items():
-        if isinstance(val, str):
-            output[key] = re.sub(rf"\b{re.escape(word)}\b", "", val)
+def _anonymize_result(hostname: str, result: dict) -> dict:
+    """
+    remove the "item" key from result
+    remove hostname from any string result.values() or string result.values().values()
+    if result has an item, remove that item from any string result.values() or string result.values().values()
+    case insensitive
+    """
+
+    def anonymize_string(x: str) -> str:
+        if "item" in result:
+            replace_me = rf"\b({re.escape(hostname)}|{re.escape(to_text(result["item"]))})\b"
         else:
-            output[key] = val
-    return output
+            replace_me = rf"\b{re.escape(hostname)}\b"
+        if not isinstance(x, str):
+            display.debug(
+                f'unable to anonymize, not a string: "{to_text(val)}" of type "{type(val)}"'
+            )
+            return x
+        return re.sub(replace_me, "ANONYMOUS", x, flags=re.IGNORECASE)
+
+    anonymous_result = {}
+    for key, val in result.items():
+        if key == "item":
+            continue
+        if isinstance(val, dict):
+            anonymous_result[key] = {k: anonymize_string(v) for k, v in val.items()}
+        else:
+            anonymous_result[key] = anonymize_string(val)
+    return anonymous_result
 
 
 class CallbackModule(DefaultCallback):
@@ -85,10 +110,10 @@ class CallbackModule(DefaultCallback):
         self.running_hosts = None
         self.diff_hash2hostnames = None
         self.diff_hash2diff = None
-        self.unknown_loop_size = None
+        self.task_is_loop = None
         self.results_printed = None
-        self.task_item_failure_already_reported = None
         self.task_end_done = None
+        self.hostname2loop_item_statuses = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
@@ -127,20 +152,17 @@ class CallbackModule(DefaultCallback):
         self.diff_hash2hostnames = {}
         del self.diff_hash2diff
         self.diff_hash2diff = {}
-        self.unknown_loop_size = False
+        self.task_is_loop = bool(task.loop)
         del self.results_printed
         self.results_printed = {}
-        del self.task_item_failure_already_reported
-        self.task_item_failure_already_reported = False
+        del self.hostname2loop_item_statuses
+        self.hostname2loop_item_statuses = {}
         self.task_end_done = False
         self.deduped_task_start(task, prefix)
 
     def v2_runner_on_start(self, host: Host, task: Task):
         hostname = host.get_name()
-        # task.loop is still literal and has not been evaluated/expanded yet
-        if task.loop:
-            self.unknown_loop_size = True
-        else:
+        if not task.loop:
             self.running_hosts.add(hostname)
         self._display_status_totals()
 
@@ -171,32 +193,46 @@ class CallbackModule(DefaultCallback):
             sorted_diffs_and_hostnames.append((diff, hostnames))
         self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
 
-    def _host_with_already_printed_result(self, result: dict, anonymous_result: dict) -> str | None:
-        for hostname, (past_result, past_anon_result) in self.results_printed.items():
-            if result == past_result or anonymous_result == past_anon_result:
-                return hostname
+    def _duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
+        """
+        return value is either a hostname or "{hostname} (item={item})" or None
+        """
+        for hostname, host_results_printed in self.results_printed.items():
+            for printed_result, printed_anonymous_result in host_results_printed:
+                if (result == printed_result) or (anonymous_result == printed_anonymous_result):
+                    if "item" in printed_result:
+                        return f"{hostname} (item={printed_result["item"]})"
+                    else:
+                        return hostname
         return None
 
     def _runner_on_completed(self, result: TaskResult, status: str):
+        display.v(f"{status}: {json.dumps(result._result)}")
         hostname = result._host.get_name()
-        anonymous_result = _remove_word_from_values(hostname, result._result)
-        already_printed_host = self._host_with_already_printed_result(
-            result._result, anonymous_result
-        )
-        if "item" not in result._result and self.task_item_failure_already_reported:
-            self._display.debug(
-                f"entire-loop result truncated to just 'msg' since one of the loop items already reported an error: {json.dumps(result._result)}"
+        anonymous_result = _anonymize_result(hostname, result._result)
+        duplicate_of = self._duplicate_result_of(result._result, anonymous_result)
+        if (
+            self.task_is_loop
+            and "item" not in result._result
+            and "failed" in self.hostname2loop_item_statuses[hostname].values()
+        ):
+            display.debug(
+                f"task result truncated to just 'msg' (and 'item_statuses' added) since one of the loop items already reported an error"
             )
-            result._result = {"msg": result._result["msg"]}
-        self.deduped_runner_end(result, status, already_printed_host)
-        self.results_printed[hostname] = [result._result, anonymous_result]
-        if status == "failed" and "item" in result._result:
-            self.task_item_failure_already_reported = True
-        if not self.unknown_loop_size:
+            result._result = {
+                "msg": result._result["msg"],
+                "item_statuses": self.hostname2loop_item_statuses[hostname],
+            }
+        self.deduped_runner_end(result, status, duplicate_of)
+        self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
+        if "item" in result._result:
+            item_str = to_text(result._result["item"])
+            self.hostname2loop_item_statuses.setdefault(hostname, {})[item_str] = status
+        if not self.task_is_loop:
             try:
                 self.running_hosts.remove(hostname)
             except KeyError:
-                self._display.warning(
+                display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
         self.status2hostnames[status].append(hostname)
@@ -270,7 +306,7 @@ class CallbackModule(DefaultCallback):
         # if I knew the length of the loop I could add the same host multiple times so that
         # it could be removed multiple times, but I don't because the loop variable has not
         # been evaluated.
-        if self.unknown_loop_size:
+        if self.task_is_loop:
             status_totals["running"] = "?"
         else:
             status_totals["running"] = len(self.running_hosts)
