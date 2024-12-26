@@ -214,7 +214,7 @@ class CallbackModule(DefaultCallback):
         if (
             self.task_is_loop
             and "item" not in result._result
-            and "failed" in self.hostname2loop_item_statuses[hostname].values()
+            and "failed" in self.hostname2loop_item_statuses.get(hostname, {}).values()
         ):
             display.debug(
                 f"task result truncated to just 'msg' (and 'item_statuses' added) since one of the loop items already reported an error"
