@@ -152,12 +152,12 @@ class CallbackModule(DefaultCallback):
         self.diff_hash2hostnames = {}
         del self.diff_hash2diff
         self.diff_hash2diff = {}
-        self.task_is_loop = bool(task.loop)
         del self.results_printed
         self.results_printed = {}
         del self.hostname2loop_item_statuses
         self.hostname2loop_item_statuses = {}
         self.task_end_done = False
+        self.task_is_loop = bool(task.loop)
         self.deduped_task_start(task, prefix)
 
     def v2_runner_on_start(self, host: Host, task: Task):
