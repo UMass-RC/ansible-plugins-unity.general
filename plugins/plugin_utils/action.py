@@ -1,8 +1,8 @@
 def validate_args(
-    args: dict[str, any],
+    args: dict[str, object],
     optional: list[str] = [],
     required: list[str] = [],
-    types: dict[str, list[any]] = {},
+    types: dict[str, list[object]] = {},
     allow_extra_args=False,
 ) -> list[str]:
     """
