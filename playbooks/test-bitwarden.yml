@@ -1,0 +1,31 @@
+- name: play
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: print plaintext secret
+      debug:
+        msg: "{{ lookup('unity.general.bitwarden', 'deleteme', field='notes') }}"
+    - name: pretend to write plaintext secret to file
+      unity.general.return_args:
+        changed: true
+        diff:
+          - before: null
+            after: "{{ lookup('unity.general.bitwarden', 'deleteme', field='notes') }}"
+          - before:
+              path: /nonexistent
+              state: absent
+            after:
+              path: /nonexistent
+              state: present
+    - name: write binary secret to file
+      unity.general.bitwarden_copy_attachment:
+        item_name: deleteme
+        attachment_filename: deleteme
+        dest: /tmp/deleteme
+        owner: "{{ lookup('env', 'USER') }}"
+        group: "{{ lookup('pipe', 'groups').split()[0] }}"
+        mode: "0600"
+    - name: delete file
+      ansible.builtin.file:
+        path: /tmp/deleteme
+        state: absent

@@ -3,11 +3,13 @@ class ModuleDocFragment(object):
       requirements:
         - linux or macos
         - "for linux: /dev/shm/ must exist"
-        - "for macos: L(TmpDisk,https://github.com/imothee/tmpdisk)"
-        - "for macos: ~/tmpdisk/shm must be created with tmpdisk"
+        - "for macOS: L(TmpDisk,https://github.com/imothee/tmpdisk)"
+        - "for macOS: ~/tmpdisk/shm must be created with tmpdisk"
       options:
         cache_timeout_seconds:
-          description: cache will be truncated if its mtime is older than this
+          description: |
+            cache will be truncated if its mtime is older than this.
+            negative number means never timeout.
           type: int
           default: 3600
           ini:
@@ -24,12 +26,16 @@ class ModuleDocFragment(object):
               key: enable
           env:
             - name: RAMDISK_CACHE_ENABLE
-        cache_path:
-          description: ignore /dev/shm or ~/tmpdisk/shm and create tempfiles in a different directory
+        ramdisk_cache_path:
+          description: |
+            path to the ramdisk cache for cached lookups.
+            defaults to /dev/shm/ on linux and ~/.tmpdisk/shm on macOS. see requirements.
           type: str
-          # since I want to be able to access this value without actually invoking the plugin
-          # properly, I use os.environ instead of get_option() for this option
-          # so it can't be configured via ini
+          ini:
+            - section: ramdisk_cache
+              key: path
           env:
             - name: RAMDISK_CACHE_PATH
+      extends_documentation_fragment:
+      - unity.general.ramdisk_cache_path
     """

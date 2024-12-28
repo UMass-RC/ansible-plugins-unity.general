@@ -63,30 +63,23 @@ DOCUMENTATION = r"""
       required: true
       description: bot user oauth token
       env:
-        - name: SLACK_BOT_USER_OAUTH_TOKEN
+        - name: CALLBACK_SLACK_BOT_USER_OAUTH_TOKEN
       ini:
         - section: callback_slack
           key: bot_user_oauth_token
     channel_id:
       required: true
-      description: Slack room to post in.
+      description: 'slack channel ID. example: "702HMQCE5NQ"'
       env:
-        - name: SLACK_CHANNEL
+        - name: CALLBACK_SLACK_CHANNEL_ID
       ini:
         - section: callback_slack
           key: channel_id
-    redact_bitwarden_secrets:
-      default: true
-      type: bool
-      description: check bitwarden cache file for secrets and remove them from slack output if they exist
-      env:
-        - name: SLACK_CALLBACK_REDACT_BITWARDEN_SECRETS
-      ini:
-        - section: callback_slack
-          key: redact_bitwarden_secrets
   author: Simon Leary
   extends_documentation_fragment:
-    default_callback
+  - default_callback
+  - unity.general.diff
+  - unity.general.ramdisk_cache
 """
 
 # https://stackoverflow.com/a/14693789/18696276
@@ -124,6 +117,10 @@ class CallbackModule(DedupeCallback):
 
         self._text_buffer = []
         atexit.register(self.send_buffer_to_slack)
+
+    # https://github.com/ansible/ansible/pull/84496
+    def get_options(self):
+        return self._plugin_options
 
     def set_options(self, task_keys=None, var_options=None, direct=None):
         super(CallbackModule, self).set_options(
@@ -203,12 +200,7 @@ class CallbackModule(DedupeCallback):
                 for x in ["before", "after"]:
                     if x in diff and not isinstance(x, str):
                         diff[x] = self._serialize_diff(diff[x])
-                self._text_buffer.append(
-                    format_result_diff(
-                        diff,
-                        do_redact_bitwarden_secrets=self.get_option("redact_bitwarden_secrets"),
-                    ).strip()
-                )
+                self._text_buffer.append(format_result_diff(diff, self.get_options()).strip())
             self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
         for status, hostnames in status2hostnames.items():
             if status == "changed":

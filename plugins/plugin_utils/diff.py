@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import shutil
 import datetime
@@ -11,42 +10,55 @@ from ansible.utils.color import stringc
 from ansible.utils.display import Display
 from ansible.plugins.callback.default import CallbackModule
 
+from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
+    get_cache_path,
+    lock_cache_open_file,
+    unlock_cache_close_file,
+)
+
+"""
+to use these utilities in a plugin, you must extend the following doc fragments:
+  - unity.general.diff
+  - unity.general.ramdisk_cache (if using diff_redact_bitwarden)
+"""
+
 display = Display()
 
 if shutil.which("diffr"):
     DO_DIFFR = True
 else:
-    print("unable to locate the diffr command. diffs will not be highlighted.", file=sys.stderr)
+    display.warning("unable to locate the `diffr` command. diffs will not be highlighted.")
     DO_DIFFR = False
 
 
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
-    get_cache_path,
-)
-
-
-def _get_bitwarden_secrets():
-    bitwarden_cache_path = get_cache_path("bitwarden")
-    if not os.path.isfile(bitwarden_cache_path):
+def _get_bitwarden_secrets(plugin_options: dict):
+    """
+    plugin_options is the result from AnsiblePlugin.get_options()
+    """
+    bitwarden_cache_path = get_cache_path("bitwarden", plugin_options)
+    cache_file = lock_cache_open_file(bitwarden_cache_path, plugin_options)
+    try:
+        bitwarden_cache = json.load(cache_file)
+    except json.JSONDecodeError as e:
+        display.debug(f"assuming bitwarden cache is empty due to json decode error: {str(e)}")
         return []
-    with open(bitwarden_cache_path, "r") as fp:
-        try:
-            bitwarden_cache = json.load(fp)
-        except json.JSONDecodeError:
-            return []
-        secrets = []
-        for value in bitwarden_cache.values():
-            if isinstance(value, list):
-                secrets += value
-            else:
-                secrets.append(value)
-        return [x.strip() for x in secrets]
+    secrets = []
+    for value in bitwarden_cache.values():
+        if isinstance(value, list):
+            secrets += value
+        else:
+            secrets.append(value)
+    unlock_cache_close_file(cache_file)
+    return [x.strip() for x in secrets]
 
 
-def _redact_bitwarden_secrets(content: str) -> str:
+def _redact_bitwarden_secrets(content: str, plugin_options: dict) -> str:
+    """
+    plugin_options is the result from AnsiblePlugin.get_options()
+    """
     num_secrets_redacted = 0
     start_time = datetime.datetime.now()
-    for secret in _get_bitwarden_secrets():
+    for secret in _get_bitwarden_secrets(plugin_options):
         if secret in content:
             content = content.replace(secret, "REDACTED")
             num_secrets_redacted += 1
@@ -57,7 +69,10 @@ def _redact_bitwarden_secrets(content: str) -> str:
     return content
 
 
-def format_result_diff(diff: dict, do_redact_bitwarden_secrets=False) -> str:
+def format_result_diff(diff: dict, plugin_options: dict) -> str:
+    """
+    plugin_options is the result from AnsiblePlugin.get_options()
+    """
     output = ""
     if "before_header" in diff or "after_header" in diff:
         output += stringc(
@@ -99,9 +114,9 @@ def format_result_diff(diff: dict, do_redact_bitwarden_secrets=False) -> str:
                 "diff skipped: before and after are equal\n",
                 C.COLOR_CHANGED,
             )
-        if do_redact_bitwarden_secrets:
+        if plugin_options.get("diff_redact_bitwarden", False) is True:
             for x in ["before", "after"]:
-                diff[x] = _redact_bitwarden_secrets(diff[x])
+                diff[x] = _redact_bitwarden_secrets(diff[x], plugin_options)
         before_read_fd, before_write_fd = os.pipe()
         after_read_fd, after_write_fd = os.pipe()
         diff_proc = subprocess.Popen(

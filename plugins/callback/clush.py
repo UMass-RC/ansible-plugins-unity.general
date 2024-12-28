@@ -58,7 +58,9 @@ DOCUMENTATION = r"""
       if stderr/stdout exist, respectively.
   author: Simon Leary
   extends_documentation_fragment:
-    default_callback
+    - default_callback
+    - unity.general.diff
+    - unity.general.ramdisk_cache
 """
 
 _STATUS_COLORS = {
@@ -90,6 +92,10 @@ class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "clush"
+
+    # https://github.com/ansible/ansible/pull/84496
+    def get_options(self):
+        return self._plugin_options
 
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
@@ -199,7 +205,7 @@ class CallbackModule(DedupeCallback):
     ):
         self._clear_line()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_result_diff(diff))
+            self._display.display(format_result_diff(diff, self.get_options()))
             self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":

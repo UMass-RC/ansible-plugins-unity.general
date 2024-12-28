@@ -87,6 +87,10 @@ class CallbackModule(DedupeCallback):
         super(CallbackModule, self).__init__()
         self._display_buffer = []
 
+    # https://github.com/ansible/ansible/pull/84496
+    def get_options(self):
+        return self._plugin_options
+
     def _flush_display_buffer(self):
         if self._display_buffer:
             self._display.display("\n".join(self._display_buffer))
@@ -140,7 +144,7 @@ class CallbackModule(DedupeCallback):
     ):
         self._flush_display_buffer()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_result_diff(diff))
+            self._display.display(format_result_diff(diff, self.get_options()))
             self._display.display(f"changed: {format_hostnames(hostnames)}")
 
     def deduped_playbook_stats(self, stats: AggregateStats):

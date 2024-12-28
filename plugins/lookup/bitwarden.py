@@ -34,18 +34,19 @@ DOCUMENTATION = """
     - plugin: community.general.bitwarden
       plugin_type: lookup
   extends_documentation_fragment:
-    - unity.general.ramdisk_cached_lookup
+    - unity.general.ramdisk_cache
 """
 
 import hashlib
 
-from ansible.plugins.loader import lookup_loader
 from ansible.errors import AnsibleError
 from ansible.utils.display import Display
+from ansible.plugins.lookup import LookupBase
+from ansible.plugins.loader import lookup_loader
 
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
-    RamDiskCachedLookupBase,
+from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
     get_cache_path,
+    cache_lambda,
 )
 
 display = Display()
@@ -72,9 +73,20 @@ def make_shell_command(terms, **kwargs) -> str:
 
 
 def do_bitwarden_lookup(terms, variables, **kwargs):
-    display.v(f"running bitwarden lookup with terms: {terms} and kwargs: {kwargs}")
-    results = lookup_loader.get("community.general.bitwarden").run(terms, variables, **kwargs)
-    display.v("done.")
+    help = "\n".join(
+        [
+            'make sure that your item is in the "Ansible" bitwarden collection, or specify a different collection ID.',
+            "also make sure you run `bw sync` to get recent changes from upstream.",
+            "feel free to double check my work by using the bitwarden CLI yourself:",
+            make_shell_command(terms, **kwargs),
+        ]
+    )
+    try:
+        display.v(f"running bitwarden lookup with terms: {terms} and kwargs: {kwargs}")
+        results = lookup_loader.get("community.general.bitwarden").run(terms, variables, **kwargs)
+        display.v("done.")
+    except AnsibleError as e:
+        raise AnsibleError(f"{e}\n{help}") from e
     # results is a nested list
     # the first index represents each term in terms
     # the second index represents each item that matches that term
@@ -82,36 +94,15 @@ def do_bitwarden_lookup(terms, variables, **kwargs):
     for result_list in results:
         flat_results += result_list
     if len(flat_results) == 0:
-        raise AnsibleError(
-            "\n".join(
-                [
-                    "",
-                    "no results found!",
-                    'make sure that your item is in the "Ansible" bitwarden collection, or specify a different collection ID.',
-                    "also make sure you run `bw sync` to get recent changes from upstream.",
-                    "feel free to double check my work by using the bitwarden CLI yourself:",
-                    make_shell_command(terms, **kwargs),
-                ]
-            )
-        )
+        raise AnsibleError(f"no results found!\n{help}")
 
     if len(flat_results) > 1:
-        raise AnsibleError(
-            "\n".join(
-                [
-                    "",
-                    "expected single result but multiple results found!",
-                    "to use multiple results, use the `community.general.bitwarden` lookup.",
-                    "feel free to double check my work by using the bitwarden CLI yourself:",
-                    make_shell_command(terms, **kwargs),
-                ]
-            )
-        )
+        raise AnsibleError(f"too many results!\n{help}")
     # ansible requires that lookup returns a list
     return [flat_results[0]]
 
 
-class LookupModule(RamDiskCachedLookupBase):
+class LookupModule(LookupBase):
 
     def run(self, terms, variables=None, **kwargs):
         self.set_options(direct=kwargs)
@@ -123,8 +114,10 @@ class LookupModule(RamDiskCachedLookupBase):
             kwargs["collection_id"] = default_collection_id
 
         cache_key = hashlib.sha1((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
-        return self.cache_lambda(
+        my_options = self.get_options()
+        return cache_lambda(
             cache_key,
-            get_cache_path("bitwarden"),
+            get_cache_path("bitwarden", my_options),
             lambda: do_bitwarden_lookup(terms, variables, **kwargs),
+            my_options,
         )

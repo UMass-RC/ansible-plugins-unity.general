@@ -30,27 +30,28 @@ DOCUMENTATION = """
     - plugin: unity.general.bitwarden
       plugin_type: lookup
   extends_documentation_fragment:
-    - unity.general.ramdisk_cached_lookup
+    - unity.general.ramdisk_cache
 """
 
 import os
 import base64
 import subprocess
 
-from ansible.plugins.loader import lookup_loader
 from ansible.utils.display import Display
+from ansible.plugins.lookup import LookupBase
+from ansible.plugins.loader import lookup_loader
 
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cached_lookup import (
-    RamDiskCachedLookupBase,
+from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
     get_cache_path,
+    cache_lambda,
 )
 
 display = Display()
 
 
-class LookupModule(RamDiskCachedLookupBase):
+class LookupModule(LookupBase):
     def get_attachment_base64(self, bw_item_id, bw_attachment_filename) -> str:
-        tempfile_path = get_cache_path(f"{bw_item_id}.{bw_attachment_filename}")
+        tempfile_path = get_cache_path(f"{bw_item_id}.{bw_attachment_filename}", self.get_options())
         open(tempfile_path, "w").close()
         os.chmod(tempfile_path, 0o600)
         display.v(f"got tempfile for attachment download: '{tempfile_path}'.")
@@ -85,10 +86,11 @@ class LookupModule(RamDiskCachedLookupBase):
             [bw_item_name], variables, field="id"
         )[0]
 
-        output = self.cache_lambda(
+        output = cache_lambda(
             f"{bw_item_id}.{bw_attachment_filename}",
-            get_cache_path("bitwarden"),
+            get_cache_path("bitwarden", self.get_options()),
             lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
+            self.get_options(),
         )
 
         # ansible requires that lookup returns a list
