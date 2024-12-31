@@ -53,8 +53,6 @@ DOCUMENTATION = r"""
       but this callback plugin will only show the delegator.
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
-    * you can prevent a certain task from being logged by setting `vars: _slack_no_log=true`
-      or by setting _slack_no_log: true in the task result dictionary
   requirements:
       - whitelist in configuration
       - slack-sdk (python library)
@@ -146,17 +144,6 @@ class CallbackModule(DedupeCallback):
         if self._disabled:
             return
         hostname = result._host.get_name()
-        if (
-            result._task.vars.get("_slack_no_log", False) is True
-            or result._result.get("_slack_no_log", False) is True
-        ) and "diff" in result._result:
-            diff_or_diffs = result._result["diff"]
-            if not isinstance(diff_or_diffs, list):
-                diffs = [diff_or_diffs]
-            else:
-                diffs = diff_or_diffs
-            for diff in diffs:
-                diff["_slack_no_log"] = True
         if status not in STATUSES_PRINT_IMMEDIATELY:
             return
         if dupe_of is not None:
@@ -194,12 +181,9 @@ class CallbackModule(DedupeCallback):
         if self._disabled:
             return
         for diff, hostnames in sorted_diffs_and_hostnames:
-            if diff.get("_slack_no_log", False) is True:
-                self._text_buffer.append("diff redacted due to _slack_no_log")
-            else:
-                for x in ["before", "after"]:
-                    if x in diff and not isinstance(x, str):
-                        diff[x] = self._serialize_diff(diff[x])
+            for x in ["before", "after"]:
+                if x in diff and not isinstance(x, str):
+                    diff[x] = self._serialize_diff(diff[x])
                 self._text_buffer.append(format_result_diff(diff, self.get_options()).strip())
             self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
         for status, hostnames in status2hostnames.items():

@@ -38,7 +38,6 @@ class ActionModule(ActionBase):
                 "mode": mode,
             },
             task_vars=task_vars,
+            no_log=True,
         )
-
-        result["_slack_no_log"] = True
         return result
