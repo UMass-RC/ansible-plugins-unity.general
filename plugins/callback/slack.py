@@ -16,7 +16,6 @@ from ansible.module_utils.common.text.converters import to_text
 
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
@@ -104,7 +103,7 @@ def _banner(x, banner_len=80) -> str:
     return x + ("*" * (banner_len - len(x)))
 
 
-class CallbackModule(DedupeCallback, DiffCallback):
+class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.slack"
