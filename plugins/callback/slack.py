@@ -19,6 +19,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.hostlist import form
 from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
 
 display = Display()
 
@@ -71,6 +72,15 @@ DOCUMENTATION = r"""
       ini:
         - section: callback_slack
           key: channel_id
+    redact_bitwarden:
+      description: check bitwarden cache file for secrets and remove them from task results
+      type: bool
+      default: false
+      ini:
+      - section: callback_slack
+        key: redact_bitwarden
+      env:
+      - name: CALLBACK_SLACK_REDACT_BITWARDEN
   author: Simon Leary
   extends_documentation_fragment:
   - default_callback
@@ -144,6 +154,8 @@ class CallbackModule(DedupeCallback, DiffCallback):
         hostname = result._host.get_name()
         if status not in STATUSES_PRINT_IMMEDIATELY:
             return
+        if self.get_option("redact_bitwarden"):
+            result._result = bitwarden_redact(result._result, self.get_options())
         if dupe_of is not None:
             msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
         # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
@@ -178,6 +190,11 @@ class CallbackModule(DedupeCallback, DiffCallback):
     ):
         if self._disabled:
             return
+        if self.get_option("redact_bitwarden"):
+            sorted_diffs_and_hostnames = [
+                (bitwarden_redact(diff, self.get_options()), hostname)
+                for diff, hostname in sorted_diffs_and_hostnames
+            ]
         for diff, hostnames in sorted_diffs_and_hostnames:
             for x in ["before", "after"]:
                 if x in diff and not isinstance(x, str):
