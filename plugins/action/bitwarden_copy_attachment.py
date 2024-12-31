@@ -38,6 +38,6 @@ class ActionModule(ActionBase):
                 "mode": mode,
             },
             task_vars=task_vars,
-            no_log=True,
         )
+        result["_ansible_no_log"] = True
         return result
