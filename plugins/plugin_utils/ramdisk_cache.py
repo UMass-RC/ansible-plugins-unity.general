@@ -37,7 +37,7 @@ def get_cache_path(name: str, plugin_options: dict) -> str:
     the "ramdisk_cache_path" plugin option can override "/dev/shm" in the above example
 
     plugin_options is the result from AnsiblePlugin.get_options()
-    make sure you extended the ramdisk_cache doc fragment if you're using this function!
+    your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
     if plugin_options["ramdisk_cache_path"] is not None:
         ramdisk_path = plugin_options["ramdisk_cache_path"]
@@ -74,7 +74,7 @@ def lock_cache_open_file(cache_path: str, plugin_options: dict):
     return the file
 
     plugin_options is the result from AnsiblePlugin.get_options()
-    make sure you extended the ramdisk_cache doc fragment if you're using this function!
+    your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
     if plugin_options["enable_cache"] is False:
         raise RuntimeError("cannot lock/open cache because caching is disabled!")
@@ -112,7 +112,7 @@ def cache_lambda(key, cache_path: str, lambda_func, plugin_options: dict):
     lambda_func: function that returns value for key
 
     plugin_options is the result from AnsiblePlugin.get_options()
-    make sure you extended the ramdisk_cache doc fragment if you're using this function!
+    your plugin must extend the unity.general.ramdisk_cache documentation fragment
 
     both the key and the return value of the lambda_func must be JSON serializable!
     """
