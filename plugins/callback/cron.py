@@ -3,11 +3,8 @@ from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    CallbackModule as DedupeCallback,
-)
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 

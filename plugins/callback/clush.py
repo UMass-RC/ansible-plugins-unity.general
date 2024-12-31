@@ -5,16 +5,14 @@ from ansible import constants as C
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
-from ansible.utils.color import stringc, colorize, hostcolor
 from ansible.executor.task_result import TaskResult
+from ansible.utils.color import stringc, colorize, hostcolor
 
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    CallbackModule as DedupeCallback,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 
 DOCUMENTATION = r"""
   name: clush
@@ -59,7 +57,7 @@ DOCUMENTATION = r"""
   author: Simon Leary
   extends_documentation_fragment:
     - default_callback
-    - unity.general.diff
+    - unity.general.diff_callback
     - unity.general.ramdisk_cache
 """
 
@@ -88,7 +86,7 @@ def _tty_width() -> int:
     return output
 
 
-class CallbackModule(DedupeCallback):
+class CallbackModule(DedupeCallback, DiffCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "clush"
@@ -205,7 +203,7 @@ class CallbackModule(DedupeCallback):
     ):
         self._clear_line()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_result_diff(diff, self.get_options()))
+            self._display.display(self._get_diff(diff))
             self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":

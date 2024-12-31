@@ -14,13 +14,11 @@ from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.module_utils.common.text.converters import to_text
 
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    CallbackModule as DedupeCallback,
-)
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
-from ansible_collections.unity.general.plugins.plugin_utils.diff import format_result_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 
 display = Display()
 
@@ -76,7 +74,7 @@ DOCUMENTATION = r"""
   author: Simon Leary
   extends_documentation_fragment:
   - default_callback
-  - unity.general.diff
+  - unity.general.diff_callback
   - unity.general.ramdisk_cache
 """
 
@@ -96,7 +94,7 @@ def _banner(x, banner_len=80) -> str:
     return x + ("*" * (banner_len - len(x)))
 
 
-class CallbackModule(DedupeCallback):
+class CallbackModule(DedupeCallback, DiffCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.slack"
@@ -184,7 +182,7 @@ class CallbackModule(DedupeCallback):
             for x in ["before", "after"]:
                 if x in diff and not isinstance(x, str):
                     diff[x] = self._serialize_diff(diff[x])
-                self._text_buffer.append(format_result_diff(diff, self.get_options()).strip())
+                self._text_buffer.append(self._get_diff(diff).strip())
             self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
         for status, hostnames in status2hostnames.items():
             if status == "changed":
