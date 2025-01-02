@@ -67,14 +67,6 @@ class CallbackModule(CallbackModule):
     def get_options(self):
         return self._plugin_options
 
-    def set_options(self, task_keys=None, var_options=None, direct=None):
-        super(CallbackModule, self).set_options(
-            task_keys=task_keys, var_options=var_options, direct=direct
-        )
-        self.bot_user_oauth_token = self.get_option("bot_user_oauth_token")
-        self.channel_id = self.get_option("channel_id")
-        self._web_client = WebClient(token=self.get_option("bot_user_oauth_token"))
-
     def v2_playbook_on_stats(self, stats: AggregateStats):
         report_lines = get_report_lines(self.get_options())
         flush_report_lines(self.get_options())
@@ -83,7 +75,8 @@ class CallbackModule(CallbackModule):
             return
         report = "\n".join(report_lines)
         try:
-            self._web_client.chat_postMessage(channel=self.channel_id, text=report)
+            web_client = WebClient(token=self.get_option("bot_user_oauth_token"))
+            web_client.chat_postMessage(channel=self.get_option("channel_id"), text=report)
         except SlackApiError as e:
             display.warning(f"failed to send message to slack! {to_text(e)}\n")
 
