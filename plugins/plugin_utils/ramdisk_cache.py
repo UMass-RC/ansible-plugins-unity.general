@@ -100,6 +100,7 @@ def lock_cache_open_file(cache_path: str, plugin_options: dict):
 
 def unlock_cache_close_file(cache_file) -> None:
     fcntl.flock(cache_file, fcntl.LOCK_UN)
+    cache_file.flush()
     cache_file.close()
 
 
