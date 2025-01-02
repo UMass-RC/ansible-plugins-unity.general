@@ -1,5 +1,3 @@
-import re
-
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -48,23 +46,10 @@ DOCUMENTATION = r"""
       ini:
         - section: callback_slack
           key: channel_id
-    redact_bitwarden:
-      description: check bitwarden cache file for secrets and remove them from task results
-      type: bool
-      default: false
-      ini:
-      - section: callback_slack
-        key: redact_bitwarden
-      env:
-      - name: CALLBACK_SLACK_REDACT_BITWARDEN
   author: Simon Leary
   extends_documentation_fragment:
-  - default_callback
   - unity.general.ramdisk_cache
 """
-
-# https://stackoverflow.com/a/14693789/18696276
-ANSI_COLOR_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 class CallbackModule(CallbackModule):
