@@ -1,8 +1,10 @@
 import os
+import sys
 import socket
 import requests
 import subprocess
 from io import BytesIO
+from requests.exceptions import SSLError
 from datetime import datetime, timezone
 
 from ansible.playbook.task import Task
@@ -211,10 +213,19 @@ class CallbackModule(DedupeCallback, DiffCallback):
             stderr=subprocess.STDOUT,
         )
         html_bytes, _ = aha_proc.communicate(input=bytes(content, "utf8"))
-        response = requests.post(
-            self.get_option("post_url"),
-            files={"file": (filename, BytesIO(html_bytes), "text/html")},
-        )
+        try:
+            response = requests.post(
+                self.get_option("post_url"),
+                files={"file": (filename, BytesIO(html_bytes), "text/html")},
+            )
+        except SSLError as e:
+            if "SSLCertVerificationError" in str(e):
+                raise type(e)(
+                    'http_post: failed to verify SSL certificate of "%s". You might want to set REQUESTS_CA_BUNDLE=/path/to/root-ca-cert in your .envrc using direnv. %s'
+                    % (self.get_option("post_url"), str(e))
+                ).with_traceback(sys.exc_info()[2])
+            else:
+                raise
         response.raise_for_status()
         if self.has_option("link_for_slack"):
             link = self.get_option("link_for_slack").format(filename=filename)
