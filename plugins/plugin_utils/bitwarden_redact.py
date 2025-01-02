@@ -45,5 +45,7 @@ def bitwarden_redact(x: object, plugin_options: dict) -> str:
             x_json_str = x_json_str.replace(secret, "REDACTED")
             num_secrets_redacted += 1
     seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
-    display.v(f"it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} secrets.")
+    display.v(
+        f"it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} bitwarden secrets from a string of length {len(x)}."
+    )
     return json.loads(x_json_str)
