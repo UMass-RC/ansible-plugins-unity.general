@@ -1,7 +1,6 @@
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-import re
 
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
@@ -74,13 +73,7 @@ class CallbackModule(CallbackModule):
         )
         self.bot_user_oauth_token = self.get_option("bot_user_oauth_token")
         self.channel_id = self.get_option("channel_id")
-        if self.bot_user_oauth_token is None:
-            self._disabled = True
-            display.warning(
-                "bot user oauth token was not provided. this can be provided using the `SLACK_BOT_USER_OAUTH_TOKEN` environment variable."
-            )
-        else:
-            self._web_client = WebClient(token=self.bot_user_oauth_token)
+        self._web_client = WebClient(token=self.get_option("bot_user_oauth_token"))
 
     def v2_playbook_on_stats(self, stats: AggregateStats):
         report_lines = get_report_lines(self.get_options())
