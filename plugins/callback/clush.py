@@ -16,7 +16,9 @@ from ansible.playbook.included_file import IncludedFile
 from ansible.utils.color import stringc, colorize, hostcolor
 
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.format_diff import format_diff
+from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
+    FormatDiffCallback,
+)
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 
 
@@ -92,7 +94,7 @@ def _tty_width() -> int:
     return output
 
 
-class CallbackModule(DedupeCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "clush"
@@ -202,7 +204,8 @@ class CallbackModule(DedupeCallback):
     ):
         self._display.display("\n")
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_diff(self._get_diff(diff), self.get_options()))
+            # self._display.display(format_diff(self._get_diff(diff), self.get_options()))
+            self._display.display(self._get_diff(diff))
             self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":
