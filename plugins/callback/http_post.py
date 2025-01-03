@@ -188,9 +188,6 @@ class CallbackModule(DedupeCallback):
             link = self.get_option("link_for_slack").format(filename=filename)
             slack_report_cache.add_line(f"ansible HTML log: {link}", self.get_options())
 
-    def deduped_playbook_on_start(self, playbook):
-        self._playbook_name = os.path.basename(playbook._file_name)
-
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
@@ -259,6 +256,7 @@ class CallbackModule(DedupeCallback):
         if context.CLIARGS["check"]:
             # self._display.banner("DRY RUN")
             self._text_buffer.append("DRY RUN")
+        self._playbook_name = playbook._file_name
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self.__task_start(task, "TASK")
