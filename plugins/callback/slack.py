@@ -2,12 +2,8 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 
-from ansible.playbook.task import Task
-from ansible.playbook.play import Play
-from ansible.inventory.host import Host
 from ansible.utils.display import Display
 from ansible.executor.stats import AggregateStats
-from ansible.executor.task_result import TaskResult
 from ansible.module_utils.common.text.converters import to_text
 
 from ansible.plugins.callback.default import CallbackModule
@@ -64,7 +60,7 @@ class CallbackModule(CallbackModule):
     def get_options(self):
         return self._plugin_options
 
-    def v2_playbook_on_stats(self, stats: AggregateStats):
+    def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
         report_lines = slack_report_cache.get_lines(self.get_options())
         slack_report_cache.flush(self.get_options())
         if not report_lines:
@@ -76,42 +72,3 @@ class CallbackModule(CallbackModule):
             web_client.chat_postMessage(channel=self.get_option("channel_id"), text=report)
         except SlackApiError as e:
             display.warning(f"failed to send message to slack! {to_text(e)}\n")
-
-    def v2_playbook_on_task_start(self, task: Task, is_conditional):
-        pass
-
-    def v2_playbook_on_cleanup_task_start(self, task: Task):
-        pass
-
-    def v2_playbook_on_handler_task_start(self, task: Task):
-        pass
-
-    def v2_runner_on_start(self, host: Host, task: Task):
-        pass
-
-    def v2_runner_on_ok(self, result: TaskResult):
-        pass
-
-    def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False):
-        pass
-
-    def v2_runner_on_unreachable(self, result: TaskResult):
-        pass
-
-    def v2_runner_on_skipped(self, result: TaskResult):
-        pass
-
-    def v2_on_file_diff(self, result: TaskResult):
-        pass
-
-    def v2_runner_item_on_skipped(self, result: TaskResult):
-        pass
-
-    def v2_runner_item_on_ok(self, result: TaskResult):
-        pass
-
-    def v2_runner_item_on_failed(self, result: TaskResult):
-        pass
-
-    def v2_playbook_on_play_start(self, play: Play):
-        pass
