@@ -111,6 +111,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def has_option(self, x):
         return x in self._plugin_options and self._plugin_options[x] is not None
 
+    def deduped_runner_or_runner_item_end(self, result: TaskResult, status: str, dupe_of: str):
+        if self.get_option("redact_bitwarden"):
+            result = bitwarden_redact(result)
+        return super().deduped_runner_or_runner_item_end(result, status, dupe_of)
+
     def deduped_playbook_on_stats(self, stats):
         super(CallbackModule, self).deduped_playbook_on_stats(stats)
         if not self._display.buffer:
