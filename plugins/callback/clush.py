@@ -49,16 +49,12 @@ DOCUMENTATION = r"""
       of hosts. Else, every hostname will be printed comma-delimited.
     * when using loops, this plugin does not display the number of running runners, since the
       loop variable has not yet been templated before it is passed to this plugin.
-    * the default ansible callback displays delegated tasks in the form \"delegator -> delegatee\",
-      but this callback plugin will only show the delegator.
-    * tracebacks are now printed in full no matter what verbosity.
+    * check mode markers are always enabled
+    * errors are never printed to stderr
+    * task paths are never printed
+    * custom stats are not supported
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
-    * if at least one item in a loop returns a failure, the result for the loop as whole will be
-      truncated to just the 'msg' property. This avoids dumping out all of the data for every
-      item in the loop.
-    * since we use yaml block for multiline strings, stderr_lines / stdout_lines are deleted
-      if stderr/stdout exist, respectively.
   options:
     result_format:
       default: yaml
