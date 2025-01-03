@@ -1,12 +1,12 @@
 import subprocess
 
 from ansible.utils.display import Display
-from ansible.plugins.callback.default import CallbackModule
+from ansible.plugins.callback import CallbackBase
 
 display = Display()
 
 
-class DiffCallback(CallbackModule):
+class DiffCallbackBase(CallbackBase):
     """
     adds a wrapper around the default CallbackModule._get_diff
     allows diff formatting piped through a shell command
@@ -15,7 +15,7 @@ class DiffCallback(CallbackModule):
     """
 
     def _get_diff(self, diff_or_diffs: dict | list[dict]) -> str:
-        output = super(CallbackModule, self)._get_diff(diff_or_diffs)
+        output = super(CallbackBase, self)._get_diff(diff_or_diffs)
         formatter = self.get_option("diff_formatter")
         if formatter != "NONE":
             formatter_proc = subprocess.Popen(
