@@ -15,10 +15,8 @@ from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
 from ansible.utils.color import stringc, colorize, hostcolor
 
-from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff import format_diff
-from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 
 
@@ -59,9 +57,14 @@ DOCUMENTATION = r"""
       item in the loop.
     * since we use yaml block for multiline strings, stderr_lines / stdout_lines are deleted
       if stderr/stdout exist, respectively.
+  options:
+    result_format:
+      default: yaml
+    pretty_results:
+      default: true
   author: Simon Leary
   extends_documentation_fragment:
-    - default_callback
+    - result_format_callback
     - unity.general.format_diff
     - unity.general.ramdisk_cache
 """
@@ -78,8 +81,6 @@ _STATUS_COLORS = {
 }
 
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
-# if a runner returns a result with "msg", print only "msg" rather than the full result dictionary
-STATUSES_PRINT_MSG_ONLY = ["ok", "changed", "unreachable", "skipped", "ignored"]
 
 
 def _indent(prepend, text):
@@ -104,6 +105,11 @@ class CallbackModule(DedupeCallback):
     # https://github.com/ansible/ansible/pull/84496
     def get_options(self):
         return self._plugin_options
+
+    # def set_options(self):
+    #     # options for CallbackBase._dump_results
+    #     self.set_option("result_format", "yaml")
+    #     self.set_option("pretty_results", True)
 
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
@@ -161,28 +167,21 @@ class CallbackModule(DedupeCallback):
     def deduped_runner_or_runner_item_end(
         self, result: TaskResult, status: str, dupe_of: str | None
     ):
-        hostname = result._host.get_name()
-        self._handle_exception(result._result)
-        self._handle_warnings(result._result)
         # ansible.builtin.debug sets verbose
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
             return
+        self._clean_results(result._result, result._task.action)
+        self._handle_exception(result._result)
+        self._handle_warnings(result._result)
         if "item" in result._result:
-            header = (
-                f"[{hostname}]: {status.upper()} (item={self._get_item_label(result._result)}) =>"
-            )
+            item = f" (item={self._get_item_label(result._result)})"
         else:
-            header = f"[{hostname}]: {status.upper()} =>"
+            item = ""
+        header = f"[{self.host_label(result)}]: {status.upper()}{item} =>"
         if dupe_of is not None:
             msg = f'{header} same result as "{dupe_of}"'
-        # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
-        elif "msg" in result._result and (
-            status in STATUSES_PRINT_MSG_ONLY or len(result._result.keys()) == 1
-        ):
-            msg = f"{header} {result._result['msg']}"
         else:
-            cleanup_result(result._result)
-            msg = f"{header}\n{_indent(" ", yaml_dump(result._result))}"
+            msg = f"{header}{self._dump_results(result._result, indent=2)}"
         self._clear_line()
         self._display.display(
             msg,
