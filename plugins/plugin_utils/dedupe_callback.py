@@ -31,7 +31,7 @@ def _anonymize_result(hostname: str, result: dict) -> dict:
     case insensitive
     """
 
-    def anonymize_string(x: str) -> str:
+    def anonymize_if_string(x: str) -> str:
         if "item" in result:
             replace_me = rf"\b({re.escape(hostname)}|{re.escape(to_text(result["item"]))})\b"
         else:
@@ -48,9 +48,9 @@ def _anonymize_result(hostname: str, result: dict) -> dict:
         if key == "item":
             continue
         if isinstance(val, dict):
-            anonymous_result[key] = {k: anonymize_string(v) for k, v in val.items()}
+            anonymous_result[key] = {k: anonymize_if_string(v) for k, v in val.items()}
         else:
-            anonymous_result[key] = anonymize_string(val)
+            anonymous_result[key] = anonymize_if_string(val)
     return anonymous_result
 
 
