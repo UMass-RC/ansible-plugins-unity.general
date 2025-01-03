@@ -32,4 +32,4 @@ class FormatDiffCallback(CallbackBase):
             except subprocess.CalledProcessError as e:
                 display.warning(f'diff formatter "{formatter}" failed! {e}')
                 return normal_diff
-        return output
+        return output.strip()

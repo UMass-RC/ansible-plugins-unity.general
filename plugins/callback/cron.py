@@ -1,26 +1,19 @@
-from ansible import constants as C
-from ansible.playbook.task import Task
-from ansible.playbook.play import Play
-from ansible.executor.stats import AggregateStats
-from ansible.executor.task_result import TaskResult
-from ansible_collections.unity.general.plugins.plugin_utils.format_diff import format_diff
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
-from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
+from ansible_collections.unity.general.plugins.callback.deduped_default import (
+    CallbackModule as DedupedDefaultCallback,
+)
+from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
+    BufferedCallback,
+)
 
 DOCUMENTATION = r"""
   name: cron
   type: stdout
-  short_description: suitable for a cron job, with deduped output and pretty YAML
+  short_description: suitable for a cron job
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
-    * no color
-    * only warnings, changes, failures, and exceptions are printed
-    * task/play banners are withheld until something needs to be printed
-    * results are not printed right away unless verbose mode or result has errors. when they are
-      printed, they are formatted nicely with yaml
+    * nothing is printed unless one of the results is changed or failed
+    * at the end of the task, print the list of hosts that returned each status.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
       is used as the diff. Effectively, diff mode is always on.
@@ -34,116 +27,48 @@ DOCUMENTATION = r"""
       with this plugin it is now easy to find out which hosts are hanging up your playbook.
       sometimes Ansible will actually ignore this interrupt and continue running, and you just
       have to send it again.
-    * if the ClusterShell python library is available, it will be used to \"fold\" any lists
-      of hosts. Else, every hostname will be printed comma-delimited.
-    * when using loops, this plugin does not display the number of running runners, since the
-      loop variable has not yet been templated before it is passed to this plugin.
-    * the default ansible callback displays delegated tasks in the form \"delegator -> delegatee\",
-      but this callback plugin will only show the delegator.
-    * tracebacks are now printed in full no matter what verbosity.
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
     * if at least one item in a loop returns a failure, the result for the loop as whole will be
-      truncated to just the 'msg' property. This avoids dumping out all of the data for every
-      item in the loop.
-    * since we use yaml block for multiline strings, stderr_lines / stdout_lines are deleted
-      if stderr/stdout exist, respectively.
+      truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
+      item in the loop. 'item_statuses' is a simple overview of all the items.
+    * only the linear and debug strategies are allowed.
+    * check mode markers are always enabled
+    * errors are never printed to stderr
+    * task paths are never printed
+    * custom stats are not supported
+  requirements:
+    - whitelist in configuration
   options:
-    ignore_unreachable:
-      default: false
-      type: bool
-      ini:
-        - section: unity.general.cron
-          key: ignore_unreachable
-      env:
-        - name: CRON_IGNORE_UNREACHABLE
-
-
+    result_format:
+      default: yaml
+    pretty_results:
+      default: true
   author: Simon Leary
+  extends_documentation_fragment:
+    - result_format_callback
+    - unity.general.format_diff
 """
 
-# ignore_unreachable option takes precedence over this
-STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
+STATUSES_DO_PRINT = ["changed", "failed"]
 
 
-def _indent(prepend, text):
-    return prepend + text.replace("\n", "\n" + prepend)
-
-
-def _banner(x, banner_len=80) -> str:
-    return x + " " * (banner_len - len(x))
-
-
-class CallbackModule(DedupeCallback):
-    CALLBACK_VERSION = 1.0
+class CallbackModule(DedupedDefaultCallback, BufferedCallback):
+    CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "stdout"
-    CALLBACK_NAME = "cron"
+    CALLBACK_NAME = "unity.general.cron"
+    CALLBACK_NEEDS_WHITELIST = True
 
     def __init__(self):
         super(CallbackModule, self).__init__()
-        self._display_buffer = []
+        self.do_print = False
 
-    # https://github.com/ansible/ansible/pull/84496
-    def get_options(self):
-        return self._plugin_options
+    def deduped_runner_or_runner_item_end(self, result, status, dupe_of):
+        if status in STATUSES_DO_PRINT:
+            self.do_print = True
+        super(CallbackModule, self).deduped_runner_or_runner_item_end(result, status, dupe_of)
 
-    def _flush_display_buffer(self):
-        if self._display_buffer:
-            self._display.display("\n".join(self._display_buffer))
-            del self._display_buffer
-            self._display_buffer = []
-
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
-        pass
-
-    def _display_warnings_deprecations_exceptions(self, result: TaskResult) -> None:
-        # TODO don't display duplicate warnings/deprecations/exceptions
-        if C.ACTION_WARNINGS:
-            if "warnings" in result and result["warnings"]:
-                for warning in result["warnings"]:
-                    self._display.warning(yaml_dump(warning))
-                del result["warnings"]
-        if "exception" in result:
-            msg = f"An exception occurred during task execution.\n{yaml_dump(result['exception'])}"
-            self._display.display(msg, stderr=self.get_option("display_failed_stderr"))
-            del result["exception"]
-
-    def deduped_runner_or_runner_item_end(
-        self, result: TaskResult, status: str, dupe_of: str | None
-    ):
-        hostname = result._host.get_name()
-        self._display_warnings_deprecations_exceptions(result._result)
-        if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
-            return
-        if status == "unreachable" and self.get_option("ignore_unreachable"):
-            return
-        if dupe_of is not None:
-            msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
-        else:
-            cleanup_result(result._result)
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
-        self._flush_display_buffer()
-        self._display_buffer.display(msg)
-
-    def deduped_playbook_on_play_start(self, play: Play):
-        play_name = play.get_name().strip()
-        if play.check_mode:
-            self._display_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
-        else:
-            self._display_buffer.append(_banner(f"PLAY [{play_name}]"))
-
-    def deduped_task_start(self, task: Task, prefix: str):
-        self._display_buffer.append(_banner(f"{prefix} [{task.get_name().strip()}] "))
-
-    def deduped_task_end(
-        self,
-        sorted_diffs_and_hostnames: list[dict, list[str]],
-        status2hostnames: dict[str, list[str]],
-    ):
-        self._flush_display_buffer()
-        for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_diff(self._get_diff(diff), self.get_options()))
-            self._display.display(f"changed: {format_hostnames(hostnames)}")
-
-    def deduped_playbook_on_stats(self, stats: AggregateStats):
-        pass
+    def deduped_playbook_on_stats(self, stats):
+        super().deduped_playbook_on_stats(stats)
+        if self.do_print:
+            self.display_buffer()

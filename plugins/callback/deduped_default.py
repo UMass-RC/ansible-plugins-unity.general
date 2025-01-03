@@ -1,5 +1,4 @@
 import os
-import shutil
 import datetime
 
 from ansible import context
@@ -8,12 +7,11 @@ from ansible.playbook import Playbook
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.inventory.host import Host
-from ansible.utils.color import stringc
 from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
-from ansible.utils.color import stringc, colorize, hostcolor
+from ansible.utils.color import colorize, hostcolor
 
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
@@ -23,14 +21,12 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 
 
 DOCUMENTATION = r"""
-  name: clush
+  name: deduped_default
   type: stdout
-  short_description: inspired by Clustershell
+  short_description: similar to ansible.builtin.default but using the unity.general.deduped callback
   version_added: 0.1.0
   description: |
     Callback plugin that reduces output size by culling redundant output.
-    * rather than showing each task-host-status on one line, display the total of number of hosts
-      with each status all on one line and update that same line using carriage return.
     * at the end of the task, print the list of hosts that returned each status.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
@@ -45,16 +41,18 @@ DOCUMENTATION = r"""
       with this plugin it is now easy to find out which hosts are hanging up your playbook.
       sometimes Ansible will actually ignore this interrupt and continue running, and you just
       have to send it again.
-    * if the ClusterShell python library is available, it will be used to \"fold\" any lists
-      of hosts. Else, every hostname will be printed comma-delimited.
-    * when using loops, this plugin does not display the number of running runners, since the
-      loop variable has not yet been templated before it is passed to this plugin.
+    * when using the `--step` option in `ansible-playbook`, output from the just-completed task
+      is not printed until the start of the next task, which is not natural.
+    * if at least one item in a loop returns a failure, the result for the loop as whole will be
+      truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
+      item in the loop. 'item_statuses' is a simple overview of all the items.
+    * only the linear and debug strategies are allowed.
     * check mode markers are always enabled
     * errors are never printed to stderr
     * task paths are never printed
     * custom stats are not supported
-    * when using the `--step` option in `ansible-playbook`, output from the just-completed task
-      is not printed until the start of the next task, which is not natural.
+  requirements:
+  - whitelist in configuration
   options:
     result_format:
       default: yaml
@@ -80,23 +78,11 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
-def _tty_width() -> int:
-    output, _ = shutil.get_terminal_size()
-    return output
-
-
 class CallbackModule(DedupeCallback, FormatDiffCallback):
-    CALLBACK_VERSION = 2.0
+    CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
-    CALLBACK_NAME = "clush"
-
-    def __init__(self):
-        super(CallbackModule, self).__init__()
-        if not self._display._stdout.isatty():
-            raise RuntimeError("clush: stdout must be a TTY!")
-
-    def _clear_line(self):
-        self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
+    CALLBACK_NAME = "unity.general.deduped_default"
+    CALLBACK_NEEDS_WHITELIST = True
 
     def _task_start(self, task: Task, prefix: str) -> None:
         args = ""
@@ -110,43 +96,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
         self._display.banner("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
 
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
-        components = []
-        for status, total in status_totals.items():
-            color = _STATUS_COLORS[status]
-            if total == 0:
-                continue
-            components.append((f"{status}={total}", color))
-
-        # build a new list of components which, when printed, will not exceed the tty width
-        at_least_one_component_stripped = False
-        component_delimiter = "  "
-        components_stripped = []
-        components_stripped_length = 0
-        tty_width = _tty_width()
-        for component, color in components:
-            if (components_stripped_length + len(component)) > tty_width:
-                at_least_one_component_stripped = True
-                break
-            components_stripped.append((component, color))
-            components_stripped_length += len(component) + len(component_delimiter)
-        if len(components_stripped) > 0:
-            # there's one trailing delimiter accounted for, remove it
-            components_stripped_length -= len(component_delimiter)
-
-        if components_stripped_length < tty_width:
-            num_trailing_spaces = tty_width - components_stripped_length
-        else:
-            num_trailing_spaces = 0
-
-        output = component_delimiter.join(
-            [stringc(component, color) for component, color in components_stripped]
-        )
-        output += " " * num_trailing_spaces
-        # add an arrow with white background to indicate that content was removed (`less -S`)
-        if at_least_one_component_stripped:
-            output = output[:-1] + "\033[30;47m>\033[0m"
-        output += "\r"
-        self._display.display(output, newline=False)
+        pass
 
     def deduped_runner_or_runner_item_end(
         self, result: TaskResult, status: str, dupe_of: str | None
@@ -166,7 +116,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
             msg = f'{header} same result as "{dupe_of}"'
         else:
             msg = f"{header}{self._dump_results(result._result, indent=2)}"
-        self._clear_line()
         self._display.display(
             msg,
             color=_STATUS_COLORS[status],
@@ -244,6 +193,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
         else:
             checkmsg = ""
         self._display.banner(f"PLAYBOOK{checkmsg}: {os.path.basename(playbook._file_name)}")
+        delme = True
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self._task_start(task, "TASK")

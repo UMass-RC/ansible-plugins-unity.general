@@ -61,8 +61,6 @@ def _anonymize_result(hostname: str, result: dict) -> dict:
 class DedupeCallback(CallbackBase):
     """
     Callback plugin that reduces output size by culling redundant output.
-    * rather than showing each task-host-status on one line, display the total of number of hosts
-      with each status all on one line and update that same line using carriage return.
     * at the end of the task, print the list of hosts that returned each status.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message

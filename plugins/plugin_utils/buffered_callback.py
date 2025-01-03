@@ -1,10 +1,16 @@
 import os
+import sys
+import stat
 from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
 from contextlib import redirect_stdout, redirect_stderr
 
 
 def stdout_stderr_to_string(lambda_func):
+    if stat.S_ISFIFO(os.stat(sys.stdout.fileno()).st_mode):
+        # if it's already a pipe, don't redirect
+        lambda_func()
+        return ""
     read_fd, write_fd = os.pipe()
     with os.fdopen(write_fd, "w") as write_pipe:
         with redirect_stdout(write_pipe):
@@ -101,5 +107,11 @@ class BufferedCallback(CallbackBase):
     """
 
     def __init__(self):
-        super(CallbackBase, self).__init__()
-        self._display = Display2Buffer()
+        super(BufferedCallback, self).__init__()
+        self._old_display = self._display
+        # Display has metaclass=Singleton, Display2Buffer should not be a singleton
+        self._display = Display2Buffer.__new__(Display2Buffer)
+        self._display.__init__()
+
+    def display_buffer(self):
+        self._old_display.display(self._display.buffer)
