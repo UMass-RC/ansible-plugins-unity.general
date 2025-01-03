@@ -96,6 +96,11 @@ class CallbackModule(DedupeCallback):
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "clush"
 
+    def __init__(self):
+        super(CallbackModule, self).__init__()
+        if not self._display._stdout.isatty():
+            raise RuntimeError("clush: stdout must be a TTY!")
+
     # https://github.com/ansible/ansible/pull/84496
     def get_options(self):
         return self._plugin_options
