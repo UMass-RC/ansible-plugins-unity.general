@@ -18,6 +18,9 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
+from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
+    NonBufferedCallback,
+)
 
 
 DOCUMENTATION = r"""
@@ -78,7 +81,7 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
-class CallbackModule(DedupeCallback, FormatDiffCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback, NonBufferedCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
@@ -93,7 +96,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
             checkmsg = " [CHECK MODE]"
         else:
             checkmsg = ""
-        self._display.banner("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
+        self._display2.banner("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
 
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
@@ -116,7 +119,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
             msg = f'{header} same result as "{dupe_of}"'
         else:
             msg = f"{header}{self._dump_results(result._result, indent=2)}"
-        self._display.display(
+        self._display2.display(
             msg,
             color=_STATUS_COLORS[status],
         )
@@ -124,38 +127,38 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
     def deduped_playbook_on_play_start(self, play: Play):
         play_name = play.get_name().strip()
         if play.check_mode:
-            self._display.banner(f"PLAY [{play_name}] [CHECK MODE]")
+            self._display2.banner(f"PLAY [{play_name}] [CHECK MODE]")
         else:
-            self._display.banner(f"PLAY [{play_name}]")
+            self._display2.banner(f"PLAY [{play_name}]")
 
     def deduped_task_end(
         self,
         sorted_diffs_and_hostnames: list[dict, list[str]],
         status2hostnames: dict[str, list[str]],
     ):
-        self._display.display("\n")
+        self._display2.display("\n")
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(self._get_diff(diff))
-            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
+            self._display2.display(self._get_diff(diff))
+            self._display2.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
             color = _STATUS_COLORS[status]
-            self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
+            self._display2.display(f"{status}: {format_hostnames(hostnames)}", color=color)
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
-        self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
+        self._display2.display(f"elapsed: {elapsed.total_seconds()} seconds")
 
     def deduped_playbook_on_stats(self, stats: AggregateStats):
-        self._display.banner("PLAY RECAP")
+        self._display2.banner("PLAY RECAP")
 
         hosts = sorted(stats.processed.keys())
         for h in hosts:
             t = stats.summarize(h)
 
-            self._display.display(
+            self._display2.display(
                 "%s : %s %s %s %s %s %s %s"
                 % (
                     hostcolor(h, t),
@@ -170,7 +173,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
                 screen_only=True,
             )
 
-            self._display.display(
+            self._display2.display(
                 "%s : %s %s %s %s %s %s %s"
                 % (
                     hostcolor(h, t, False),
@@ -185,15 +188,14 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
                 log_only=True,
             )
 
-        self._display.display("", screen_only=True)
+        self._display2.display("", screen_only=True)
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         if context.CLIARGS["check"]:
             checkmsg = " [DRY RUN]"
         else:
             checkmsg = ""
-        self._display.banner(f"PLAYBOOK{checkmsg}: {os.path.basename(playbook._file_name)}")
-        delme = True
+        self._display2.banner(f"PLAYBOOK{checkmsg}: {os.path.basename(playbook._file_name)}")
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self._task_start(task, "TASK")
@@ -215,11 +217,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
         )
         if self._run_is_verbose(result, verbosity=2):
             msg += "Result was: %s" % self._dump_results(result._result)
-        self._display.display(msg, color=C.COLOR_DEBUG)
+        self._display2.display(msg, color=C.COLOR_DEBUG)
 
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
-        if self._display.verbosity > 1:
-            self._display.display(
+        if self._display2.verbosity > 1:
+            self._display2.display(
                 "NOTIFIED HANDLER %s for %s" % (handler.get_name(), host),
                 color=C.COLOR_VERBOSE,
                 screen_only=True,
@@ -233,10 +235,10 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
         label = self._get_item_label(included_file._vars)
         if label:
             msg += " => (item=%s)" % label
-        self._display.display(msg, color=C.COLOR_INCLUDED)
+        self._display2.display(msg, color=C.COLOR_INCLUDED)
 
     def deduped_playbook_on_no_hosts_matched(self) -> None:
-        self._display.display("skipping: no hosts matched", color=C.COLOR_SKIP)
+        self._display2.display("skipping: no hosts matched", color=C.COLOR_SKIP)
 
     def deduped_playbook_on_no_hosts_remaining(self) -> None:
-        self._display.banner("NO MORE HOSTS LEFT")
+        self._display2.banner("NO MORE HOSTS LEFT")

@@ -115,15 +115,13 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
     def deduped_runner_or_runner_item_end(self, result: TaskResult, status: str, dupe_of: str):
         if self.get_option("redact_bitwarden"):
-            result = bitwarden_redact(result)
+            result._result = bitwarden_redact(result._result, self.get_options())
         return super().deduped_runner_or_runner_item_end(result, status, dupe_of)
 
     def deduped_playbook_on_stats(self, stats):
         super(CallbackModule, self).deduped_playbook_on_stats(stats)
-        if not self._display.buffer:
-            self._old_display.warning(
-                "http_post: log not uploaded because there is nothing to upload."
-            )
+        if not self._display2.buffer:
+            self._display.warning("http_post: log not uploaded because there is nothing to upload.")
             return
         filename = "%s-%s-%s-%s.log" % (
             datetime.now(timezone.utc).timestamp(),
@@ -138,7 +136,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             stderr=subprocess.STDOUT,
         )
         # TODO is utf8 okay?
-        html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
+        html_bytes, _ = aha_proc.communicate(input=bytes(self._display2.buffer, "utf8"))
         try:
             response = requests.post(
                 self.get_option("post_url"),
