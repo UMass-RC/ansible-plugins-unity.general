@@ -12,6 +12,7 @@ from ansible.inventory.host import Host
 from ansible.utils.color import stringc
 from ansible.utils.display import Display
 from ansible.playbook.handler import Handler
+from ansible.utils.fqcn import add_internal_fqcns
 from ansible.plugins.callback import CallbackBase
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
@@ -81,6 +82,7 @@ class DedupeCallback(CallbackBase):
     * if at least one item in a loop returns a failure, the result for the loop as whole will be
       truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
       item in the loop. 'item_statuses' is a simple overview of all the items.
+    * only the linear and debug strategies are allowed.
     """
 
     def __sigint_handler(self, signum, frame):
@@ -261,6 +263,13 @@ class DedupeCallback(CallbackBase):
             status_totals["running"] = len(self.running_hosts)
         self.deduped_update_status_totals(status_totals)
 
+    def __play_start(self, play: Play):
+        strategy_fqcn = add_internal_fqcns([play.strategy])[0]
+        if not strategy_fqcn in add_internal_fqcns(("linear", "debug")):
+            raise RuntimeError(
+                f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
+            )
+
     # V2 API #######################################################################################
     def v2_runner_on_start(self, host: Host, task: Task) -> None:
         self.__runner_start(host, task)
@@ -296,6 +305,7 @@ class DedupeCallback(CallbackBase):
 
     def v2_playbook_on_play_start(self, play: Play) -> None:
         self.__maybe_task_end()  # weird edge case
+        self.__play_start(play)
         self.deduped_playbook_on_play_start(play)
 
     def v2_playbook_on_task_start(self, task: Task, is_conditional) -> None:
