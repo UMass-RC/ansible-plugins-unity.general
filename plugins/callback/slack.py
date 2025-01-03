@@ -1,12 +1,11 @@
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-
 from ansible.utils.display import Display
 from ansible.executor.stats import AggregateStats
+from ansible.plugins.callback import CallbackBase
 from ansible.module_utils.common.text.converters import to_text
 
-from ansible.plugins.callback import CallbackBase
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 
 

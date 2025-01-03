@@ -10,14 +10,14 @@ from ansible.inventory.host import Host
 from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
-from ansible.playbook.included_file import IncludedFile
 from ansible.utils.color import colorize, hostcolor
+from ansible.playbook.included_file import IncludedFile
 
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 
 
 DOCUMENTATION = r"""

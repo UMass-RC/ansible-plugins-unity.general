@@ -4,11 +4,13 @@ import socket
 import requests
 import subprocess
 from io import BytesIO
-from requests.exceptions import SSLError
 from datetime import datetime, timezone
+from requests.exceptions import SSLError
 
 from ansible.playbook import Playbook
+from ansible.executor.task_result import TaskResult
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
