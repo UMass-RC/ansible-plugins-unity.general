@@ -69,4 +69,4 @@ class CallbackModule(CallbackBase):
             web_client = WebClient(token=self.get_option("bot_user_oauth_token"))
             web_client.chat_postMessage(channel=self.get_option("channel_id"), text=report)
         except SlackApiError as e:
-            display.warning(f"failed to send message to slack! {to_text(e)}\n")
+            display.warning(f"failed to send report to slack! {to_text(e)}\n")
