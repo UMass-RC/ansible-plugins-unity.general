@@ -7,16 +7,22 @@ from io import BytesIO
 from requests.exceptions import SSLError
 from datetime import datetime, timezone
 
+from ansible import context
+from ansible import constants as C
+from ansible.playbook import Playbook
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
+from ansible.inventory.host import Host
 from ansible.utils.display import Display
+from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible.playbook.included_file import IncludedFile
 
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
+from ansible_collections.unity.general.plugins.plugin_utils.format_diff import format_diff
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
@@ -90,7 +96,7 @@ DOCUMENTATION = r"""
   author: Simon Leary
   extends_documentation_fragment:
   - default_callback
-  - unity.general.diff_callback
+  - unity.general.format_diff
   - unity.general.ramdisk_cache
 """
 
@@ -107,7 +113,7 @@ def _banner(x, banner_len=80) -> str:
     return x + ("*" * (banner_len - len(x)))
 
 
-class CallbackModule(DedupeCallback, DiffCallback):
+class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.http_post"
@@ -130,66 +136,19 @@ class CallbackModule(DedupeCallback, DiffCallback):
     def has_option(self, x):
         return x in self._plugin_options and self._plugin_options[x] is not None
 
-    def v2_playbook_on_start(self, playbook):
-        self._playbook_name = os.path.basename(playbook._file_name)
-
-    def deduped_display_status_totals(self, status_totals: dict[str, str]):
-        pass
-
-    def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
-        hostname = result._host.get_name()
-        if status not in STATUSES_PRINT_IMMEDIATELY:
-            return
-        if self.get_option("redact_bitwarden"):
-            result._result = bitwarden_redact(result._result, self.get_options())
-        if dupe_of is not None:
-            msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
-        # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
-        elif "msg" in result._result and (
-            status in STATUSES_PRINT_MSG_ONLY or len(result._result.keys()) == 1
-        ):
-            msg = f"[{hostname}]: {status.upper()} => {result._result['msg']}"
+    def __task_start(self, task: Task, prefix: str) -> None:
+        args = ""
+        if not task.no_log and C.DISPLAY_ARGS_TO_STDOUT:
+            args = ", ".join("%s=%s" % a for a in task.args.items())
+            args = " %s" % args
+        if task.check_mode:
+            checkmsg = " [CHECK MODE]"
         else:
-            cleanup_result(result._result)
-            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
-        self._text_buffer.append(msg)
+            checkmsg = ""
+        # self._display.banner("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
+        self._text_buffer.append("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
 
-    def deduped_play_start(self, play: Play):
-        play_name = play.get_name().strip()
-        if play.check_mode:
-            self._text_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
-        else:
-            self._always_check_mode = False
-            self._text_buffer.append(_banner(f"PLAY [{play_name}]"))
-
-    def deduped_task_start(self, task: Task, prefix: str):
-        self._text_buffer.append(_banner(f"{prefix} [{task.get_name().strip()}]"))
-
-    def deduped_task_end(
-        self,
-        sorted_diffs_and_hostnames: list[dict, list[str]],
-        status2hostnames: dict[str, list[str]],
-    ):
-        if self.get_option("redact_bitwarden"):
-            sorted_diffs_and_hostnames = [
-                (bitwarden_redact(diff, self.get_options()), hostname)
-                for diff, hostname in sorted_diffs_and_hostnames
-            ]
-        for diff, hostnames in sorted_diffs_and_hostnames:
-            for x in ["before", "after"]:
-                if x in diff and not isinstance(x, str):
-                    diff[x] = self._serialize_diff(diff[x])
-                self._text_buffer.append(self._get_diff(diff).strip())
-            self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
-        for status, hostnames in status2hostnames.items():
-            if status == "changed":
-                continue  # we already did this
-            if len(hostnames) == 0:
-                continue
-            self._text_buffer.append(f"{status}: {format_hostnames(hostnames)}")
-        self._text_buffer.append("")
-
-    def upload_buffer(self):
+    def _upload_buffer(self):
         if not self._text_buffer:
             display.v("http_post: log not uploaded because there is nothing to upload.")
             return
@@ -229,5 +188,124 @@ class CallbackModule(DedupeCallback, DiffCallback):
             link = self.get_option("link_for_slack").format(filename=filename)
             slack_report_cache.add_line(f"ansible HTML log: {link}", self.get_options())
 
-    def deduped_playbook_stats(self, stats: AggregateStats):
-        self.upload_buffer()
+    def deduped_playbook_on_start(self, playbook):
+        self._playbook_name = os.path.basename(playbook._file_name)
+
+    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+        pass
+
+    def deduped_runner_or_runner_item_end(
+        self, result: TaskResult, status: str, dupe_of: str | None
+    ):
+        hostname = result._host.get_name()
+        if status not in STATUSES_PRINT_IMMEDIATELY:
+            return
+        if self.get_option("redact_bitwarden"):
+            result._result = bitwarden_redact(result._result, self.get_options())
+        if dupe_of is not None:
+            msg = f'[{hostname}]: {status.upper()} => same result as "{dupe_of}"'
+        # if msg is the only key, or msg is present and status is one of STATUSES_PRINT_MSG_ONLY
+        elif "msg" in result._result and (
+            status in STATUSES_PRINT_MSG_ONLY or len(result._result.keys()) == 1
+        ):
+            msg = f"[{hostname}]: {status.upper()} => {result._result['msg']}"
+        else:
+            cleanup_result(result._result)
+            msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
+        self._text_buffer.append(msg)
+
+    def deduped_playbook_on_play_start(self, play: Play):
+        play_name = play.get_name().strip()
+        if play.check_mode:
+            self._text_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
+        else:
+            self._always_check_mode = False
+            self._text_buffer.append(_banner(f"PLAY [{play_name}]"))
+
+    def deduped_task_start(self, task: Task, prefix: str):
+        self._text_buffer.append(_banner(f"{prefix} [{task.get_name().strip()}]"))
+
+    def deduped_task_end(
+        self,
+        sorted_diffs_and_hostnames: list[dict, list[str]],
+        status2hostnames: dict[str, list[str]],
+    ):
+        if self.get_option("redact_bitwarden"):
+            sorted_diffs_and_hostnames = [
+                (bitwarden_redact(diff, self.get_options()), hostname)
+                for diff, hostname in sorted_diffs_and_hostnames
+            ]
+        for diff, hostnames in sorted_diffs_and_hostnames:
+            for x in ["before", "after"]:
+                if x in diff and not isinstance(x, str):
+                    diff[x] = self._serialize_diff(diff[x])
+                self._text_buffer.append(format_diff(self._get_diff(diff), self.get_options()))
+            self._text_buffer.append(f"changed: {format_hostnames(hostnames)}")
+        for status, hostnames in status2hostnames.items():
+            if status == "changed":
+                continue  # we already did this
+            if len(hostnames) == 0:
+                continue
+            self._text_buffer.append(f"{status}: {format_hostnames(hostnames)}")
+        self._text_buffer.append("")
+
+    def deduped_playbook_on_stats(self, stats: AggregateStats):
+        self._upload_buffer()
+
+    def deduped_playbook_on_start(self, playbook: Playbook) -> None:
+        if self._display.verbosity > 1:
+            # self._display.banner(f"PLAYBOOK: {os.path.basename(playbook._file_name)}")
+            self._text_buffer.append(f"PLAYBOOK: {os.path.basename(playbook._file_name)}")
+        if context.CLIARGS["check"]:
+            # self._display.banner("DRY RUN")
+            self._text_buffer.append("DRY RUN")
+
+    def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
+        self.__task_start(task, "TASK")
+
+    def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
+        self.__task_start(task, "CLEANUP TASK")
+
+    def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
+        self.__task_start(task, "RUNNING HANDLER")
+
+    def deduped_runner_retry(self, result: TaskResult) -> None:
+        task_name = result.task_name or result._task
+        host_label = self.host_label(result)
+        msg = "FAILED - RETRYING: [%s]: %s (%d retries left)." % (
+            host_label,
+            task_name,
+            result._result["retries"] - result._result["attempts"],
+        )
+        if self._run_is_verbose(result, verbosity=2):
+            msg += "Result was: %s" % self._dump_results(result._result)
+        # self._display.display(msg, color=C.COLOR_DEBUG)
+        self._text_buffer.append(msg)
+
+    def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
+        if self._display.verbosity > 1:
+            # self._display.display(
+            #     "NOTIFIED HANDLER %s for %s" % (handler.get_name(), host),
+            #     color=C.COLOR_VERBOSE,
+            #     screen_only=True,
+            # )
+            self._text_buffer.append("NOTIFIED HANDLER %s for %s" % (handler.get_name(), host))
+
+    def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
+        msg = "included: %s for %s" % (
+            included_file._filename,
+            ", ".join([h.name for h in included_file._hosts]),
+        )
+        label = self._get_item_label(included_file._vars)
+        if label:
+            msg += " => (item=%s)" % label
+        # self._display.display(msg, color=C.COLOR_INCLUDED)
+        self._text_buffer.append(msg)
+
+    def deduped_playbook_on_no_hosts_matched(self) -> None:
+        # self._display.display("skipping: no hosts matched", color=C.COLOR_SKIP)
+        self._text_buffer.append("skipping: no hosts matched")
+
+    def deduped_playbook_on_no_hosts_remaining(self) -> None:
+        # self._display.banner("NO MORE HOSTS LEFT")
+        self._text_buffer.append("NO MORE HOSTS LEFT")

@@ -6,7 +6,7 @@ from ansible.utils.display import Display
 from ansible.executor.stats import AggregateStats
 from ansible.module_utils.common.text.converters import to_text
 
-from ansible.plugins.callback.default import CallbackModule
+from ansible.plugins.callback import CallbackBase
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 
 
@@ -44,7 +44,7 @@ DOCUMENTATION = r"""
 """
 
 
-class CallbackModule(CallbackModule):
+class CallbackModule(CallbackBase):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.slack"
@@ -52,8 +52,6 @@ class CallbackModule(CallbackModule):
 
     def __init__(self):
         super(CallbackModule, self).__init__()
-        # defined in set_options()
-        self._web_client = self.channel_id = self.bot_user_oauth_token = None
         self._text_buffer = []
 
     # https://github.com/ansible/ansible/pull/84496

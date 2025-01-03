@@ -3,6 +3,7 @@ from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible_collections.unity.general.plugins.plugin_utils.format_diff import format_diff
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
@@ -59,8 +60,6 @@ DOCUMENTATION = r"""
 
 
   author: Simon Leary
-  extends_documentation_fragment:
-    default_callback
 """
 
 # ignore_unreachable option takes precedence over this
@@ -94,7 +93,7 @@ class CallbackModule(DedupeCallback):
             del self._display_buffer
             self._display_buffer = []
 
-    def deduped_display_status_totals(self, status_totals: dict[str, str]):
+    def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
     def _display_warnings_deprecations_exceptions(self, result: TaskResult) -> None:
@@ -109,7 +108,9 @@ class CallbackModule(DedupeCallback):
             self._display.display(msg, stderr=self.get_option("display_failed_stderr"))
             del result["exception"]
 
-    def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
+    def deduped_runner_or_runner_item_end(
+        self, result: TaskResult, status: str, dupe_of: str | None
+    ):
         hostname = result._host.get_name()
         self._display_warnings_deprecations_exceptions(result._result)
         if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
@@ -122,9 +123,9 @@ class CallbackModule(DedupeCallback):
             cleanup_result(result._result)
             msg = f"[{hostname}]: {status.upper()} =>\n{_indent("  ", yaml_dump(result._result))}"
         self._flush_display_buffer()
-        self._display.display(msg)
+        self._display_buffer.display(msg)
 
-    def deduped_play_start(self, play: Play):
+    def deduped_playbook_on_play_start(self, play: Play):
         play_name = play.get_name().strip()
         if play.check_mode:
             self._display_buffer.append(_banner(f"PLAY [{play_name}] [CHECK MODE]"))
@@ -141,8 +142,8 @@ class CallbackModule(DedupeCallback):
     ):
         self._flush_display_buffer()
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display.display(format_result_diff(diff, self.get_options()))
+            self._display.display(format_diff(self._get_diff(diff), self.get_options()))
             self._display.display(f"changed: {format_hostnames(hostnames)}")
 
-    def deduped_playbook_stats(self, stats: AggregateStats):
+    def deduped_playbook_on_stats(self, stats: AggregateStats):
         pass

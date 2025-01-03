@@ -5,15 +5,18 @@ import signal
 import hashlib
 
 from ansible import constants as C
+from ansible.playbook import Playbook
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.inventory.host import Host
 from ansible.utils.color import stringc
 from ansible.utils.display import Display
+from ansible.playbook.handler import Handler
+from ansible.plugins.callback import CallbackBase
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible.playbook.included_file import IncludedFile
 from ansible.module_utils.common.text.converters import to_text
-from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
 display = Display()
 
@@ -54,7 +57,7 @@ def _anonymize_result(hostname: str, result: dict) -> dict:
     return anonymous_result
 
 
-class DedupeCallback(DefaultCallback):
+class DedupeCallback(CallbackBase):
     """
     Callback plugin that reduces output size by culling redundant output.
     * rather than showing each task-host-status on one line, display the total of number of hosts
@@ -80,19 +83,16 @@ class DedupeCallback(DefaultCallback):
       item in the loop. 'item_statuses' is a simple overview of all the items.
     """
 
-    CALLBACK_VERSION = 1.0
-    CALLBACK_NAME = "dedupe"
-
-    def _sigint_handler(self, signum, frame):
+    def __sigint_handler(self, signum, frame):
         """
         make sure the user knows which runners were interrupted
         since they might be blocking the playbook and might need to be excluded
         """
         # only the original parent process, no children
-        if os.getpid() == self.pid_where_sigint_trapped:
+        if os.getpid() == self.pid_where_sigint_trapped and self.first_task_started:
             for hostname in self.running_hosts:
                 self.status2hostnames["interrupted"].append(hostname)
-            self._maybe_task_end()
+            self.__maybe_task_end()
         # execute normal interrupt signal handler
         self.original_sigint_handler(signum, frame)
 
@@ -112,20 +112,11 @@ class DedupeCallback(DefaultCallback):
         self.first_task_started = False
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, self._sigint_handler)
         self.pid_where_sigint_trapped = os.getpid()
+        signal.signal(signal.SIGINT, self.__sigint_handler)
 
-    def v2_playbook_on_task_start(self, task: Task, is_conditional):
-        self._task_start(task, "TASK")
-
-    def v2_playbook_on_cleanup_task_start(self, task: Task):
-        self._task_start(task, "CLEANUP TASK")
-
-    def v2_playbook_on_handler_task_start(self, task: Task):
-        self._task_start(task, "RUNNING HANDLER")
-
-    def _task_start(self, task: Task, prefix: str):
-        self._maybe_task_end()
+    def __task_start(self, task: Task):
+        self.__maybe_task_end()
         if not self.first_task_started:
             self.first_task_started = True
         self.task_name = task.get_name()
@@ -151,18 +142,17 @@ class DedupeCallback(DefaultCallback):
         del self.hostname2loop_item_statuses
         self.hostname2loop_item_statuses = {}
         self.task_end_done = False
-        self.deduped_task_start(task, prefix)
 
-    def v2_runner_on_start(self, host: Host, task: Task):
+    def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
         if not task.loop:
             self.running_hosts.add(hostname)
-        self._display_status_totals()
+        self.__update_status_totals()
 
-    def _maybe_task_end(self):
+    def __maybe_task_end(self):
         """
         The ansible callback API does not have any notion of task end.
-        I thought I could detect this by keeping a number of running__hosts, incrementing on
+        I thought I could detect this by keeping a number of running_hosts, incrementing on
         v2_runner_start and decrementing on v2_runner_*, but this has false positives:
         there can be times when the number of running runners is 0 but more runners will still
         be spawned in the future.
@@ -175,7 +165,7 @@ class DedupeCallback(DefaultCallback):
         if (not self.first_task_started) or self.task_end_done:
             return
         self.task_end_done = True
-        self._display_status_totals()
+        self.__update_status_totals()
         # sort the diff groupings such that the biggest groupings (most hostnames) go last
         sorted_diffs_and_hostnames = []
         sorted_diff_hash2hostnames = dict(
@@ -186,7 +176,7 @@ class DedupeCallback(DefaultCallback):
             sorted_diffs_and_hostnames.append((diff, hostnames))
         self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
 
-    def _duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
+    def __duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
         """
         return value is either a hostname or "{hostname} (item={item})" or None
         """
@@ -200,11 +190,11 @@ class DedupeCallback(DefaultCallback):
                         return hostname
         return None
 
-    def _runner_on_completed(self, result: TaskResult, status: str):
+    def __runner_or_runner_item_end(self, result: TaskResult, status: str):
         display.v(f"{status}: {json.dumps(result._result)}")
         hostname = result._host.get_name()
         anonymous_result = _anonymize_result(hostname, result._result)
-        duplicate_of = self._duplicate_result_of(result._result, anonymous_result)
+        duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
         if (
             self.task_is_loop
             and "item" not in result._result
@@ -217,7 +207,7 @@ class DedupeCallback(DefaultCallback):
                 "msg": result._result["msg"],
                 "item_statuses": self.hostname2loop_item_statuses[hostname],
             }
-        self.deduped_runner_end(result, status, duplicate_of)
+        self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
         if "item" in result._result:
             item_str = to_text(result._result["item"])
@@ -230,68 +220,33 @@ class DedupeCallback(DefaultCallback):
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
         self.status2hostnames[status].append(hostname)
-        self._display_status_totals()
+        self.__update_status_totals()
 
-    def v2_runner_on_ok(self, result: TaskResult):
+    def __diff(self, result: TaskResult):
         hostname = result._host.get_name()
-        if result._result.get("changed", False):
-            diffs = result._result.get("diff", None)
-            if not diffs:
-                diffs = [
-                    {
-                        "prepared": stringc(
-                            "task reports changed=true but does not report any diff.",
-                            C.COLOR_CHANGED,
-                        )
-                    }
-                ]
-            if not isinstance(diffs, list):
-                diffs = [diffs]
-            for diff in diffs:
-                diff_no_headers = {
-                    k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
+        if not result._result.get("changed", False):
+            return
+        diffs = result._result.get("diff", None)
+        if not diffs:
+            diffs = [
+                {
+                    "prepared": stringc(
+                        "task reports changed=true but does not report any diff.",
+                        C.COLOR_CHANGED,
+                    )
                 }
-                diff_hash = _hash_object(diff_no_headers)
-                self.diff_hash2hostnames.setdefault(diff_hash, []).append(hostname)
-                self.diff_hash2diff[diff_hash] = diff
-            self._runner_on_completed(result, "changed")
-        else:
-            self._runner_on_completed(result, "ok")
+            ]
+        if not isinstance(diffs, list):
+            diffs = [diffs]
+        for diff in diffs:
+            diff_no_headers = {
+                k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
+            }
+            diff_hash = _hash_object(diff_no_headers)
+            self.diff_hash2hostnames.setdefault(diff_hash, []).append(hostname)
+            self.diff_hash2diff[diff_hash] = diff
 
-    def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False):
-        if ignore_errors:
-            self._runner_on_completed(result, "ignored")
-        else:
-            self._runner_on_completed(result, "failed")
-
-    def v2_runner_on_unreachable(self, result: TaskResult):
-        self._runner_on_completed(result, "unreachable")
-
-    def v2_runner_on_skipped(self, result: TaskResult):
-        self._runner_on_completed(result, "skipped")
-
-    def v2_on_file_diff(self, result: TaskResult):
-        pass  # diffs handled during `v2_runner_on_ok`
-
-    # treat loop items the same as regular tasks
-    def v2_runner_item_on_skipped(self, result: TaskResult):
-        return self.v2_runner_on_skipped(result)
-
-    def v2_runner_item_on_ok(self, result: TaskResult):
-        return self.v2_runner_on_ok(result)
-
-    def v2_runner_item_on_failed(self, result: TaskResult):
-        return self.v2_runner_on_failed(result)
-
-    def v2_playbook_on_stats(self, stats: AggregateStats):
-        self._maybe_task_end()  # normally done at task_start(), but there will be no next task
-        self.deduped_playbook_stats(stats)
-
-    def v2_playbook_on_play_start(self, play: Play):
-        self._maybe_task_end()  # weird edge case
-        self.deduped_play_start(play)
-
-    def _display_status_totals(self):
+    def __update_status_totals(self):
         status_totals = {
             status: len(hostnames) for status, hostnames in self.status2hostnames.items()
         }
@@ -304,10 +259,165 @@ class DedupeCallback(DefaultCallback):
             status_totals["running"] = "?"
         else:
             status_totals["running"] = len(self.running_hosts)
-        self.deduped_display_status_totals(status_totals)
+        self.deduped_update_status_totals(status_totals)
 
-    # implement these yourself!
-    def deduped_display_status_totals(self, status_totals: dict[str, str]):
+    # V2 API #######################################################################################
+    def v2_runner_on_start(self, host: Host, task: Task) -> None:
+        self.__runner_start(host, task)
+        self.deduped_runner_on_start(host, task)
+
+    def v2_runner_on_unreachable(self, result: TaskResult) -> None:
+        self.__runner_or_runner_item_end(result, "unreachable")
+
+    def v2_runner_on_skipped(self, result: TaskResult) -> None:
+        self.__runner_or_runner_item_end(result, "skipped")
+
+    def v2_runner_item_on_skipped(self, result: TaskResult) -> None:
+        self.__runner_or_runner_item_end(result, "skipped")
+
+    def v2_runner_on_ok(self, result: TaskResult) -> None:
+        if result._result.get("changed", False):
+            self.__runner_or_runner_item_end(result, "changed")
+        else:
+            self.__runner_or_runner_item_end(result, "ok")
+
+    def v2_runner_item_on_ok(self, result: TaskResult) -> None:
+        if result._result.get("changed", False):
+            self.__runner_or_runner_item_end(result, "changed")
+        else:
+            self.__runner_or_runner_item_end(result, "ok")
+
+    def v2_runner_item_on_failed(self, result: TaskResult) -> None:
+        self.__runner_or_runner_item_end(result, "failed")
+
+    def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
+        self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
+        self.deduped_playbook_on_stats(stats)
+
+    def v2_playbook_on_play_start(self, play: Play) -> None:
+        self.__maybe_task_end()  # weird edge case
+        self.deduped_playbook_on_play_start(play)
+
+    def v2_playbook_on_task_start(self, task: Task, is_conditional) -> None:
+        self.__task_start(task)
+        self.deduped_playbook_on_task_start(task, is_conditional)
+
+    def v2_playbook_on_cleanup_task_start(self, task: Task) -> None:
+        self.__task_start(task)
+        self.deduped_playbook_on_cleanup_task_start(task)
+
+    def v2_playbook_on_handler_task_start(self, task: Task) -> None:
+        self.__task_start(task)
+        self.deduped_playbook_on_handler_task_start(task)
+
+    def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
+        if ignore_errors:
+            self.__runner_or_runner_item_end(result, "ignored")
+        else:
+            self.__runner_or_runner_item_end(result, "failed")
+
+    def v2_on_file_diff(self, result) -> None:
+        self.__diff(result)
+
+    def v2_playbook_on_start(self, playbook: Playbook) -> None:
+        self.deduped_playbook_on_start(playbook)
+
+    def v2_runner_retry(self, result: TaskResult) -> None:
+        self.deduped_runner_retry(result)
+
+    def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
+        self.deduped_playbook_on_notify(handler, host)
+
+    def v2_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
+        self.deduped_playbook_on_import_for_host(result, imported_file)
+
+    def v2_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
+        self.deduped_playbook_on_not_import_for_host(result, missing_file)
+
+    def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
+        self.deduped_playbook_on_include(included_file)
+
+    def v2_playbook_on_no_hosts_matched(self) -> None:
+        self.deduped_playbook_on_no_hosts_matched()
+
+    def v2_playbook_on_no_hosts_remaining(self) -> None:
+        self.deduped_playbook_on_no_hosts_remaining()
+
+    def v2_playbook_on_vars_prompt(self, **kwargs) -> None:
+        self.deduped_playbook_on_vars_prompt(**kwargs)
+
+    # I'm too lazy to test these and I don't use async so I'm just going to cut support
+    def v2_runner_on_async_poll(self, *args, **kwargs) -> None:
+        raise NotImplementedError("dedupe_callback does not support async!")
+
+    def v2_runner_on_async_ok(self, *args, **kwargs) -> None:
+        raise NotImplementedError("dedupe_callback does not support async!")
+
+    def v2_runner_on_async_failed(self, *args, **kwargs) -> None:
+        raise NotImplementedError("dedupe_callback does not support async!")
+
+    # DEDUPED API ##################################################################################
+    def deduped_playbook_on_start(self, playbook: Playbook) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
+        pass
+
+    def deduped_playbook_on_play_start(self, play: Play) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_play_start"
+        pass
+
+    def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
+        pass
+
+    def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_cleanup_task_start"
+        pass
+
+    def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_handler_task_start"
+        pass
+
+    def deduped_runner_on_start(self, host: Host, task: Task) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_runner_on_start"
+        pass
+
+    def deduped_playbook_on_stats(self, stats: AggregateStats) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_stats"
+        pass
+
+    def deduped_runner_retry(self, result: TaskResult) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_runner_retry"
+        pass
+
+    def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
+        pass
+
+    def deduped_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_import_for_host"
+        pass
+
+    def deduped_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_not_import_for_host"
+        pass
+
+    def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_include"
+        pass
+
+    def deduped_playbook_on_no_hosts_matched(self) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_matched"
+        pass
+
+    def deduped_playbook_on_no_hosts_remaining(self) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
+        pass
+
+    def deduped_playbook_on_vars_prompt(self, varname, **kwargs) -> None:
+        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
+        pass
+
+    def deduped_update_status_totals(self, status_totals: dict[str, str]) -> None:
         """
         status_totals: dictionary from status to a string representing the total number of runners
         or runner items that have that status. the total is usually digits, but it will have
@@ -316,7 +426,9 @@ class DedupeCallback(DefaultCallback):
         """
         pass
 
-    def deduped_runner_end(self, result: TaskResult, status: str, dupe_of: str | None):
+    def deduped_runner_or_runner_item_end(
+        self, result: TaskResult, status: str, dupe_of: str | None
+    ) -> None:
         """
         this is called when a runner or runner item finishes. possible values for status are:
         ok changed unreachable failed skipped ignored interrupted
@@ -326,25 +438,11 @@ class DedupeCallback(DefaultCallback):
         """
         pass
 
-    def deduped_play_start(self, play: Play):
-        """
-        this is called when a play starts. the default ansible callback plugin does this:
-        `self._display.banner(f"{play.get_name()}")` with an optional suffix "[CHECK MODE]"
-        """
-        pass
-
-    def deduped_task_start(self, task: Task, prefix: str):
-        """
-        this is called when a task starts. the default ansible callback plugin does this:
-        self._display.banner(f"{prefix} {task.get_name()}")
-        """
-        pass
-
     def deduped_task_end(
         self,
         sorted_diffs_and_hostnames: list[tuple[dict, list[str]]],
         status2hostnames: dict[str, list[str]],
-    ):
+    ) -> None:
         """
         sorted_diffs_and_hostnames: list of tuples where the first element of each tuple is a
         diff dict. the second element in each tuple is a list of hostnames. the list of tuples
@@ -354,11 +452,5 @@ class DedupeCallback(DefaultCallback):
         status2hostnames: dict from status to list of hostnames. possible values for status are:
         ok changed unreachable failed skipped ignored interrupted running
         not sorted.
-        """
-        pass
-
-    def deduped_playbook_stats(self, stats: AggregateStats):
-        """
-        this is called at the end of an ansible playbook.
         """
         pass
