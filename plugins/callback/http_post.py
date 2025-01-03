@@ -122,11 +122,8 @@ class CallbackModule(DedupeCallback):
     def __init__(self):
         super(CallbackModule, self).__init__()
         self._always_check_mode = True
-        # defined in v2_playbook_on_start
+        # defined in deduped_playbook_on_start
         self._playbook_name = None
-        # defined in set_options()
-        self._web_client = self.channel_id = self.bot_user_oauth_token = None
-
         self._text_buffer = []
 
     # https://github.com/ansible/ansible/pull/84496
