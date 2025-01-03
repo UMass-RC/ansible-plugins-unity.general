@@ -68,7 +68,6 @@ DOCUMENTATION = r"""
   extends_documentation_fragment:
     - result_format_callback
     - unity.general.format_diff
-    - unity.general.ramdisk_cache
 """
 
 _STATUS_COLORS = {
@@ -85,10 +84,6 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
-def _indent(prepend, text):
-    return prepend + text.replace("\n", "\n" + prepend)
-
-
 def _tty_width() -> int:
     output, _ = shutil.get_terminal_size()
     return output
@@ -103,15 +98,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
         super(CallbackModule, self).__init__()
         if not self._display._stdout.isatty():
             raise RuntimeError("clush: stdout must be a TTY!")
-
-    # https://github.com/ansible/ansible/pull/84496
-    def get_options(self):
-        return self._plugin_options
-
-    # def set_options(self):
-    #     # options for CallbackBase._dump_results
-    #     self.set_option("result_format", "yaml")
-    #     self.set_option("pretty_results", True)
 
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
@@ -204,7 +190,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback):
     ):
         self._display.display("\n")
         for diff, hostnames in sorted_diffs_and_hostnames:
-            # self._display.display(format_diff(self._get_diff(diff), self.get_options()))
             self._display.display(self._get_diff(diff))
             self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
