@@ -138,6 +138,7 @@ class CallbackModule(DedupeCallback, DiffCallback):
         self._display.display(output, newline=False)
 
     def _display_warnings_deprecations_exceptions(self, result: TaskResult) -> None:
+        # TODO use _handle_warnings _handle_exceptions
         # TODO don't display duplicate warnings/deprecations/exceptions
         if C.ACTION_WARNINGS:
             if "warnings" in result and result["warnings"]:
