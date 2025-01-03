@@ -194,6 +194,7 @@ class DedupeCallback(DefaultCallback):
             for printed_result, printed_anonymous_result in host_results_printed:
                 if (result == printed_result) or (anonymous_result == printed_anonymous_result):
                     if "item" in printed_result:
+                        # TODO use _get_item_label?
                         return f"{hostname} (item={printed_result["item"]})"
                     else:
                         return hostname
