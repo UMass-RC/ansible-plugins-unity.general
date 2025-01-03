@@ -103,15 +103,15 @@ class Display2Buffer(Display):
 
 class BufferedCallback(CallbackBase):
     """
-    output is added to self._display.buffer rather than printed to stdout/stderr
+    output is added to an internal buffer rather than printed to stdout/stderr
     """
 
     def __init__(self):
         super(BufferedCallback, self).__init__()
-        self._old_display = self._display
         # Display has metaclass=Singleton, Display2Buffer should not be a singleton
         self._display = Display2Buffer.__new__(Display2Buffer)
         self._display.__init__()
 
     def display_buffer(self):
-        self._old_display.display(self._display.buffer)
+        super(Display2Buffer, self._display).display(self._display.buffer)
+        self._display.buffer = ""
