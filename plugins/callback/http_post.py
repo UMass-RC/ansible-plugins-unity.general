@@ -14,14 +14,12 @@ from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 
 from ansible_collections.unity.general.plugins.plugin_utils.yaml import yaml_dump
+from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.diff_callback import DiffCallback
 from ansible_collections.unity.general.plugins.plugin_utils.cleanup_result import cleanup_result
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
-from ansible_collections.unity.general.plugins.plugin_utils.slack_report_cache import (
-    add_report_line,
-)
 
 display = Display()
 
@@ -229,7 +227,7 @@ class CallbackModule(DedupeCallback, DiffCallback):
         response.raise_for_status()
         if self.has_option("link_for_slack"):
             link = self.get_option("link_for_slack").format(filename=filename)
-            add_report_line(f"ansible HTML log: {link}", self.get_options())
+            slack_report_cache.add_line(f"ansible HTML log: {link}", self.get_options())
 
     def deduped_playbook_stats(self, stats: AggregateStats):
         self.upload_buffer()

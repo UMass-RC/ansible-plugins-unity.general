@@ -10,7 +10,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import
 display = Display()
 
 
-def add_report_line(line: str, plugin_options: dict, end="\n"):
+def add_line(line: str, plugin_options: dict, end="\n"):
     """
     plugin_options is the result from AnsiblePlugin.get_options()
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
@@ -23,7 +23,7 @@ def add_report_line(line: str, plugin_options: dict, end="\n"):
     unlock_cache_close_file(cache_file)
 
 
-def get_report_lines(plugin_options: dict):
+def get_lines(plugin_options: dict):
     """
     plugin_options is the result from AnsiblePlugin.get_options()
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
@@ -35,7 +35,7 @@ def get_report_lines(plugin_options: dict):
     return lines
 
 
-def flush_report_lines(plugin_options: dict):
+def flush(plugin_options: dict):
     """
     plugin_options is the result from AnsiblePlugin.get_options()
     your plugin must extend the unity.general.ramdisk_cache documentation fragment

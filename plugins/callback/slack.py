@@ -11,10 +11,7 @@ from ansible.executor.task_result import TaskResult
 from ansible.module_utils.common.text.converters import to_text
 
 from ansible.plugins.callback.default import CallbackModule
-from ansible_collections.unity.general.plugins.plugin_utils.slack_report_cache import (
-    get_report_lines,
-    flush_report_lines,
-)
+from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 
 
 display = Display()
@@ -68,8 +65,8 @@ class CallbackModule(CallbackModule):
         return self._plugin_options
 
     def v2_playbook_on_stats(self, stats: AggregateStats):
-        report_lines = get_report_lines(self.get_options())
-        flush_report_lines(self.get_options())
+        report_lines = slack_report_cache.get_lines(self.get_options())
+        slack_report_cache.flush(self.get_options())
         if not report_lines:
             display.warning(f"slack: no report lines found!")
             return
