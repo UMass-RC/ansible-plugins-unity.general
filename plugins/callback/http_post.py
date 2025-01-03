@@ -256,7 +256,7 @@ class CallbackModule(DedupeCallback):
         if context.CLIARGS["check"]:
             # self._display.banner("DRY RUN")
             self._text_buffer.append("DRY RUN")
-        self._playbook_name = playbook._file_name
+        self._playbook_name = os.path.basename(playbook._file_name)
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self.__task_start(task, "TASK")
