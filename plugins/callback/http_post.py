@@ -51,13 +51,13 @@ DOCUMENTATION = r"""
     - aha
     - HTTPS web server that allows file upload
   options:
-    post_url:
+    upload_url:
       description: URL to upload the log to
       type: str
       required: true
       ini:
         - section: callback_http_post
-          key: url
+          key: upload_url
       env:
         - name: CALLBACK_HTTP_POST_URL
     redact_bitwarden:
@@ -69,17 +69,30 @@ DOCUMENTATION = r"""
           key: redact_bitwarden
       env:
         - name: CALLBACK_HTTP_POST_REDACT_BITWARDEN
-    link_for_slack:
+    download_url:
       description: |
         Python format string that makes the download URL for the uploaded file.
         example: "https://foobar/{filename}"
         The unity.general.slack callback plugin must also be enabled.
+        the only variable that can be templated is `filename`.
       type: str
       ini:
         - section: callback_http_post
-          key: link_for_slack
+          key: download_url
       env:
-        - name: CALLBACK_HTTP_POST_LINK_FOR_SLACK
+        - name: CALLBACK_HTTP_POST_DOWNLOAD_URL
+    slack_message:
+      description: |
+        Python format string that makes a message for slack. the unity.general.slack callback
+        plugin is required for this to be useful.
+        example: "Ansible HTML log uploaded: {download_url}".
+        the only variable that can be templated is `download_url`.
+      type: str
+      ini:
+        - section: callback_http_post
+          key: slack_message
+      env:
+        - name: CALLBACK_HTTP_POST_SLACK_MESSAGE
     result_format:
       default: yaml
     pretty_results:
@@ -137,23 +150,27 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self._real_display.v("http_post: uploading...")
         try:
             response = requests.post(
-                self.get_option("post_url"),
+                self.get_option("upload_url"),
                 files={"file": (filename, BytesIO(html_bytes), "text/html")},
             )
         except SSLError as e:
             if "SSLCertVerificationError" in str(e):
                 raise type(e)(
                     'http_post: failed to verify SSL certificate of "%s". You might want to set REQUESTS_CA_BUNDLE=/path/to/root-ca-cert in your .envrc using direnv. %s'
-                    % (self.get_option("post_url"), str(e))
+                    % (self.get_option("upload_url"), str(e))
                 ).with_traceback(sys.exc_info()[2])
             else:
                 raise
         response.raise_for_status()
         self._real_display.v("http_post: done.")
-        if self.has_option("link_for_slack"):
-            link = self.get_option("link_for_slack").format(filename=filename)
-            self._real_display.v(f"http_post: {link}.")
-            slack_report_cache.add_line(f"ansible HTML log: {link}", self.get_options())
+        if self.has_option("download_url"):
+            download_url = self.get_option("download_url").format(filename=filename)
+            self._real_display.v(f'http_post: download_url: "{download_url}".')
+        else:
+            download_url = None
+        if self.has_option("slack_message"):
+            msg = self.get_option("slack_message").format(download_url=download_url)
+            slack_report_cache.add_line(msg, self.get_options())
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         super(CallbackModule, self).deduped_playbook_on_start(playbook)
