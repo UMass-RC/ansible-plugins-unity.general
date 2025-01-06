@@ -191,7 +191,6 @@ class DedupeCallback(CallbackBase):
         return None
 
     def __runner_or_runner_item_end(self, result: TaskResult, status: str):
-        display.v(f"{status}: {json.dumps(result._result)}")
         hostname = result._host.get_name()
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
