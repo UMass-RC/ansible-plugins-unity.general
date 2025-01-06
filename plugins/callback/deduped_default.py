@@ -1,7 +1,5 @@
-import os
 import datetime
 
-from ansible import context
 from ansible import constants as C
 from ansible.playbook import Playbook
 from ansible.playbook.task import Task
@@ -10,16 +8,13 @@ from ansible.inventory.host import Host
 from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
-from ansible.utils.color import colorize, hostcolor
 from ansible.playbook.included_file import IncludedFile
+from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
-    NonBufferedCallback,
 )
 
 
@@ -50,10 +45,6 @@ DOCUMENTATION = r"""
       truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
-    * check mode markers are always enabled
-    * errors are never printed to stderr
-    * task paths are never printed
-    * custom stats are not supported
   requirements:
   - whitelist in configuration
   options:
@@ -61,10 +52,14 @@ DOCUMENTATION = r"""
       default: yaml
     pretty_results:
       default: true
+    display_ok_hosts:
+      default: false
+    display_skipped_hosts:
+      default: false
   author: Simon Leary
   extends_documentation_fragment:
-    - result_format_callback
     - unity.general.format_diff
+    - default_callback
 """
 
 _STATUS_COLORS = {
@@ -81,22 +76,11 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
-class CallbackModule(DedupeCallback, FormatDiffCallback, NonBufferedCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
     CALLBACK_NEEDS_WHITELIST = True
-
-    def _task_start(self, task: Task, prefix: str) -> None:
-        args = ""
-        if not task.no_log and C.DISPLAY_ARGS_TO_STDOUT:
-            args = ", ".join("%s=%s" % a for a in task.args.items())
-            args = " %s" % args
-        if task.check_mode:
-            checkmsg = " [CHECK MODE]"
-        else:
-            checkmsg = ""
-        self._display2.banner("%s [%s%s]%s" % (prefix, task.get_name().strip(), args, checkmsg))
 
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
@@ -104,8 +88,12 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, NonBufferedCallback):
     def deduped_runner_or_runner_item_end(
         self, result: TaskResult, status: str, dupe_of: str | None
     ):
-        # ansible.builtin.debug sets verbose
-        if not (self._run_is_verbose(result) or status in STATUSES_PRINT_IMMEDIATELY):
+        if not (
+            self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
+            or (status in STATUSES_PRINT_IMMEDIATELY)
+            or (status == "ok" and self.get_option("display_ok_hosts"))
+            or (status == "skipped" and self.get_option("display_skipped_hosts"))
+        ):
             return
         self._clean_results(result._result, result._task.action)
         self._handle_exception(result._result)
@@ -119,126 +107,64 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, NonBufferedCallback):
             msg = f'{header} same result as "{dupe_of}"'
         else:
             msg = f"{header}{self._dump_results(result._result, indent=2)}"
-        self._display2.display(
+        if status == "failed" and self.get_option("show_task_path_on_failure"):
+            self._print_task_path(result._task)
+        self._display.display(
             msg,
             color=_STATUS_COLORS[status],
+            stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
-
-    def deduped_playbook_on_play_start(self, play: Play):
-        play_name = play.get_name().strip()
-        if play.check_mode:
-            self._display2.banner(f"PLAY [{play_name}] [CHECK MODE]")
-        else:
-            self._display2.banner(f"PLAY [{play_name}]")
 
     def deduped_task_end(
         self,
         sorted_diffs_and_hostnames: list[dict, list[str]],
         status2hostnames: dict[str, list[str]],
     ):
-        self._display2.display("\n")
+        self._display.display("\n")
         for diff, hostnames in sorted_diffs_and_hostnames:
-            self._display2.display(self._get_diff(diff))
-            self._display2.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
+            self._display.display(self._get_diff(diff))
+            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
         for status, hostnames in status2hostnames.items():
             if status == "changed":
                 continue  # we already did this
             if len(hostnames) == 0:
                 continue
             color = _STATUS_COLORS[status]
-            self._display2.display(f"{status}: {format_hostnames(hostnames)}", color=color)
+            self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
-        self._display2.display(f"elapsed: {elapsed.total_seconds()} seconds")
+        self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
+
+    def deduped_playbook_on_play_start(self, play: Play):
+        return DefaultCallback.v2_playbook_on_play_start(self, play)
 
     def deduped_playbook_on_stats(self, stats: AggregateStats):
-        self._display2.banner("PLAY RECAP")
+        return DefaultCallback.v2_playbook_on_stats(self, stats)
 
-        hosts = sorted(stats.processed.keys())
-        for h in hosts:
-            t = stats.summarize(h)
+    def deduped_playbook_on_start(self, playbook: Playbook):
+        return DefaultCallback.v2_playbook_on_start(self, playbook)
 
-            self._display2.display(
-                "%s : %s %s %s %s %s %s %s"
-                % (
-                    hostcolor(h, t),
-                    colorize("ok", t["ok"], C.COLOR_OK),
-                    colorize("changed", t["changed"], C.COLOR_CHANGED),
-                    colorize("unreachable", t["unreachable"], C.COLOR_UNREACHABLE),
-                    colorize("failed", t["failures"], C.COLOR_ERROR),
-                    colorize("skipped", t["skipped"], C.COLOR_SKIP),
-                    colorize("rescued", t["rescued"], C.COLOR_OK),
-                    colorize("ignored", t["ignored"], C.COLOR_WARN),
-                ),
-                screen_only=True,
-            )
-
-            self._display2.display(
-                "%s : %s %s %s %s %s %s %s"
-                % (
-                    hostcolor(h, t, False),
-                    colorize("ok", t["ok"], None),
-                    colorize("changed", t["changed"], None),
-                    colorize("unreachable", t["unreachable"], None),
-                    colorize("failed", t["failures"], None),
-                    colorize("skipped", t["skipped"], None),
-                    colorize("rescued", t["rescued"], None),
-                    colorize("ignored", t["ignored"], None),
-                ),
-                log_only=True,
-            )
-
-        self._display2.display("", screen_only=True)
-
-    def deduped_playbook_on_start(self, playbook: Playbook) -> None:
-        if context.CLIARGS["check"]:
-            checkmsg = " [DRY RUN]"
-        else:
-            checkmsg = ""
-        self._display2.banner(f"PLAYBOOK{checkmsg}: {os.path.basename(playbook._file_name)}")
-
-    def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
-        self._task_start(task, "TASK")
+    def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         self.task_start_time = datetime.datetime.now()
+        return DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
 
-    def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
-        self._task_start(task, "CLEANUP TASK")
+    def deduped_playbook_on_cleanup_task_start(self, task: Task):
+        return DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
 
-    def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
-        self._task_start(task, "RUNNING HANDLER")
+    def deduped_playbook_on_handler_task_start(self, task: Task):
+        return DefaultCallback.v2_playbook_on_handler_task_start(self, task)
 
-    def deduped_runner_retry(self, result: TaskResult) -> None:
-        task_name = result.task_name or result._task
-        host_label = self.host_label(result)
-        msg = "FAILED - RETRYING: [%s]: %s (%d retries left)." % (
-            host_label,
-            task_name,
-            result._result["retries"] - result._result["attempts"],
-        )
-        if self._run_is_verbose(result, verbosity=2):
-            msg += "Result was: %s" % self._dump_results(result._result)
-        self._display2.display(msg, color=C.COLOR_DEBUG)
+    def deduped_runner_retry(self, result: TaskResult):
+        return DefaultCallback.v2_runner_retry(self, result)
 
-    def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
-        if self._display2.verbosity > 1:
-            self._display2.display(
-                "NOTIFIED HANDLER %s for %s" % (handler.get_name(), host),
-                color=C.COLOR_VERBOSE,
-                screen_only=True,
-            )
+    def deduped_playbook_on_notify(self, handler: Handler, host: Host):
+        return DefaultCallback.v2_playbook_on_notify(self, handler, host)
 
-    def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
-        msg = "included: %s for %s" % (
-            included_file._filename,
-            ", ".join([h.name for h in included_file._hosts]),
-        )
-        label = self._get_item_label(included_file._vars)
-        if label:
-            msg += " => (item=%s)" % label
-        self._display2.display(msg, color=C.COLOR_INCLUDED)
+    def deduped_playbook_on_include(self, included_file: IncludedFile):
+        return DefaultCallback.v2_playbook_on_include(self, included_file)
 
-    def deduped_playbook_on_no_hosts_matched(self) -> None:
-        self._display2.display("skipping: no hosts matched", color=C.COLOR_SKIP)
+    def deduped_playbook_on_no_hosts_matched(self):
+        return DefaultCallback.v2_playbook_on_no_hosts_matched(self)
 
-    def deduped_playbook_on_no_hosts_remaining(self) -> None:
-        self._display2.banner("NO MORE HOSTS LEFT")
+    def deduped_playbook_on_no_hosts_remaining(self):
+        return DefaultCallback.v2_playbook_on_no_hosts_remaining(self)

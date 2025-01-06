@@ -90,7 +90,7 @@ DOCUMENTATION = r"""
       default: true
   author: Simon Leary
   extends_documentation_fragment:
-    - result_format_callback
+    - default_callback
     - unity.general.format_diff
     - unity.general.ramdisk_cache
 """
@@ -120,7 +120,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
     def deduped_playbook_on_stats(self, stats):
         super(CallbackModule, self).deduped_playbook_on_stats(stats)
-        if not self._display2.buffer:
+        if not self._display.buffer:
             self._display.warning("http_post: log not uploaded because there is nothing to upload.")
             return
         filename = "%s-%s-%s-%s.log" % (
@@ -136,7 +136,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             stderr=subprocess.STDOUT,
         )
         # TODO is utf8 okay?
-        html_bytes, _ = aha_proc.communicate(input=bytes(self._display2.buffer, "utf8"))
+        html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
         try:
             response = requests.post(
                 self.get_option("post_url"),

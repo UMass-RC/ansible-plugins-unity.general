@@ -50,7 +50,7 @@ DOCUMENTATION = r"""
       default: true
   author: Simon Leary
   extends_documentation_fragment:
-    - result_format_callback
+    - default_callback
     - unity.general.format_diff
 """
 
