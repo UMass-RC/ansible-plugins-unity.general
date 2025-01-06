@@ -69,12 +69,25 @@ DOCUMENTATION = r"""
           key: redact_bitwarden
       env:
         - name: CALLBACK_HTTP_POST_REDACT_BITWARDEN
+    upload_filename:
+      description: |
+        Python format string that makes the uploaded file name.
+        example: "{timestamp}-{playbook_name}-{username}-{hostname}.log.html"
+        the only variables that can be expanded are: timestamp playbook_name username hostname
+        timestamp is float number of seconds since unix epoch.
+      type: str
+      required: true
+      ini:
+        - section: callback_http_post
+          key: upload_filename
+      env:
+        - name: CALLBACK_HTTP_POST_UPLOAD_FILENAME
     download_url:
       description: |
         Python format string that makes the download URL for the uploaded file.
         example: "https://foobar/{filename}"
         The unity.general.slack callback plugin must also be enabled.
-        the only variable that can be templated is `filename`.
+        the only variable that can be expanded is `filename`.
       type: str
       ini:
         - section: callback_http_post
@@ -86,7 +99,7 @@ DOCUMENTATION = r"""
         Python format string that makes a message for slack. the unity.general.slack callback
         plugin is required for this to be useful.
         example: "Ansible HTML log uploaded: {download_url}".
-        the only variable that can be templated is `download_url`.
+        the only variable that can be expanded is `download_url`.
       type: str
       ini:
         - section: callback_http_post
@@ -133,11 +146,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         if not self._display.buffer:
             self._display.warning("http_post: log not uploaded because there is nothing to upload.")
             return
-        filename = "%s-%s-%s-%s.log" % (
-            datetime.now(timezone.utc).timestamp(),
-            self._playbook_name,
-            os.getlogin(),
-            socket.gethostname().split(".", 1)[0],
+        filename = self.get_option("upload_filename").format(
+            timestamp=datetime.now(timezone.utc).timestamp(),
+            playbook_name=self._playbook_name,
+            username=os.getlogin(),
+            hostname=socket.gethostname().split(".", 1)[0],
         )
         aha_proc = subprocess.Popen(
             ["aha", "--black"],
