@@ -207,6 +207,7 @@ class DedupeCallback(CallbackBase):
                 "msg": result._result["msg"],
                 "item_statuses": self.hostname2loop_item_statuses[hostname],
             }
+        self.__register_result_diff(result)
         self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
         if "item" in result._result:
@@ -222,7 +223,7 @@ class DedupeCallback(CallbackBase):
         self.status2hostnames[status].append(hostname)
         self.__update_status_totals()
 
-    def __diff(self, result: TaskResult):
+    def __register_result_diff(self, result: TaskResult):
         hostname = result._host.get_name()
         if not result._result.get("changed", False):
             return
@@ -325,7 +326,9 @@ class DedupeCallback(CallbackBase):
             self.__runner_or_runner_item_end(result, "failed")
 
     def v2_on_file_diff(self, result) -> None:
-        self.__diff(result)
+        # I need to replace empty diffs with a "no diff" message, and this is not called
+        # for empty diffs. instead I handle diffs during __runner_or_runner_item_end
+        pass
 
     def v2_playbook_on_start(self, playbook: Playbook) -> None:
         self.deduped_playbook_on_start(playbook)
