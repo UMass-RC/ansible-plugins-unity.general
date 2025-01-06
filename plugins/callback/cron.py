@@ -33,10 +33,6 @@ DOCUMENTATION = r"""
       truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
-    * check mode markers are always enabled
-    * errors are never printed to stderr
-    * task paths are never printed
-    * custom stats are not supported
   requirements:
     - whitelist in configuration
   options:
