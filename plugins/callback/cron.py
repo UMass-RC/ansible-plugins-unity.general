@@ -40,6 +40,14 @@ DOCUMENTATION = r"""
   requirements:
     - whitelist in configuration
   options:
+    ignore_unreachable:
+      type: bool
+      default: false
+      ini:
+        - section: callback_cron
+          key: ignore_unreachable
+      env:
+        - name: CALLBACK_CRON_IGNORE_UNREACHABLE
     result_format:
       default: yaml
     pretty_results:
@@ -64,7 +72,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self.do_print = False
 
     def deduped_runner_or_runner_item_end(self, result, status, dupe_of):
-        if status in STATUSES_DO_PRINT:
+        if status in STATUSES_DO_PRINT or (
+            status == "unreachable" and (self.get_option("ignore_unreachable") is False)
+        ):
             self.do_print = True
         super(CallbackModule, self).deduped_runner_or_runner_item_end(result, status, dupe_of)
 
