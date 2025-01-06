@@ -138,6 +138,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         )
         # TODO is utf8 okay?
         html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
+        self._display.v("http_post: uploading...")
         try:
             response = requests.post(
                 self.get_option("post_url"),
@@ -152,8 +153,10 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             else:
                 raise
         response.raise_for_status()
+        self._display.v("http_post: done.")
         if self.has_option("link_for_slack"):
             link = self.get_option("link_for_slack").format(filename=filename)
+            self._display.v(f"http_post: {link}.")
             slack_report_cache.add_line(f"ansible HTML log: {link}", self.get_options())
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
