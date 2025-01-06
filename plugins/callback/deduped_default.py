@@ -47,19 +47,12 @@ DOCUMENTATION = r"""
     * only the linear and debug strategies are allowed.
   requirements:
   - whitelist in configuration
-  options:
-    result_format:
-      default: yaml
-    pretty_results:
-      default: true
-    display_ok_hosts:
-      default: false
-    display_skipped_hosts:
-      default: false
   author: Simon Leary
   extends_documentation_fragment:
-    - unity.general.format_diff
+    - unity.general.default_callback_default_options
     - default_callback
+    - result_format_callback
+    - unity.general.format_diff
 """
 
 _STATUS_COLORS = {
