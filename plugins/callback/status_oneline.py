@@ -38,9 +38,7 @@ DOCUMENTATION = r"""
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
     * check mode markers are always enabled
-    * errors are never printed to stderr
-    * task paths are never printed
-    * custom stats are not supported
+    * the time elapsed for each task is also printed
   requirements:
     - whitelist in configuration
   options:
