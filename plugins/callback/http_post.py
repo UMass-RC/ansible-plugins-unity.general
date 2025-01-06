@@ -178,7 +178,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self._real_display.v("http_post: done.")
         if self.has_option("download_url"):
             download_url = self.get_option("download_url").format(filename=filename)
-            self._real_display.v(f'http_post: download_url: "{download_url}".')
+            self._real_display.display(f'http_post: download_url: "{download_url}".')
         else:
             download_url = None
         if self.has_option("slack_message"):
