@@ -22,7 +22,11 @@ def capture(func, *args, **kwargs):
 
 
 class Display2Buffer:
-    "overloads the Display class to capture what would be stdout/stderr output into a buffer"
+    """
+    overloads the Display class to capture what would be stdout/stderr output into a buffer
+    this can't be done with normal inheritance because Display is a Singleton and this can't
+    be a Singleton
+    """
 
     def __init__(self):
         self._display = Display()
@@ -74,7 +78,10 @@ class Display2Buffer:
 
 
 class BufferedCallback(CallbackBase):
-    "output is added to an internal buffer rather than printed to stdout/stderr"
+    """
+    output is added to an internal buffer rather than printed to stdout/stderr
+    be sure to call self.display_buffer()
+    """
 
     def __init__(self):
         super(BufferedCallback, self).__init__()
