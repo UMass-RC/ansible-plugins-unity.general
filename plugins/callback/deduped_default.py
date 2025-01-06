@@ -139,6 +139,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         self.task_start_time = datetime.datetime.now()
+        # DefaultCallback.v2_playbook_on_task_start won't print the banner if this condition is met
+        # I want the banner to always print at task start, so I just print it when I know that
+        # DefaultCallback.v2_playbook_on_task_start won't print it
+        if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
+            self._print_task_banner(task)
         return DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
 
     def deduped_playbook_on_cleanup_task_start(self, task: Task):
