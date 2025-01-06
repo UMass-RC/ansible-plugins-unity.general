@@ -41,11 +41,6 @@ DOCUMENTATION = r"""
     * the time elapsed for each task is also printed
   requirements:
     - whitelist in configuration
-  options:
-    result_format:
-      default: yaml
-    pretty_results:
-      default: true
   author: Simon Leary
   extends_documentation_fragment:
     - unity.general.default_callback_default_options
