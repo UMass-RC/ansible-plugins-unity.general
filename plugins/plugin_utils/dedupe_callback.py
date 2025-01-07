@@ -303,14 +303,13 @@ class DedupeCallback(CallbackBase):
     def v2_runner_item_on_failed(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "failed")
 
-    def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
-        self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
-        self.deduped_playbook_on_stats(stats)
+    def v2_runner_retry(self, result: TaskResult) -> None:
+        self.deduped_runner_retry(result)
 
-    def v2_playbook_on_play_start(self, play: Play) -> None:
-        self.__maybe_task_end()  # weird edge case
-        self.__play_start(play)
-        self.deduped_playbook_on_play_start(play)
+    def v2_on_file_diff(self, result) -> None:
+        # I need to replace empty diffs with a "no diff" message, and this is not called
+        # for empty diffs. instead I handle diffs during __runner_or_runner_item_end
+        pass
 
     def v2_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self.__task_start(task)
@@ -324,16 +323,13 @@ class DedupeCallback(CallbackBase):
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
 
-    def v2_on_file_diff(self, result) -> None:
-        # I need to replace empty diffs with a "no diff" message, and this is not called
-        # for empty diffs. instead I handle diffs during __runner_or_runner_item_end
-        pass
+    def v2_playbook_on_play_start(self, play: Play) -> None:
+        self.__maybe_task_end()  # weird edge case
+        self.__play_start(play)
+        self.deduped_playbook_on_play_start(play)
 
     def v2_playbook_on_start(self, playbook: Playbook) -> None:
         self.deduped_playbook_on_start(playbook)
-
-    def v2_runner_retry(self, result: TaskResult) -> None:
-        self.deduped_runner_retry(result)
 
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         self.deduped_playbook_on_notify(handler, host)
@@ -355,6 +351,10 @@ class DedupeCallback(CallbackBase):
 
     def v2_playbook_on_vars_prompt(self, **kwargs) -> None:
         self.deduped_playbook_on_vars_prompt(**kwargs)
+
+    def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
+        self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
+        self.deduped_playbook_on_stats(stats)
 
     # I'm too lazy to test these and I don't use async so I'm just going to cut support
     def v2_runner_on_async_poll(self, *args, **kwargs) -> None:
