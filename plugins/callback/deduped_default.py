@@ -122,7 +122,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         sorted_diffs_and_hostnames: list[dict, list[str]],
         status2hostnames: dict[str, list[str]],
     ):
-        self._display.display("\n")
         for diff, hostnames in sorted_diffs_and_hostnames:
             self._display.display(self._get_diff(diff))
             self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
