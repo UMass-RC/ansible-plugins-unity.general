@@ -294,6 +294,12 @@ class DedupeCallback(CallbackBase):
         else:
             self.__runner_or_runner_item_end(result, "ok")
 
+    def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
+        if ignore_errors:
+            self.__runner_or_runner_item_end(result, "ignored")
+        else:
+            self.__runner_or_runner_item_end(result, "failed")
+
     def v2_runner_item_on_failed(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "failed")
 
@@ -317,12 +323,6 @@ class DedupeCallback(CallbackBase):
     def v2_playbook_on_handler_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
-
-    def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
-        if ignore_errors:
-            self.__runner_or_runner_item_end(result, "ignored")
-        else:
-            self.__runner_or_runner_item_end(result, "failed")
 
     def v2_on_file_diff(self, result) -> None:
         # I need to replace empty diffs with a "no diff" message, and this is not called
