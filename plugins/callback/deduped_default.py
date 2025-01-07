@@ -138,13 +138,13 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
 
     def deduped_playbook_on_play_start(self, play: Play):
-        return DefaultCallback.v2_playbook_on_play_start(self, play)
+        DefaultCallback.v2_playbook_on_play_start(self, play)
 
     def deduped_playbook_on_stats(self, stats: AggregateStats):
-        return DefaultCallback.v2_playbook_on_stats(self, stats)
+        DefaultCallback.v2_playbook_on_stats(self, stats)
 
     def deduped_playbook_on_start(self, playbook: Playbook):
-        return DefaultCallback.v2_playbook_on_start(self, playbook)
+        DefaultCallback.v2_playbook_on_start(self, playbook)
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
@@ -159,16 +159,16 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self.__task_start(task)
 
     def deduped_runner_retry(self, result: TaskResult):
-        return DefaultCallback.v2_runner_retry(self, result)
+        DefaultCallback.v2_runner_retry(self, result)
 
     def deduped_playbook_on_notify(self, handler: Handler, host: Host):
-        return DefaultCallback.v2_playbook_on_notify(self, handler, host)
+        DefaultCallback.v2_playbook_on_notify(self, handler, host)
 
     def deduped_playbook_on_include(self, included_file: IncludedFile):
-        return DefaultCallback.v2_playbook_on_include(self, included_file)
+        DefaultCallback.v2_playbook_on_include(self, included_file)
 
     def deduped_playbook_on_no_hosts_matched(self):
-        return DefaultCallback.v2_playbook_on_no_hosts_matched(self)
+        DefaultCallback.v2_playbook_on_no_hosts_matched(self)
 
     def deduped_playbook_on_no_hosts_remaining(self):
-        return DefaultCallback.v2_playbook_on_no_hosts_remaining(self)
+        DefaultCallback.v2_playbook_on_no_hosts_remaining(self)
