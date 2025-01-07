@@ -133,9 +133,6 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def get_options(self):
         return self._plugin_options
 
-    def has_option(self, x):
-        return x in self._plugin_options and self._plugin_options[x] is not None
-
     def deduped_runner_or_runner_item_end(self, result: TaskResult, status: str, dupe_of: str):
         if self.get_option("redact_bitwarden"):
             result._result = bitwarden_redact(result._result, self.get_options())
@@ -176,13 +173,10 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
                 raise
         response.raise_for_status()
         self._real_display.v("http_post: done.")
-        if self.has_option("download_url"):
-            download_url = self.get_option("download_url").format(filename=filename)
+        if download_url := self.get_option("download_url"):
             self._real_display.display(f'http_post: download_url: "{download_url}".')
-        else:
-            download_url = None
-        if self.has_option("slack_message"):
-            msg = self.get_option("slack_message").format(download_url=download_url)
+        if slack_message := self.get_option("slack_message"):
+            msg = slack_message.format(download_url=download_url)
             slack_report_cache.add_line(msg, self.get_options())
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
