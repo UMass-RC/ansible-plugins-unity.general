@@ -77,9 +77,6 @@ class DedupeCallback(CallbackBase):
       have to send it again.
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
-    * if at least one item in a loop returns a failure, the result for the loop as whole will be
-      truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
-      item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
     """
 
@@ -106,7 +103,6 @@ class DedupeCallback(CallbackBase):
         self.task_is_loop = None
         self.results_printed = None
         self.task_end_done = None
-        self.hostname2loop_item_statuses = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
@@ -139,8 +135,6 @@ class DedupeCallback(CallbackBase):
         self.task_is_loop = bool(task.loop)
         del self.results_printed
         self.results_printed = {}
-        del self.hostname2loop_item_statuses
-        self.hostname2loop_item_statuses = {}
         self.task_end_done = False
 
     def __runner_start(self, host: Host, task: Task):
@@ -194,24 +188,9 @@ class DedupeCallback(CallbackBase):
         hostname = result._host.get_name()
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
-        if (
-            self.task_is_loop
-            and "item" not in result._result
-            and "failed" in self.hostname2loop_item_statuses.get(hostname, {}).values()
-        ):
-            display.debug(
-                f"task result truncated to just 'msg' (and 'item_statuses' added) since one of the loop items already reported an error"
-            )
-            result._result = {
-                "msg": result._result["msg"],
-                "item_statuses": self.hostname2loop_item_statuses[hostname],
-            }
         self.__register_result_diff(result)
         self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
-        if "item" in result._result:
-            item_str = to_text(result._result["item"])
-            self.hostname2loop_item_statuses.setdefault(hostname, {})[item_str] = status
         if not self.task_is_loop:
             try:
                 self.running_hosts.remove(hostname)

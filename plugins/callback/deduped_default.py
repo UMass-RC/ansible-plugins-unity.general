@@ -100,6 +100,8 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self._clean_results(result._result, result._task.action)
         self._handle_exception(result._result)
         self._handle_warnings(result._result)
+        if "results" in result._result and not self._run_is_verbose(result):
+            del result._result["results"]
         if "item" in result._result:
             item = f" (item={self._get_item_label(result._result)})"
         else:
