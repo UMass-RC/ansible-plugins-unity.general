@@ -75,6 +75,15 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_NAME = "unity.general.deduped_default"
     CALLBACK_NEEDS_WHITELIST = True
 
+    def __task_start(self, task):
+        self.task_start_time = datetime.datetime.now()
+        # DefaultCallback.v2_playbook_on_task_start won't print the banner if this condition is met
+        # I want the banner to always print at task start, so I just print it when I know that
+        # DefaultCallback.v2_playbook_on_task_start won't print it
+        # this must come after or else it will break self._last_task_name
+        if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
+            self._print_task_banner(task)
+
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
@@ -138,21 +147,16 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         return DefaultCallback.v2_playbook_on_start(self, playbook)
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
-        self.task_start_time = datetime.datetime.now()
-        output = DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
-        # DefaultCallback.v2_playbook_on_task_start won't print the banner if this condition is met
-        # I want the banner to always print at task start, so I just print it when I know that
-        # DefaultCallback.v2_playbook_on_task_start won't print it
-        # this must come after or else it will break self._last_task_name
-        if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
-            self._print_task_banner(task)
-        return output
+        DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
+        self.__task_start(task)
 
     def deduped_playbook_on_cleanup_task_start(self, task: Task):
-        return DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
+        DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
+        self.__task_start(task)
 
     def deduped_playbook_on_handler_task_start(self, task: Task):
-        return DefaultCallback.v2_playbook_on_handler_task_start(self, task)
+        DefaultCallback.v2_playbook_on_handler_task_start(self, task)
+        self.__task_start(task)
 
     def deduped_runner_retry(self, result: TaskResult):
         return DefaultCallback.v2_runner_retry(self, result)
