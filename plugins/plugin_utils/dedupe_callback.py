@@ -3,6 +3,7 @@ import os
 import json
 import signal
 import hashlib
+from copy import deepcopy
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -189,7 +190,8 @@ class DedupeCallback(CallbackBase):
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
         self.__register_result_diff(result)
-        self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
+        # don't let deduped function mess with our result
+        self.deduped_runner_or_runner_item_end(deepcopy(result), status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
         if not self.task_is_loop:
             try:
