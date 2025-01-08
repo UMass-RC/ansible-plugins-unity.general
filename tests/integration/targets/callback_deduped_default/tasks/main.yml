@@ -43,8 +43,6 @@
                         Bar baz bam!
             regex_replacements:
               - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
-              - ['before: .*', 'before: <omitted>']
-              - ['after: .*', 'after: <omitted>']
             expected_output: [
                 "",
                 "PLAY [testhost] ****************************************************************",
@@ -54,8 +52,8 @@
                 "elapsed: <omitted> seconds",
                 "",
                 "TASK [Create file] *************************************************************",
-                "--- before: <omitted>",
-                "+++ after: <omitted>",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
                 "@@ -0,0 +1 @@",
                 "+Foo bar",
                 "",
@@ -63,8 +61,8 @@
                 "elapsed: <omitted> seconds",
                 "",
                 "TASK [Modify file] *************************************************************",
-                "--- before: <omitted>",
-                "+++ after: <omitted>",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
                 "@@ -1 +1,2 @@",
                 " Foo bar",
                 "+Bar baz bam!",
