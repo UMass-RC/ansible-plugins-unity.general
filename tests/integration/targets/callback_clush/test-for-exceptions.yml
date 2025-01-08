@@ -1,8 +1,0 @@
-          {% raw %}
-          - hosts: testhost
-            gather_facts: false
-            tasks:
-              - name: Sample task name
-                debug:
-                  msg: sample debug msg
-          {% endraw %}

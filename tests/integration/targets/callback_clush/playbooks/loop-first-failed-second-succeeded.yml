@@ -1,9 +1,0 @@
-- name: foo play
-  hosts: testhost
-  gather_facts: false
-  tasks:
-    - name: foo
-      command: test -e {{item}}
-      loop:
-        - "{{ playbook_dir }}"
-        - "/nonexistent"

@@ -1,7 +1,0 @@
-- name: foo play
-  hosts: nonexistenthost
-  gather_facts: false
-  tasks:
-    - name: foo
-      debug:
-        msg: foo
