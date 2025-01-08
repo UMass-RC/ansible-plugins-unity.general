@@ -37,7 +37,7 @@
       loop_var: test
       label: "{{ test.name }}"
     register: outputs
-    ignore_errors: "{{ test.allow_nonzero_exit_code | default(false) }}"
+    failed_when: outputs.failed and not (test.allow_nonzero_exit_code | default(false))
     changed_when: false
     vars:
       inventory: "{{ role_path }}/inventory.yml"
