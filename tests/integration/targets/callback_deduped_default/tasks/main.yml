@@ -8,6 +8,8 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# FIXME these results assume clustershell is present
+
 - block:
     - name: Create temporary file
       tempfile:
@@ -126,6 +128,49 @@
                 "testhost3                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
             ]
 
+          - name: multiple plays
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            allow_non_empty_stderr: true
+            allow_nonzero_exit_code: true
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    debug: msg='bar'
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [foo] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: foo",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [bar] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: bar",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
+
           - name: start-at-task nonexistent
             environment:
               ANSIBLE_NOCOLOR: 'true'
@@ -149,7 +194,7 @@
               "PLAY RECAP *********************************************************************"
             ]
 
-          - name: no hosts matched
+          - name: skipped (no hosts matched) on 1st play
             environment:
               ANSIBLE_NOCOLOR: 'true'
               ANSIBLE_FORCE_COLOR: 'false'
@@ -158,14 +203,36 @@
             allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             playbook: |
-              - hosts: nonexistent
+              - hosts: emptygroup
                 gather_facts: false
                 tasks:
                   - name: foo
                     debug: msg='foo'
-            expected_output: []
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    debug: msg='bar'
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [emptygroup] **************************************************************",
+                "skipping: no hosts matched",
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [bar] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: bar",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
 
-          - name: no hosts matched on 2nd play
+          - name: skipped (no hosts matched) on 2nd play
             environment:
               ANSIBLE_NOCOLOR: 'true'
               ANSIBLE_FORCE_COLOR: 'false'
@@ -179,18 +246,108 @@
                 tasks:
                   - name: foo
                     debug: msg='foo'
-              - hosts: nonexistent
+              - hosts: emptygroup
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    debug: msg='bar'
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [foo] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: foo",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY [emptygroup] **************************************************************",
+                "skipping: no hosts matched",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
+
+          - name: skipped (when=false) 1st play
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: testhost
                 gather_facts: false
                 tasks:
                   - name: foo
                     debug: msg='foo'
+                    when: false
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    debug: msg='bar'
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
             expected_output: [
-              "",
-              "PLAY [testhost] ****************************************************************",
-              "",
-              "TASK [foo] *********************************************************************",
-              "[testhost]: OK =>",
-              "  msg: foo"
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [foo] *********************************************************************",
+                "skipped: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [bar] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: bar",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   "
+            ]
+
+          - name: skipped (when=false) 2nd play
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    debug: msg='bar'
+                    when: false
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [foo] *********************************************************************",
+                "[testhost]: OK =>",
+                "  msg: foo",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [bar] *********************************************************************",
+                "skipped: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   "
             ]
   always:
     - name: Clean up temp file
