@@ -169,7 +169,7 @@ class DedupeCallback(CallbackBase):
         for diff_hash, hostnames in sorted_diff_hash2hostnames.items():
             diff = self.diff_hash2diff[diff_hash]
             sorted_diffs_and_hostnames.append((diff, hostnames))
-        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
+        self.deduped_task_end(deepcopy(sorted_diffs_and_hostnames), deepcopy(self.status2hostnames))
 
     def __duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
         """
