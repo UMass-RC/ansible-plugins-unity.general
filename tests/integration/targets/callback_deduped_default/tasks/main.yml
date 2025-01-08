@@ -105,8 +105,8 @@
                 "--- before: {{ tempfile.path }}",
                 "+++ after: {{ tempfile.path }}",
                 "@@ -1,2 +1 @@",
-                "-Foo bar",
-                "-Bar baz bam!",
+                "-Foo bar", # content from previous task
+                "-Bar baz bam!", # content from previous task
                 "+bar",
                 "\\ No newline at end of file",
                 "",
@@ -114,8 +114,8 @@
                 "--- before: {{ tempfile.path }}",
                 "+++ after: {{ tempfile.path }}",
                 "@@ -1,2 +1 @@",
-                "-Foo bar",
-                "-Bar baz bam!",
+                "-Foo bar", # content from previous task
+                "-Bar baz bam!", # content from previous task
                 "+foo",
                 "\\ No newline at end of file",
                 "",
