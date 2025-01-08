@@ -11,16 +11,16 @@
 # FIXME these results assume clustershell is present
 
 - block:
-    - name: Create temporary file
+    - name: tempfile
       tempfile:
       register: tempfile
 
-    - name: Run tests
+    - name: run test playbooks
       include_role:
         name: callback
       vars:
         tests:
-          - name: Basic file diff
+          - name: basic diff
             environment:
               ANSIBLE_NOCOLOR: 'true'
               ANSIBLE_FORCE_COLOR: 'false'
@@ -169,29 +169,6 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
-            ]
-
-          - name: start-at-task nonexistent
-            environment:
-              ANSIBLE_NOCOLOR: 'true'
-              ANSIBLE_FORCE_COLOR: 'false'
-              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
-              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
-            playbook: |
-              - hosts: testhost
-                gather_facts: false
-                tasks:
-                  - name: foo
-                    debug: msg='foo'
-                  - name: bar
-                    debug: msg='bar'
-            expected_output: [
-              "",
-              "PLAY [testhost] ****************************************************************",
-              "",
-              "PLAY RECAP *********************************************************************"
             ]
 
           - name: skipped (no hosts matched) on 1st play
@@ -345,8 +322,32 @@
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   "
             ]
+
+          - name: start-at-task nonexistent
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            extra_args: --start-at-task=nonexistent
+            allow_non_empty_stderr: true
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+                  - name: bar
+                    debug: msg='bar'
+            expected_output: [
+              "",
+              "PLAY [testhost] ****************************************************************",
+              "",
+              "PLAY RECAP *********************************************************************"
+            ]
+
   always:
-    - name: Clean up temp file
+    - name: delete tempfile
       file:
         path: "{{ tempfile.path }}"
         state: absent
