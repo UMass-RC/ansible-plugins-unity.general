@@ -73,6 +73,125 @@
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
             ]
+
+          - name: dedupe diff
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_DIFF_ALWAYS: 'true'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: all
+                gather_facts: true
+                tasks:
+                  - name: Create file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: "{{ '{{ dedupe_me }}' }}"
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [all] *********************************************************************",
+                "",
+                "TASK [Gathering Facts] *********************************************************",
+                "ok: testhost,testhost[2-3]",
+                "elapsed: <omitted> seconds",
+                "",
+                "TASK [Create file] *************************************************************",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
+                "@@ -1,2 +1 @@",
+                "-Foo bar",
+                "-Bar baz bam!",
+                "+bar",
+                "\\ No newline at end of file",
+                "",
+                "changed: testhost3",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
+                "@@ -1,2 +1 @@",
+                "-Foo bar",
+                "-Bar baz bam!",
+                "+foo",
+                "\\ No newline at end of file",
+                "",
+                "changed: testhost,testhost2",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "testhost2                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "testhost3                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
+
+          - name: start-at-task nonexistent
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            extra_args: --start-at-task=nonexistent
+            allow_non_empty_stderr: true
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+                  - name: bar
+                    debug: msg='bar'
+            expected_output: [
+              "",
+              "PLAY [testhost] ****************************************************************",
+              "",
+              "PLAY RECAP *********************************************************************"
+            ]
+
+          - name: no hosts matched
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            allow_non_empty_stderr: true
+            allow_nonzero_exit_code: true
+            playbook: |
+              - hosts: nonexistent
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+            expected_output: []
+
+          - name: no hosts matched on 2nd play
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            allow_non_empty_stderr: true
+            allow_nonzero_exit_code: true
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+              - hosts: nonexistent
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg='foo'
+            expected_output: [
+              "",
+              "PLAY [testhost] ****************************************************************",
+              "",
+              "TASK [foo] *********************************************************************",
+              "[testhost]: OK =>",
+              "  msg: foo"
+            ]
   always:
     - name: Clean up temp file
       file:
