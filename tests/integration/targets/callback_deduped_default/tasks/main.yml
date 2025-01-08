@@ -84,7 +84,7 @@
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
             playbook: |
-              - hosts: all
+              - hosts: dedupegroup
                 gather_facts: true
                 tasks:
                   - name: Create file
@@ -95,10 +95,10 @@
               - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
             expected_output: [
                 "",
-                "PLAY [all] *********************************************************************",
+                "PLAY [dedupegroup] *************************************************************",
                 "",
                 "TASK [Gathering Facts] *********************************************************",
-                "ok: testhost,testhost[2-3]",
+                "ok: dedupe[1-3]",
                 "elapsed: <omitted> seconds",
                 "",
                 "TASK [Create file] *************************************************************",
@@ -110,7 +110,7 @@
                 "+bar",
                 "\\ No newline at end of file",
                 "",
-                "changed: testhost3",
+                "changed: dedupe3",
                 "--- before: {{ tempfile.path }}",
                 "+++ after: {{ tempfile.path }}",
                 "@@ -1,2 +1 @@",
@@ -119,13 +119,13 @@
                 "+foo",
                 "\\ No newline at end of file",
                 "",
-                "changed: testhost,testhost2",
+                "changed: dedupe[1-2]",
                 "elapsed: <omitted> seconds",
                 "",
                 "PLAY RECAP *********************************************************************",
-                "testhost                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
-                "testhost2                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
-                "testhost3                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+                "dedupe1                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "dedupe2                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "dedupe3                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
             ]
 
           - name: multiple plays
@@ -200,8 +200,6 @@
               ANSIBLE_FORCE_COLOR: 'false'
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
-            allow_nonzero_exit_code: true
             playbook: |
               - hosts: emptygroup
                 gather_facts: false
@@ -238,8 +236,6 @@
               ANSIBLE_FORCE_COLOR: 'false'
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
-            allow_nonzero_exit_code: true
             playbook: |
               - hosts: testhost
                 gather_facts: false

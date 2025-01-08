@@ -3,15 +3,24 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# dedupe_me is also hard coded into expected output
 all:
   hosts:
     testhost:
       ansible_connection: local
+    unreachable_host:
+      ansible_hostname: "0.0.0.0"
+
+dedupegroup:
+  # dedupe_me is also hard coded into expected output
+  hosts:
+    dedupe1:
       dedupe_me: foo
-    testhost2:
-      ansible_connection: local
+    dedupe2:
       dedupe_me: foo
-    testhost3:
-      ansible_connection: local
+    dedupe3:
       dedupe_me: bar
+  vars:
+    ansible_connection: local
+
+emptygroup:
+  hosts: {}
