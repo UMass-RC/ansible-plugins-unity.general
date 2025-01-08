@@ -53,47 +53,49 @@
     when: item.stderr != ""
     loop: "{{ outputs.results }}"
 
-  # - name: Assert test output equals expected output
-  #   assert:
-  #     that: result.output.differences | length == 0
-  #   loop: "{{ results }}"
-  #   loop_control:
-  #     loop_var: result
-  #     label: "{{ result.name }}"
-  #   register: assertions
-  #   vars:
-  #     results: >-
-  #       {%- set results = []                                                                           -%}
-  #       {%- for result in outputs.results                                                              -%}
-  #       {%-   set differences = []                                                                     -%}
-  #       {%-   for i in range([result.test.expected_output | count, result.stdout_lines | count] | max) -%}
-  #       {%-     set line = "line_%s" | format(i+1)                                                     -%}
-  #       {%-     set test_line = result.stdout_lines[i] | default(none)                                 -%}
-  #       {%-     set expected_lines = result.test.expected_output[i] | default(none)                    -%}
-  #       {%-     if expected_lines is not string and expected_lines is not none                         -%}
-  #       {%-       if test_line not in expected_lines                                                   -%}
-  #       {{-         differences.append({
-  #                     line: {
-  #                       'expected_one_of': expected_lines,
-  #                       'got': test_line }})                                                           -}}
-  #       {%-       endif                                                                                -%}
-  #       {%-     else                                                                                   -%}
-  #       {%-       if expected_lines != test_line                                                       -%}
-  #       {{-         differences.append({
-  #                     line: {
-  #                       'expected': expected_lines,
-  #                       'got': test_line }})                                                           -}}
-  #       {%-       endif                                                                                -%}
-  #       {%-     endif                                                                                  -%}
-  #       {%-   endfor                                                                                   -%}
-  #       {{-   results.append({
-  #               'name': result.test.name,
-  #               'output': {
-  #                   'differences': differences,
-  #                   'expected': result.test.expected_output,
-  #                   'got': result.stdout_lines }})                                                     -}}
-  #       {%- endfor                                                                                     -%}
-  #       {{- results                                                                                    -}}
+  - name: Assert test output equals expected output
+    assert:
+      that: result.output.differences | length == 0
+    loop: "{{ results }}"
+    loop_control:
+      loop_var: result
+      label: "{{ result.name }}"
+    register: assertions
+    vars:
+      results: >-
+        {%- set results = []                                                                           -%}
+        {%- for result in outputs.results                                                              -%}
+        {%-   set output_lines_replaced = []                                                           -%}
+        {%-   set differences = []                                                                     -%}
+        {%-   for i in range([result.test.expected_output | count, result.stdout_lines | count] | max) -%}
+        {%-     set output_line_replaced_versions = [result.stdout_lines[i] | default("")]             -%}
+        {%-     set expected_line = result.test.expected_output[i] | default("")                       -%}
+        {%-     for match, replace in result.test.regex_replacements                                   -%}
+        {{-       output_line_replaced_versions.append(output_line_replaced_versions[-1] | regex_replace(match, replace))  -}}
+        {%-     endfor                                                                                 -%}
+        {%-     set output_line_replaced = output_line_replaced_versions[-1]                           -%}
+        {{-     output_lines_replaced.append(output_line_replaced)                                     -}}
+        {%-     if expected_line != output_line_replaced                                               -%}
+        {{-       differences.append({
+                    ("line_%s" | format(i+1)): {
+                      'expected': expected_line,
+                      'versions of line after each replacement': output_line_replaced_versions,
+                      'replacements': result.test.regex_replacements
+                    }
+                  })                                                                                   -}}
+        {%-     endif                                                                                  -%}
+        {%-   endfor                                                                                   -%}
+        {{-   results.append({
+                'name': result.test.name,
+                'output': {
+                    'differences': differences,
+                    'expected': result.test.expected_output,
+                    'got (before regex replace)': result.stdout_lines,
+                    'got (after regex replace)': output_lines_replaced
+                }
+              })                                                                                       -}}
+        {%- endfor                                                                                     -%}
+        {{- results                                                                                    -}}
 
   always:
   - name: Remove temporary playbooks

@@ -1,0 +1,82 @@
+---
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+- block:
+    - name: Create temporary file
+      tempfile:
+      register: tempfile
+
+    - name: Run tests
+      include_role:
+        name: callback
+      vars:
+        tests:
+          - name: Basic file diff
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_DIFF_ALWAYS: 'true'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: testhost
+                gather_facts: true
+                tasks:
+                  - name: Create file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+
+                  - name: Modify file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+                        Bar baz bam!
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+              - ['before: .*', 'before: <omitted>']
+              - ['after: .*', 'after: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [Gathering Facts] *********************************************************",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "TASK [Create file] *************************************************************",
+                "--- before: <omitted>",
+                "+++ after: <omitted>",
+                "@@ -0,0 +1 @@",
+                "+Foo bar",
+                "",
+                "changed: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "TASK [Modify file] *************************************************************",
+                "--- before: <omitted>",
+                "+++ after: <omitted>",
+                "@@ -1 +1,2 @@",
+                " Foo bar",
+                "+Bar baz bam!",
+                "",
+                "changed: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
+  always:
+    - name: Clean up temp file
+      file:
+        path: "{{ tempfile.path }}"
+        state: absent
