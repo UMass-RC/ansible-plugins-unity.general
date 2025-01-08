@@ -18,7 +18,9 @@ class FormatDiffCallback(CallbackBase):
             ANSI_REGEX, "", super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
         )
         formatter = self.get_option("diff_formatter")
-        if formatter != "NONE":
+        if formatter == "NONE":
+            return normal_diff
+        else:
             formatter_proc = subprocess.Popen(
                 formatter,
                 shell=True,
@@ -32,4 +34,9 @@ class FormatDiffCallback(CallbackBase):
             except subprocess.CalledProcessError as e:
                 display.warning(f'diff formatter "{formatter}" failed! {e}')
                 return normal_diff
-        return output.strip()
+            if formatter_proc.returncode != 0:
+                display.warning(
+                    f'diff formatter "{formatter}" returned nonzero exit code {formatter_proc.returncode}.\n{output}'
+                )
+                return normal_diff
+            return output.strip()
