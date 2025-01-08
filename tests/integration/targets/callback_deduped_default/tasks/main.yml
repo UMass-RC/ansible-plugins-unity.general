@@ -243,7 +243,7 @@
                 "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
             ]
 
-          - name: skipped (when=false) 1st play
+          - name: skipped (when=false) 1st task
             environment:
               ANSIBLE_NOCOLOR: 'true'
               ANSIBLE_FORCE_COLOR: 'false'
@@ -256,9 +256,6 @@
                   - name: foo
                     debug: msg='foo'
                     when: false
-              - hosts: testhost
-                gather_facts: false
-                tasks:
                   - name: bar
                     debug: msg='bar'
             regex_replacements:
@@ -271,8 +268,6 @@
                 "skipped: testhost",
                 "elapsed: <omitted> seconds",
                 "",
-                "PLAY [testhost] ****************************************************************",
-                "",
                 "TASK [bar] *********************************************************************",
                 "[testhost]: OK =>",
                 "  msg: bar",
@@ -280,10 +275,12 @@
                 "elapsed: <omitted> seconds",
                 "",
                 "PLAY RECAP *********************************************************************",
-                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   "
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   ",
+                "",
+                ""
             ]
 
-          - name: skipped (when=false) 2nd play
+          - name: skipped (when=false) 2nd task
             environment:
               ANSIBLE_NOCOLOR: 'true'
               ANSIBLE_FORCE_COLOR: 'false'
@@ -295,9 +292,6 @@
                 tasks:
                   - name: foo
                     debug: msg='foo'
-              - hosts: testhost
-                gather_facts: false
-                tasks:
                   - name: bar
                     debug: msg='bar'
                     when: false
@@ -313,14 +307,14 @@
                 "ok: testhost",
                 "elapsed: <omitted> seconds",
                 "",
-                "PLAY [testhost] ****************************************************************",
-                "",
                 "TASK [bar] *********************************************************************",
                 "skipped: testhost",
                 "elapsed: <omitted> seconds",
                 "",
                 "PLAY RECAP *********************************************************************",
-                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   "
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   ",
+                "",
+                ""
             ]
 
           - name: start-at-task nonexistent
