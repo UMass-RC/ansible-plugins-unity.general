@@ -97,15 +97,15 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             or (status == "skipped" and self.get_option("display_skipped_hosts"))
         ):
             return
+        if "item" in result._result:
+            item = f" (item={self._get_item_label(result._result)})"
+        else:
+            item = ""
         self._clean_results(result._result, result._task.action)
         self._handle_exception(result._result)
         self._handle_warnings(result._result)
         if "results" in result._result and not self._run_is_verbose(result):
             del result._result["results"]
-        if "item" in result._result:
-            item = f" (item={self._get_item_label(result._result)})"
-        else:
-            item = ""
         header = f"[{self.host_label(result)}]: {status.upper()}{item} =>"
         if dupe_of is not None:
             msg = f'{header} same result as "{dupe_of}"'
