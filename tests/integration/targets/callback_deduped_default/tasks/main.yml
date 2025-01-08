@@ -120,6 +120,43 @@
                 "dedupe3                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
             ]
 
+          - name: normal loop
+            environment:
+              ANSIBLE_NOCOLOR: 'true'
+              ANSIBLE_FORCE_COLOR: 'false'
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            allow_non_empty_stderr: true
+            allow_nonzero_exit_code: true
+            # I do sha1 because dedupe removes the item from the result and counts them as duplicates
+            playbook: !unsafe |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug:
+                        msg: "{{ item | sha1 }}"
+                    loop:
+                      - foo
+                      - bar
+            regex_replacements:
+              - ['elapsed: [\d\.]+', 'elapsed: <omitted>']
+            expected_output: [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [foo] *********************************************************************",
+                "[testhost]: OK (item=foo) =>",
+                "  msg: {{ 'foo' | sha1 }}",
+                "[testhost]: OK (item=bar) =>",
+                "  msg: {{ 'bar' | sha1 }}",
+                "ok: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   "
+            ]
+
           - name: multiple plays
             environment:
               ANSIBLE_NOCOLOR: 'true'
