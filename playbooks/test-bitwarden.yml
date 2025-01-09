@@ -5,7 +5,7 @@
     - name: print plaintext secret
       debug:
         msg: "{{ lookup('unity.general.bitwarden', 'deleteme', field='notes') }}"
-    - name: pretend to write plaintext secret to file
+    - name: pretend to write text to file
       unity.general.return_args:
         changed: true
         diff:
