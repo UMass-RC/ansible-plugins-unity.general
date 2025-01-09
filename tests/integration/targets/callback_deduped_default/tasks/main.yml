@@ -129,6 +129,9 @@
             allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             # I do sha1 because dedupe removes the item from the result and counts them as duplicates
+            # I do `!unsafe` because ansible wants to expand j2 templating when the `callback` role iterates over
+            # `tests`, and then I think it tries to expand it a second time, which is why I can still use
+            # the `{[ '{{ foo }}' }}` trick above but not here
             playbook: !unsafe |
               - hosts: testhost
                 gather_facts: false
