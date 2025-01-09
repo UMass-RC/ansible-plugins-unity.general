@@ -37,7 +37,7 @@ DOCUMENTATION = r"""
       truncated to just 'msg' and 'item_statuses'. This avoids dumping out all of the data for every
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
-    * check mode markers are always enabled
+    * async tasks are not allowed.
     * the time elapsed for each task is also printed
   requirements:
     - whitelist in configuration

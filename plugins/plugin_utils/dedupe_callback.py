@@ -79,6 +79,7 @@ class DedupeCallback(CallbackBase):
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
     * only the linear and debug strategies are allowed.
+    * async tasks are not allowed.
     """
 
     def __sigint_handler(self, signum, frame):
