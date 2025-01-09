@@ -250,6 +250,13 @@ class DedupeCallback(CallbackBase):
                 f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
             )
 
+    def __check_diff_always(self) -> None:
+        if not C.DIFF_ALWAYS:
+            self._display.warning(
+                "DIFF_ALWAYS is not enabled. It is highly recommended that you enable it!"
+                + " The whole point of using the deduped_callback API is to make diff information manageable."
+            )
+
     # V2 API #######################################################################################
     def v2_on_any(self, *args, **kwargs):
         self.deduped_on_any(*args, **kwargs)
@@ -314,6 +321,7 @@ class DedupeCallback(CallbackBase):
         self.deduped_playbook_on_play_start(play)
 
     def v2_playbook_on_start(self, playbook: Playbook) -> None:
+        self.__check_diff_always()
         self.deduped_playbook_on_start(playbook)
 
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
