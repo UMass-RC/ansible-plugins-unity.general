@@ -7,20 +7,29 @@ all:
   hosts:
     testhost:
       ansible_connection: local
-    unreachable_host:
-      ansible_hostname: "0.0.0.0"
+      dedupe_list: [baz, baz, bam]
 
 dedupegroup:
   # dedupe_me is also hard coded into expected output
   hosts:
     dedupe1:
       dedupe_me: foo
+      sleep_seconds: 1
     dedupe2:
       dedupe_me: foo
+      sleep_seconds: 1
     dedupe3:
       dedupe_me: bar
+      sleep_seconds: 5
   vars:
     ansible_connection: local
+
+unreachablegroup:
+  hosts:
+    unreachable1:
+      ansible_hostname: "0.0.0.0"
+    unreachable2:
+      ansible_hostname: "0.0.0.0"
 
 emptygroup:
   hosts: {}

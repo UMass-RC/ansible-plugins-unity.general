@@ -9,101 +9,101 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - block:
-  - name: Create temporary playbook files
-    tempfile:
-      state: file
-      suffix: temp
-    loop: "{{ tests }}"
-    loop_control:
-      loop_var: test
-      label: "{{ test.name }}"
-    register: temporary_playbook_files
+    - name: Create temporary playbook files
+      tempfile:
+        state: file
+        suffix: temp
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      register: temporary_playbook_files
 
-  - name: Set temporary playbook file content
-    copy:
-      content: "{{ test.playbook }}"
-      dest: "{{ temporary_playbook_files.results[test_idx].path }}"
-    loop: "{{ tests }}"
-    loop_control:
-      loop_var: test
-      index_var: test_idx
-      label: "{{ test.name }}"
+    - name: Set temporary playbook file content
+      copy:
+        content: "{{ test.playbook }}"
+        dest: "{{ temporary_playbook_files.results[test_idx].path }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        index_var: test_idx
+        label: "{{ test.name }}"
 
-  - name: Collect outputs
-    command: "ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }}"
-    environment: "{{ test.environment }}"
-    loop: "{{ tests }}"
-    loop_control:
-      loop_var: test
-      label: "{{ test.name }}"
-    register: outputs
-    failed_when: outputs.failed and not (test.allow_nonzero_exit_code | default(false))
-    changed_when: false
-    vars:
-      inventory: "{{ role_path }}/inventory.yml"
-      playbook: "
-        {%- for result in temporary_playbook_files.results -%}
-        {%-   if result.test.name == test.name -%}
-        {{-     result.path -}}
-        {%-   endif -%}
-        {%- endfor -%}"
+    - name: Collect outputs
+      command: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }}"
+      environment: "{{ test.environment }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      register: outputs
+      failed_when: outputs.failed and not (test.allow_nonzero_exit_code | default(false))
+      changed_when: false
+      vars:
+        inventory: "{{ role_path }}/inventory.yml"
+        playbook: "
+          {%- for result in temporary_playbook_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
 
-  - name: assert that stderr is empty (no callback errors)
-    fail:
-      msg: "found non-empty stderr: '{{item.stderr}}'"
-    when: (item.stderr != "") and (not (item.test.allow_non_empty_stderr | default(false)))
-    loop: "{{ outputs.results }}"
+    - name: assert that stderr is empty (no callback errors)
+      fail:
+        msg: "found non-empty stderr: '{{item.stderr}}'"
+      when: (item.stderr != "") and (not (item.test.allow_non_empty_stderr | default(false)))
+      loop: "{{ outputs.results }}"
 
-  - name: Assert test output equals expected output
-    assert:
-      that: result.output.differences | length == 0
-    loop: "{{ results }}"
-    loop_control:
-      loop_var: result
-      label: "{{ result.name }}"
-    register: assertions
-    vars:
-      results: >-
-        {%- set results = []                                                                           -%}
-        {%- for result in outputs.results                                                              -%}
-        {%-   set output_lines_replaced = []                                                           -%}
-        {%-   set differences = []                                                                     -%}
-        {%-   for i in range([result.test.expected_output | count, result.stdout_lines | count] | max) -%}
-        {%-     set output_line_replaced_versions = [result.stdout_lines[i] | default("")]             -%}
-        {%-     set expected_line = result.test.expected_output[i] | default("")                       -%}
-        {%-     for match, replace in (result.test.regex_replacements | default([]))                   -%}
-        {{-       output_line_replaced_versions.append(output_line_replaced_versions[-1] | regex_replace(match, replace))  -}}
-        {%-     endfor                                                                                 -%}
-        {%-     set output_line_replaced = output_line_replaced_versions[-1]                           -%}
-        {{-     output_lines_replaced.append(output_line_replaced)                                     -}}
-        {%-     if expected_line != output_line_replaced                                               -%}
-        {{-       differences.append({
-                    ("line_%s" | format(i+1)): {
-                      'expected': expected_line,
-                      'versions of line after each replacement': output_line_replaced_versions,
-                      'replacements': (result.test.regex_replacements | default([]))
-                    }
-                  })                                                                                   -}}
-        {%-     endif                                                                                  -%}
-        {%-   endfor                                                                                   -%}
-        {{-   results.append({
-                'name': result.test.name,
-                'output': {
-                    'differences': differences,
-                    'expected': result.test.expected_output,
-                    'got (before regex replace)': result.stdout_lines,
-                    'got (after regex replace)': output_lines_replaced
-                }
-              })                                                                                       -}}
-        {%- endfor                                                                                     -%}
-        {{- results                                                                                    -}}
+    - name: Assert test output equals expected output
+      assert:
+        that: result.output.differences | length == 0
+      loop: "{{ results }}"
+      loop_control:
+        loop_var: result
+        label: "{{ result.name }}"
+      register: assertions
+      vars:
+        results: >-
+          {%- set results = []                                                                           -%}
+          {%- for result in outputs.results                                                              -%}
+          {%-   set output_lines_replaced = []                                                           -%}
+          {%-   set differences = []                                                                     -%}
+          {%-   for i in range([result.test.expected_output | count, result.stdout_lines | count] | max) -%}
+          {%-     set output_line_replaced_versions = [result.stdout_lines[i] | default("")]             -%}
+          {%-     set expected_line = result.test.expected_output[i] | default("")                       -%}
+          {%-     for match, replace in (result.test.regex_replacements | default([]))                   -%}
+          {{-       output_line_replaced_versions.append(output_line_replaced_versions[-1] | regex_replace(match, replace))  -}}
+          {%-     endfor                                                                                 -%}
+          {%-     set output_line_replaced = output_line_replaced_versions[-1]                           -%}
+          {{-     output_lines_replaced.append(output_line_replaced)                                     -}}
+          {%-     if expected_line != output_line_replaced                                               -%}
+          {{-       differences.append({
+                      ("line_%s" | format(i+1)): {
+                        'expected': expected_line,
+                        'versions of line after each replacement': output_line_replaced_versions,
+                        'replacements': (result.test.regex_replacements | default([]))
+                      }
+                    })                                                                                   -}}
+          {%-     endif                                                                                  -%}
+          {%-   endfor                                                                                   -%}
+          {{-   results.append({
+                  'name': result.test.name,
+                  'output': {
+                      'differences': differences,
+                      'expected': result.test.expected_output,
+                      'got (before regex replace)': result.stdout_lines,
+                      'got (after regex replace)': output_lines_replaced
+                  }
+                })                                                                                       -}}
+          {%- endfor                                                                                     -%}
+          {{- results                                                                                    -}}
 
   always:
-  - name: Remove temporary playbooks
-    file:
-      path: "{{ temporary_file.path }}"
-      state: absent
-    loop: "{{ temporary_playbook_files.results }}"
-    loop_control:
-      loop_var: temporary_file
-      label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+    - name: Remove temporary playbooks
+      file:
+        path: "{{ temporary_file.path }}"
+        state: absent
+      loop: "{{ temporary_playbook_files.results }}"
+      loop_control:
+        loop_var: temporary_file
+        label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
