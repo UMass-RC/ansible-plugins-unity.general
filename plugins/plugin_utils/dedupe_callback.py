@@ -91,6 +91,8 @@ class DedupeCallback(CallbackBase):
         if os.getpid() == self.pid_where_sigint_trapped and self.first_task_started:
             for hostname in self.running_hosts:
                 self.status2hostnames["interrupted"].append(hostname)
+            del self.running_hosts
+            self.running_hosts = set()
             self.__maybe_task_end()
         # execute normal interrupt signal handler
         self.original_sigint_handler(signum, frame)

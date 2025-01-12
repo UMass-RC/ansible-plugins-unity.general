@@ -8,6 +8,12 @@ all:
     testhost:
       ansible_connection: local
       dedupe_list: [baz, baz, bam]
+    testhost2:
+      ansible_connection: local
+    testhost3:
+      ansible_connection: local
+    testhost4:
+      ansible_connection: local
 
 dedupegroup:
   # dedupe_me is also hard coded into expected output

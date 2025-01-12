@@ -67,7 +67,7 @@ _STATUS_COLORS = {
     "unreachable": C.COLOR_UNREACHABLE,
 }
 
-STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
+STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
@@ -159,6 +159,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     def deduped_playbook_on_handler_task_start(self, task: Task):
         DefaultCallback.v2_playbook_on_handler_task_start(self, task)
         self.__task_start(task)
+
+    def deduped_runner_on_start(self, host: Host, task: Task):
+        DefaultCallback.v2_runner_on_start(self, host, task)
 
     def deduped_runner_retry(self, result: TaskResult):
         DefaultCallback.v2_runner_retry(self, result)
