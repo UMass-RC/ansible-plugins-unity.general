@@ -73,6 +73,60 @@
                 "testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
               ]
 
+          - name: formatted diff
+            environment:
+              ANSIBLE_NOCOLOR: "true"
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              DIFF_FORMATTER: sed -E 's/Foo/REPLACED/g'
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: create file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+
+                  - name: overwrite file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+                        Bar baz bam!
+            regex_replacements:
+              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            expected_output:
+              [
+                "",
+                "PLAY [testhost] ****************************************************************",
+                "",
+                "TASK [create file] *************************************************************",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
+                "@@ -0,0 +1 @@",
+                "+REPLACED bar",
+                "",
+                "changed: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "TASK [overwrite file] **********************************************************",
+                "--- before: {{ tempfile.path }}",
+                "+++ after: {{ tempfile.path }}",
+                "@@ -1 +1,2 @@",
+                " REPLACED bar",
+                "+Bar baz bam!",
+                "",
+                "changed: testhost",
+                "elapsed: <omitted> seconds",
+                "",
+                "PLAY RECAP *********************************************************************",
+                "testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+              ]
+
           - name: dedupe diff
             environment:
               ANSIBLE_NOCOLOR: "true"
@@ -546,7 +600,7 @@
 
           # sleep_seconds is defined for each host in targets/callback/inventory.yml
           # I used to use timeout=3 but I saw a `sleep 1` marked as interrupted so I increased to timeout=4
-          - name: interrupted (this one fails sometimes, just run it again)
+          - name: interrupted
             environment:
               ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"

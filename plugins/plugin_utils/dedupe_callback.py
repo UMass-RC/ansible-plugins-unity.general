@@ -3,6 +3,7 @@ import os
 import json
 import signal
 import hashlib
+import threading
 from copy import deepcopy
 
 from ansible import constants as C
@@ -87,15 +88,19 @@ class DedupeCallback(CallbackBase):
         make sure the user knows which runners were interrupted
         since they might be blocking the playbook and might need to be excluded
         """
-        # only the original parent process, no children
-        if os.getpid() == self.pid_where_sigint_trapped and self.first_task_started:
+        try:
+            self.__sigint_handler_lock.acquire()
+            if self.__sigint_handler_run or not self.first_task_started or os.getpid() != self.pid_where_sigint_trapped:
+                return
+            self.__sigint_handler_run = True
             for hostname in self.running_hosts:
                 self.status2hostnames["interrupted"].append(hostname)
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
-        # execute normal interrupt signal handler
-        self.original_sigint_handler(signum, frame)
+            self.original_sigint_handler(signum, frame)
+        finally:
+            self.__sigint_handler_lock.release()
 
     def __init__(self):
         super(DedupeCallback, self).__init__()
@@ -110,9 +115,11 @@ class DedupeCallback(CallbackBase):
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
+        self.pid_where_sigint_trapped = os.getpid()
+        self.__sigint_handler_lock = threading.RLock()
+        self.__sigint_handler_run = False
 
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
-        self.pid_where_sigint_trapped = os.getpid()
         signal.signal(signal.SIGINT, self.__sigint_handler)
 
     def __task_start(self, task: Task):
