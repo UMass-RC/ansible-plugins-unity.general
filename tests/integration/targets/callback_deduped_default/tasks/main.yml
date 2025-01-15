@@ -14,6 +14,7 @@
     - name: tempfile
       tempfile:
       register: tempfile
+      no_log: true
 
     - name: run test playbooks
       include_role:
@@ -107,9 +108,9 @@
                 "TASK [create file] *************************************************************",
                 "--- before: {{ tempfile.path }}",
                 "+++ after: {{ tempfile.path }}",
-                "@@ -0,0 +1 @@",
-                "+REPLACED bar",
-                "",
+                "@@ -1,2 +1 @@",
+                " REPLACED bar",
+                "-Bar baz bam!",
                 "changed: testhost",
                 "elapsed: <omitted> seconds",
                 "",
@@ -119,7 +120,6 @@
                 "@@ -1 +1,2 @@",
                 " REPLACED bar",
                 "+Bar baz bam!",
-                "",
                 "changed: testhost",
                 "elapsed: <omitted> seconds",
                 "",
@@ -679,3 +679,4 @@
       file:
         path: "{{ tempfile.path }}"
         state: absent
+      no_log: true

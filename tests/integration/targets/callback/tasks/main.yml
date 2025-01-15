@@ -18,6 +18,7 @@
         loop_var: test
         label: "{{ test.name }}"
       register: temporary_playbook_files
+      no_log: true
 
     - name: Set temporary playbook file content
       copy:
@@ -28,6 +29,7 @@
         loop_var: test
         index_var: test_idx
         label: "{{ test.name }}"
+      no_log: true
 
     - name: Collect outputs
       command: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }}"
@@ -47,6 +49,7 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
+      no_log: true
 
     - name: assert that stderr is empty (no callback errors)
       fail:
@@ -107,3 +110,4 @@
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+      no_log: true
