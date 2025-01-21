@@ -19,6 +19,7 @@
             handlerSSL="true"
             cookieProps="https"
             consistentAddress="false"
+            redirectLimit="exact"
         >
             <SSO discoveryProtocol="SAMLDS" discoveryURL="{{ shib_discovery_url }}"> SAML2 </SSO>
             <Logout> SAML2 Local </Logout>
