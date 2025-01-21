@@ -1,5 +1,9 @@
 # Shibboleth
 
+Configures shibboleth service provider (SP). Also see `update-incommon-metadata.yml`.
+
+warning: if this host is not added as a `Location` to the shib metadata, the UMass active directory shib identity provider (IDP) will redirect to another site. I speculate that it just picks the first `Location` in the metadata for the given `entityID`.
+
 Design principles:
 
 - **general purpose**: Unlike many popular roles, this role does not pigeonhole you into learning how to use its custom templates, which surely do not encompass the full functionality of the underlying config file format. Instead, you supply your own templates.
