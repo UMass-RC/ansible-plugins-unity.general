@@ -118,3 +118,7 @@ class CallbackModule(DedupedDefaultCallback):
             output = output[:-1] + "\033[30;47m>\033[0m"
         output += "\r"
         self._display.display(output, newline=False)
+
+    def deduped_task_end(self, *args, **kwargs):
+        self._clear_line()
+        DedupedDefaultCallback.deduped_task_end(self, *args, **kwargs)
