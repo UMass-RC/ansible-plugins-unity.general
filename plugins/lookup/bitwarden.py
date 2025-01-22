@@ -37,7 +37,7 @@ DOCUMENTATION = """
     - unity.general.ramdisk_cache
 """
 
-import hashlib
+from hashlib import md5
 
 from ansible.errors import AnsibleError
 from ansible.utils.display import Display
@@ -45,7 +45,6 @@ from ansible.plugins.lookup import LookupBase
 from ansible.plugins.loader import lookup_loader
 
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
-    get_cache_path,
     cache_lambda,
 )
 
@@ -113,11 +112,10 @@ class LookupModule(LookupBase):
         if "collection_id" not in kwargs and default_collection_id is not None:
             kwargs["collection_id"] = default_collection_id
 
-        cache_key = hashlib.sha1((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
-        my_options = self.get_options()
+        cache_key = md5((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
         return cache_lambda(
             cache_key,
-            get_cache_path("bitwarden", my_options),
+            "bitwarden",
             lambda: do_bitwarden_lookup(terms, variables, **kwargs),
-            my_options,
+            self.get_options(),
         )

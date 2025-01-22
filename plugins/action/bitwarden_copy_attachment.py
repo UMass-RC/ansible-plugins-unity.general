@@ -20,8 +20,8 @@ class ActionModule(ActionBase):
         mode = self._task.args["mode"]
 
         try:
-            content = self._templar._lookup(
-                "unity.general.bitwarden_attachment_base64",
+            attachment_download_path = self._templar._lookup(
+                "unity.general.bitwarden_attachment_download",
                 item_name=item_name,
                 attachment_filename=attachment_filename,
             )
@@ -29,9 +29,9 @@ class ActionModule(ActionBase):
             return failed(f"Error fetching attachment: {str(e)}")
 
         result = self._execute_module(
-            module_name="unity.general.write_base64_to_file",
+            module_name="ansible.legacy.copy",
             module_args={
-                "content": content,
+                "src": attachment_download_path,
                 "dest": dest,
                 "owner": owner,
                 "group": group,

@@ -3,29 +3,27 @@ import datetime
 
 from ansible.utils.display import Display
 from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
-    get_cache_path,
-    lock_cache_open_file,
-    unlock_cache_close_file,
+    RamdiskCacheContextManager,
 )
 
 display = Display()
 
 
 def _get_bitwarden_secrets(plugin_options: dict):
-    bitwarden_cache_path = get_cache_path("bitwarden", plugin_options)
-    cache_file = lock_cache_open_file(bitwarden_cache_path, plugin_options)
-    try:
-        bitwarden_cache = json.load(cache_file)
-    except json.JSONDecodeError as e:
-        display.debug(f"assuming bitwarden cache is empty due to json decode error: {str(e)}")
-        return []
-    secrets = []
-    for value in bitwarden_cache.values():
-        if isinstance(value, list):
-            secrets += value
-        else:
-            secrets.append(value)
-    unlock_cache_close_file(cache_file)
+    with RamdiskCacheContextManager(
+        "bitwarden", plugin_options, name="bitwarden_redact"
+    ) as cache_file:
+        try:
+            bitwarden_cache = json.load(cache_file)
+        except json.JSONDecodeError as e:
+            display.debug(f"assuming bitwarden cache is empty due to json decode error: {str(e)}")
+            return []
+        secrets = []
+        for value in bitwarden_cache.values():
+            if isinstance(value, list):
+                secrets += value
+            else:
+                secrets.append(value)
     return [x.strip() for x in secrets]
 
 

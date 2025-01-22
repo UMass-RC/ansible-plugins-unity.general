@@ -33,10 +33,7 @@ DOCUMENTATION = """
     - unity.general.ramdisk_cache
 """
 
-import os
-import base64
 import subprocess
-
 from ansible.utils.display import Display
 from ansible.plugins.lookup import LookupBase
 from ansible.plugins.loader import lookup_loader
@@ -50,11 +47,8 @@ display = Display()
 
 
 class LookupModule(LookupBase):
-    def get_attachment_base64(self, bw_item_id, bw_attachment_filename) -> str:
-        tempfile_path = get_cache_path(f"{bw_item_id}.{bw_attachment_filename}", self.get_options())
-        open(tempfile_path, "w").close()
-        os.chmod(tempfile_path, 0o600)
-        display.v(f"got tempfile for attachment download: '{tempfile_path}'.")
+    def download_attachment(self, bw_item_id, bw_attachment_filename) -> str:
+        download_path = get_cache_path(f"{bw_item_id}.{bw_attachment_filename}", self.get_options())
         argv = [
             "bw",
             "get",
@@ -63,7 +57,7 @@ class LookupModule(LookupBase):
             "--itemid",
             bw_item_id,
             "--output",
-            tempfile_path,
+            download_path,
         ]
         display.v(f"executing command: {argv}")
         subprocess.run(
@@ -73,9 +67,7 @@ class LookupModule(LookupBase):
             check=True,
         )
         display.v(f"done.")
-        with open(tempfile_path, "rb") as fd:
-            output = base64.b64encode(fd.read()).decode("utf8")
-        return output
+        return download_path
 
     def run(self, terms, variables=None, **kwargs):
         self.set_options(direct=kwargs)
@@ -88,8 +80,8 @@ class LookupModule(LookupBase):
 
         output = cache_lambda(
             f"{bw_item_id}.{bw_attachment_filename}",
-            get_cache_path("bitwarden", self.get_options()),
-            lambda: self.get_attachment_base64(bw_item_id, bw_attachment_filename),
+            "bitwarden",
+            lambda: self.download_attachment(bw_item_id, bw_attachment_filename),
             self.get_options(),
         )
 
