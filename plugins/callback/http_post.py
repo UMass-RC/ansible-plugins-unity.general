@@ -22,7 +22,7 @@ DOCUMENTATION = r"""
   name: http_post
   type: notification
   short_description: upload HTMl formatted log to HTTP server
-  version_added: 0.1.0
+  version_added: 2.18.1
   description: |
     * ANSI text is converted to HTML using aha
     * nothing is printed unless one of the results is changed or failed

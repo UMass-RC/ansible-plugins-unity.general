@@ -15,7 +15,7 @@ DOCUMENTATION = r"""
   name: slack
   type: notification
   short_description: send results to slack
-  version_added: 0.1.0
+  version_added: 2.18.1
   description: TODO
   requirements:
       - whitelist in configuration

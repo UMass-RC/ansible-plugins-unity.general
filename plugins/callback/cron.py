@@ -9,7 +9,7 @@ DOCUMENTATION = r"""
   name: cron
   type: stdout
   short_description: suitable for a cron job
-  version_added: 0.1.0
+  version_added: 2.18.1
   description: |
     Callback plugin that reduces output size by culling redundant output.
     * nothing is printed unless one of the results is changed or failed

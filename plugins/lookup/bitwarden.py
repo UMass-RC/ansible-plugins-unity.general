@@ -8,7 +8,7 @@ DOCUMENTATION = """
     - E(BW_SESSION) environment variable set
     - P(community.general.bitwarden#lookup)
   short_description: Retrieve secrets from Bitwarden
-  version_added: 2.17.3
+  version_added: 2.18.1
   description:
     - wrapper around P(community.general.bitwarden#lookup)
     - all options not mentioned here are passed directly to P(community.general.bitwarden#lookup)

@@ -12,7 +12,7 @@ DOCUMENTATION = r"""
   name: status_oneline
   type: stdout
   short_description: displays the status of all runners on one line
-  version_added: 0.1.0
+  version_added: 2.18.1
   description: |
     Callback plugin that reduces output size by culling redundant output.
     * rather than showing each task-host-status on one line, display the total of number of hosts

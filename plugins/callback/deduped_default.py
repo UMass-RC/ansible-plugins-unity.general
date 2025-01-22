@@ -22,7 +22,7 @@ DOCUMENTATION = r"""
   name: deduped_default
   type: stdout
   short_description: similar to ansible.builtin.default but using the unity.general.deduped callback
-  version_added: 0.1.0
+  version_added: 2.18.1
   description: |
     Callback plugin that reduces output size by culling redundant output.
     * at the end of the task, print the list of hosts that returned each status.

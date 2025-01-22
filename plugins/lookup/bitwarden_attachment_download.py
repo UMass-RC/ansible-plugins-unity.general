@@ -8,10 +8,10 @@ DOCUMENTATION = """
     - E(BW_SESSION) environment variable set
     - P(community.general.bitwarden#lookup)
   short_description: retrieves binary secrets from bitwarden
-  version_added: 2.17.3
+  version_added: 2.18.1
   description:
     - gets an attachment from bitwarden, copies it to ramdisk cache
-    - then returns the content of that file in base64
+    - then returns the path to that ramdisk cache file
     - the `bw` command is slow and cannot be used in parallel, but this plugin uses ramdisk cache
     - so it is fast and safe in parallel.
   options:
