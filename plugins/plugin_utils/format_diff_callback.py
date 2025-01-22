@@ -14,9 +14,7 @@ class FormatDiffCallback(CallbackBase):
         """
         your CallbackModule must extend the unity.general.format_diff documentation fragment
         """
-        normal_diff = re.sub(
-            ANSI_REGEX, "", super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
-        )
+        normal_diff = super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
         formatter = self.get_option("diff_formatter")
         if formatter == "NONE":
             return normal_diff
@@ -29,8 +27,9 @@ class FormatDiffCallback(CallbackBase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
             )
+            monochrome_diff = re.sub(ANSI_REGEX, "", normal_diff)
             try:
-                output, _ = formatter_proc.communicate(input=normal_diff)
+                output, _ = formatter_proc.communicate(input=monochrome_diff)
             except subprocess.CalledProcessError as e:
                 display.warning(f'diff formatter "{formatter}" failed! {e}')
                 return normal_diff
