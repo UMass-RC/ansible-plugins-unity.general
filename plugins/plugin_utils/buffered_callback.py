@@ -1,6 +1,5 @@
-import os
 import sys
-import stat
+from io import StringIO
 from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
 from contextlib import redirect_stdout, redirect_stderr
@@ -8,17 +7,17 @@ from contextlib import redirect_stdout, redirect_stderr
 
 def capture(func, *args, **kwargs):
     "redirect stdout and stderr to a named pipe and return the contents of that pipe as a string"
-    if stat.S_ISFIFO(os.stat(sys.stdout.fileno()).st_mode):
-        # if it's already a pipe, don't redirect
+    if isinstance(sys.stdout, StringIO):
+        # if it's already captured, don't redirect
         func(*args, **kwargs)
         return ""
-    read_fd, write_fd = os.pipe()
-    with os.fdopen(write_fd, "w") as write_pipe:
-        with redirect_stdout(write_pipe):
-            with redirect_stderr(write_pipe):
-                func(*args, **kwargs)
-    with os.fdopen(read_fd, "r") as read_pipe:
-        return read_pipe.read()
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        with redirect_stderr(buffer):
+            func(*args, **kwargs)
+    buffer.flush()
+    buffer.seek(0)
+    return buffer.read()
 
 
 class Display2Buffer:
