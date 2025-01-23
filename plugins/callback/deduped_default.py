@@ -178,5 +178,18 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     def deduped_playbook_on_no_hosts_remaining(self):
         DefaultCallback.v2_playbook_on_no_hosts_remaining(self)
 
-    def deduped_playbook_on_vars_prompt(self, varname, **kwargs):
-        DefaultCallback.v2_playbook_on_vars_prompt(self, varname, **kwargs)
+    def deduped_playbook_on_vars_prompt(
+        self,
+        varname,
+        private=True,
+        prompt=None,
+        encrypt=None,
+        confirm=False,
+        salt_size=None,
+        salt=None,
+        default=None,
+        unsafe=None,
+    ):
+        DefaultCallback.v2_playbook_on_vars_prompt(
+            self, varname, private, prompt, encrypt, confirm, salt_size, salt, default, unsafe
+        )

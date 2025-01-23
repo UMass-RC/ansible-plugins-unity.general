@@ -355,8 +355,21 @@ class DedupeCallback(CallbackBase):
     def v2_playbook_on_no_hosts_remaining(self) -> None:
         self.deduped_playbook_on_no_hosts_remaining()
 
-    def v2_playbook_on_vars_prompt(self, varname, **kwargs) -> None:
-        self.deduped_playbook_on_vars_prompt(varname, **kwargs)
+    def v2_playbook_on_vars_prompt(
+        self,
+        varname,
+        private=True,
+        prompt=None,
+        encrypt=None,
+        confirm=False,
+        salt_size=None,
+        salt=None,
+        default=None,
+        unsafe=None,
+    ) -> None:
+        self.deduped_playbook_on_vars_prompt(
+            varname, private, prompt, encrypt, confirm, salt_size, salt, default, unsafe
+        )
 
     def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
         self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
@@ -433,7 +446,18 @@ class DedupeCallback(CallbackBase):
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
         pass
 
-    def deduped_playbook_on_vars_prompt(self, varname, **kwargs) -> None:
+    def deduped_playbook_on_vars_prompt(
+        self,
+        varname,
+        private=True,
+        prompt=None,
+        encrypt=None,
+        confirm=False,
+        salt_size=None,
+        salt=None,
+        default=None,
+        unsafe=None,
+    ) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
         pass
 
