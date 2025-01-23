@@ -142,7 +142,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def deduped_playbook_on_stats(self, stats):
         super(CallbackModule, self).deduped_playbook_on_stats(stats)
         if not self._display.buffer:
-            self._display.warning("http_post: log not uploaded because there is nothing to upload.")
+            self._real_display.warning(
+                "http_post: log not uploaded because there is nothing to upload."
+            )
             return
         filename = self.get_option("upload_filename").format(
             timestamp=datetime.now(timezone.utc).timestamp(),
