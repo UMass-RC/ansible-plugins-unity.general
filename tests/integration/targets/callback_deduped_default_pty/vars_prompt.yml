@@ -1,0 +1,8 @@
+- name: vars_prompt
+  hosts: localhost
+  gather_facts: no
+  vars_prompt:
+    - name: input
+  tasks:
+    - debug:
+        var: input
