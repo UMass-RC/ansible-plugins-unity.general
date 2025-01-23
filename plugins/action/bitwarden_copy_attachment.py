@@ -22,10 +22,14 @@ class ActionModule(ActionBase):
             return failed('mode is not valid! example: "0755"')
 
         try:
+            lookup_kwargs = {
+                "item_name": self._task.args["item_name"],
+                "attachment_filename": self._task.args["attachment_filename"],
+            }
+            if "collection_id" in self._task.args:
+                lookup_kwargs["collection_id"] = self._task.args["collection_id"]
             attachment_download_path = self._templar._lookup(
-                "unity.general.bitwarden_attachment_download",
-                item_name=self._task.args["item_name"],
-                attachment_filename=self._task.args["attachment_filename"],
+                "unity.general.bitwarden_attachment_download", **lookup_kwargs
             )
         except AnsibleError as e:
             display.v(traceback.format_exception(e))
@@ -34,7 +38,7 @@ class ActionModule(ActionBase):
         module_args = {
             k: v
             for k, v in self._task.args.items()
-            if k not in ["item_name", "attachment_filename"]
+            if k not in ["item_name", "attachment_filename", "collection_id"]
         }
         module_args["src"] = attachment_download_path
 

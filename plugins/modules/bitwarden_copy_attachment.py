@@ -20,13 +20,16 @@ DOCUMENTATION = """
       type: str
       required: true
     attachment_filename:
-      description: filename of the desired attachment
+      description: see the unity.general.bitwarden lookup plugin for more information
       type: str
       required: true
     attachment_filename:
-      description: filename of the desired attachment
+      description: see the unity.general.bitwarden lookup plugin for more information
       type: str
       required: true
+    collection_id:
+      description: see the unity.general.bitwarden lookup plugin for more information
+      type: str
     owner:
       description: see the copy module for more information
       type: str
