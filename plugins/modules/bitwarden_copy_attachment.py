@@ -1,3 +1,6 @@
+import re
+from ansible.module_utils.basic import AnsibleModule
+
 DOCUMENTATION = """
   name: bitwarden_copy_attachment
   author: Simon Leary <simon.leary42@proton.me>
@@ -23,13 +26,13 @@ DOCUMENTATION = """
       description: see the unity.general.bitwarden lookup plugin for more information
       type: str
       required: true
-    attachment_filename:
-      description: see the unity.general.bitwarden lookup plugin for more information
-      type: str
-      required: true
     collection_id:
       description: see the unity.general.bitwarden lookup plugin for more information
       type: str
+    enable_logging:
+      description: _ansible_no_log will be added to the result unless this is True
+      type: bool
+      default: false
     owner:
       description: see the copy module for more information
       type: str
@@ -55,3 +58,25 @@ DOCUMENTATION = """
   extends_documentation_fragment:
     - unity.general.ramdisk_cache
 """
+
+
+if __name__ == "__main__":
+    """
+    this is a stub module meant only to validate parameters and set default values
+    """
+    module_args = dict(
+        item_name=dict(type="str", required=True),
+        attachment_filename=dict(type="str", required=True),
+        collection_id=dict(type="str", required=False),
+        enable_logging=dict(type="bool", required=False, default=False),
+        dest=dict(type="str", required=True),
+        owner=dict(type="str", required=True),
+        group=dict(type="str", required=True),
+        mode=dict(type="str", required=True),
+    )
+    module = AnsibleModule(argument_spec=module_args, supports_check_mode=True)
+    if not isinstance(module.params["mode"], str):
+        module.exit_json(failed=True, msg='mode must be a string! example: "0755"')
+    if not re.fullmatch(r"0[0-7]{3}", module.params["mode"]):
+        module.exit_json(failed=True, msg='mode is not valid! example: "0755"')
+    module.exit_json(failed=False, params=module.params)

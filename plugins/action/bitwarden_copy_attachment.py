@@ -1,4 +1,3 @@
-import re
 import traceback
 
 from ansible.errors import AnsibleError
@@ -16,18 +15,22 @@ class ActionModule(ActionBase):
     """
 
     def run(self, tmp=None, task_vars=None):
-        if not isinstance(self._task.args["mode"], str):
-            return failed('mode must be a string! example: "0755"')
-        if not re.fullmatch(r"0[0-7]{3}", self._task.args["mode"]):
-            return failed('mode is not valid! example: "0755"')
+        validate_args_result = self._execute_module(
+            module_name="unity.general.bitwarden_copy_attachment",
+            module_args=self._task.args,
+            tmp=tmp,
+            task_vars=task_vars,
+        )
+        if validate_args_result["failed"]:
+            return validate_args_result
+        params = validate_args_result["params"]
 
         try:
             lookup_kwargs = {
-                "item_name": self._task.args["item_name"],
-                "attachment_filename": self._task.args["attachment_filename"],
+                k: v
+                for k, v in params.items()
+                if k in ["item_name", "attachment_filename", "collection_id"]
             }
-            if "collection_id" in self._task.args:
-                lookup_kwargs["collection_id"] = self._task.args["collection_id"]
             attachment_download_path = self._templar._lookup(
                 "unity.general.bitwarden_attachment_download", **lookup_kwargs
             )
@@ -35,17 +38,18 @@ class ActionModule(ActionBase):
             display.v(traceback.format_exception(e))
             return failed(f"Error fetching attachment: {str(e)}")
 
-        module_args = {
+        copy_args = {
             k: v
-            for k, v in self._task.args.items()
-            if k not in ["item_name", "attachment_filename", "collection_id"]
+            for k, v in params.items()
+            if k not in ["item_name", "attachment_filename", "collection_id", "enable_logging"]
         }
-        module_args["src"] = attachment_download_path
+        copy_args["src"] = attachment_download_path
 
         result = self._execute_module(
             module_name="ansible.legacy.copy",
-            module_args=module_args,
+            module_args=copy_args,
             task_vars=task_vars,
         )
-        result["_ansible_no_log"] = True
+        if not params["enable_logging"]:
+            result["_ansible_no_log"] = True
         return result
