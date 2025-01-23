@@ -90,7 +90,11 @@ class DedupeCallback(CallbackBase):
         """
         try:
             self.__sigint_handler_lock.acquire()
-            if self.__sigint_handler_run or not self.first_task_started or os.getpid() != self.pid_where_sigint_trapped:
+            if (
+                self.__sigint_handler_run
+                or not self.first_task_started
+                or os.getpid() != self.pid_where_sigint_trapped
+            ):
                 return
             self.__sigint_handler_run = True
             for hostname in self.running_hosts:
@@ -351,8 +355,8 @@ class DedupeCallback(CallbackBase):
     def v2_playbook_on_no_hosts_remaining(self) -> None:
         self.deduped_playbook_on_no_hosts_remaining()
 
-    def v2_playbook_on_vars_prompt(self, **kwargs) -> None:
-        self.deduped_playbook_on_vars_prompt(**kwargs)
+    def v2_playbook_on_vars_prompt(self, varname, **kwargs) -> None:
+        self.deduped_playbook_on_vars_prompt(varname, **kwargs)
 
     def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
         self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
