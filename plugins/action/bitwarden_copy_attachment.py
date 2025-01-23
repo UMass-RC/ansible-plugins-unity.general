@@ -48,6 +48,7 @@ class ActionModule(ActionBase):
         result = self._execute_module(
             module_name="ansible.legacy.copy",
             module_args=copy_args,
+            tmp=tmp,
             task_vars=task_vars,
         )
         if not params["enable_logging"]:
