@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 
 from ansible.utils.display import Display
@@ -16,6 +17,9 @@ class FormatDiffCallback(CallbackBase):
         """
         normal_diff = super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
         formatter = self.get_option("diff_formatter")
+        if shutil.which(formatter) is None:
+            display.warning(f'diff formatter "{formatter}" not found')
+            return normal_diff
         if formatter == "NONE":
             return normal_diff
         else:
