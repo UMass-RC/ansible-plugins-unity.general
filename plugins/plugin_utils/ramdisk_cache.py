@@ -90,7 +90,7 @@ class RamdiskCacheContextManager:
             self.lock_type = "read"
             self.open_mode = "r"
         self.name = name
-        self.file = None
+        self.cache_file = None
 
     def __enter__(self) -> IO:
         if self.plugin_options["enable_cache"] is False:
