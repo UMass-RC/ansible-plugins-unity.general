@@ -1,6 +1,7 @@
 import re
 import shutil
 import subprocess
+import shlex
 
 from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
@@ -17,7 +18,8 @@ class FormatDiffCallback(CallbackBase):
         """
         normal_diff = super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
         formatter = self.get_option("diff_formatter")
-        if shutil.which(formatter) is None:
+        formatter_argv_0 = shlex.split(formatter)[0]
+        if shutil.which(formatter_argv_0) is None:
             display.warning(f'diff formatter "{formatter}" not found')
             return normal_diff
         if formatter == "NONE":
