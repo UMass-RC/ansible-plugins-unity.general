@@ -78,9 +78,17 @@ class RamdiskCacheContextManager:
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
 
-    def __init__(self, cache_name: str, plugin_options: dict, name="anon"):
+    def __init__(self, cache_name: str, plugin_options: dict, needs_write=False, name="anon"):
         self.cache_path = get_cache_path(cache_name, plugin_options)
         self.plugin_options = plugin_options
+        if needs_write:
+            self.flock_flag = fcntl.LOCK_EX
+            self.lock_type = "write"
+            self.open_mode = "r+"  # read and write but don't truncate
+        else:
+            self.flock_flag = fcntl.LOCK_SH
+            self.lock_type = "read"
+            self.open_mode = "r"
         self.name = name
         self.file = None
 
@@ -103,14 +111,14 @@ class RamdiskCacheContextManager:
         else:
             open(self.cache_path, "w").close()
         os.chmod(self.cache_path, 0o600)
-        self.cache_file = open(self.cache_path, "r+")  # read and write but don't truncate
-        display.v(f"({self.name}) acquiring lock on file '{self.cache_path}'...'")
-        fcntl.flock(self.cache_file, fcntl.LOCK_EX)
-        display.v(f"({self.name}) lock acquired on file '{self.cache_path}'.'")
+        self.cache_file = open(self.cache_path, self.open_mode)
+        display.v(f"({self.name}) acquiring {self.lock_type} lock on file '{self.cache_path}'...'")
+        fcntl.flock(self.cache_file, self.flock_flag)
+        display.v(f"({self.name}) {self.lock_type} lock acquired on file '{self.cache_path}'.'")
         return self.cache_file
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        display.v(f"({self.name}) releasing lock on file '{self.cache_path}'... ")
+        display.v(f"({self.name}) releasing {self.lock_type} lock on file '{self.cache_path}'... ")
         fcntl.flock(self.cache_file, fcntl.LOCK_UN)
         self.cache_file.flush()
         self.cache_file.close()
