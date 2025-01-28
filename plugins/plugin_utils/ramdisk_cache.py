@@ -99,6 +99,7 @@ class RamdiskCacheContextManager:
             ):
                 display.v(f"cache timed out, truncating...")
                 open(self.cache_path, "w").close()
+                os.utime(self.cache_path, times=(time.time(), time.time()))
         else:
             open(self.cache_path, "w").close()
         os.chmod(self.cache_path, 0o600)
