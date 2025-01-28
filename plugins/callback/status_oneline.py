@@ -74,8 +74,6 @@ class CallbackModule(DedupedDefaultCallback):
 
     def __init__(self):
         super(CallbackModule, self).__init__()
-        if not self._display._stdout.isatty():
-            raise RuntimeError("clush: stdout must be a TTY!")
 
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
