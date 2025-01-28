@@ -19,10 +19,10 @@ class FormatDiffCallback(CallbackBase):
         normal_diff = super(FormatDiffCallback, self)._get_diff(diff_or_diffs)
         formatter = self.get_option("diff_formatter")
         formatter_argv_0 = shlex.split(formatter)[0]
+        if formatter == "NONE":
+            return normal_diff
         if shutil.which(formatter_argv_0) is None:
             display.warning(f'diff formatter "{formatter}" not found')
-            return normal_diff
-        if formatter == "NONE":
             return normal_diff
         else:
             formatter_proc = subprocess.Popen(
