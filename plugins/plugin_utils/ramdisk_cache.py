@@ -114,7 +114,7 @@ class RamdiskCacheContextManager:
         self.cache_file.flush()
         self.cache_file.close()
         if exc_type is not None:
-            raise exc_type(exc_value)
+            raise exc_value.with_traceback(traceback)
 
 
 def cache_lambda(key, cache_name: str, lambda_func, plugin_options: dict, name=None):
