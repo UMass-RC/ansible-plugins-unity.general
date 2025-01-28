@@ -78,7 +78,7 @@ class RamdiskCacheContextManager:
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
 
-    def __init__(self, cache_name: str, plugin_options: dict, needs_write=False, name="anon"):
+    def __init__(self, cache_name: str, plugin_options: dict, needs_write=True, name="anon"):
         self.cache_path = get_cache_path(cache_name, plugin_options)
         self.plugin_options = plugin_options
         if needs_write:
