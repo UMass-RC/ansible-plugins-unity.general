@@ -1,6 +1,8 @@
 import os
+import re
 import sys
 import socket
+import shutil
 import requests
 import subprocess
 from io import BytesIO
@@ -10,7 +12,9 @@ from requests.exceptions import SSLError
 from ansible.playbook import Playbook
 from ansible.executor.task_result import TaskResult
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
-from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
+    bitwarden_redact,
+)
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
@@ -119,6 +123,9 @@ DOCUMENTATION = r"""
     - unity.general.ramdisk_cache
 """
 
+# https://stackoverflow.com/a/14693789/18696276
+ANSI_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
 
 class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     CALLBACK_VERSION = 3.0
@@ -152,14 +159,22 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             username=os.getlogin(),
             hostname=socket.gethostname().split(".", 1)[0],
         )
-        aha_proc = subprocess.Popen(
-            ["aha", "--black"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        # TODO is utf8 okay?
-        html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
+        if shutil.which("aha") is None:
+            self._real_display.warning("http_post: aha not found!")
+            html_bytes = (
+                "<html><body><pre>"
+                + re.sub(ANSI_REGEX, "", self._display.buffer)
+                + "</pre></body></html>"
+            ).encode()
+        else:
+            aha_proc = subprocess.Popen(
+                ["aha", "--black"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            # TODO is utf8 okay?
+            html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
         self._real_display.v("http_post: uploading...")
         try:
             response = requests.post(
