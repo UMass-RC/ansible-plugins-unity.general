@@ -183,7 +183,7 @@ class DedupeCallback(CallbackBase):
         for diff_hash, hostnames in sorted_diff_hash2hostnames.items():
             diff = self.diff_hash2diff[diff_hash]
             sorted_diffs_and_hostnames.append((diff, hostnames))
-        self.deduped_task_end(deepcopy(sorted_diffs_and_hostnames), deepcopy(self.status2hostnames))
+        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
 
     def __duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
         """
@@ -204,8 +204,7 @@ class DedupeCallback(CallbackBase):
         anonymous_result = _anonymize_result(hostname, result._result)
         duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
         self.__register_result_diff(result)
-        # don't let deduped function mess with our result
-        self.deduped_runner_or_runner_item_end(deepcopy(result), status, duplicate_of)
+        self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
         self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
         if not self.task_is_loop:
             try:
@@ -479,6 +478,7 @@ class DedupeCallback(CallbackBase):
         if this same result has already been returned by another runner for this task, then
         dupe_of will be the hostname of that runner.
         hostnames are ignored when checking if another host has made the same result.
+        please do not modify the result!
         """
         pass
 

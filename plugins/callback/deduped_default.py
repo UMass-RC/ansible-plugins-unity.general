@@ -1,3 +1,4 @@
+import copy
 import datetime
 
 from ansible import constants as C
@@ -98,20 +99,21 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             or (status == "skipped" and self.get_option("display_skipped_hosts"))
         ):
             return
-        if "item" in result._result:
-            item = f" (item={self._get_item_label(result._result)})"
+        my_result_dict = copy.deepcopy(result._result)
+        if "item" in my_result_dict:
+            item = f" (item={self._get_item_label(my_result_dict)})"
         else:
             item = ""
-        self._clean_results(result._result, result._task.action)
-        self._handle_exception(result._result)
-        self._handle_warnings(result._result)
-        if "results" in result._result and not self._run_is_verbose(result):
-            del result._result["results"]
+        self._clean_results(my_result_dict, result._task.action)
+        self._handle_exception(my_result_dict)
+        self._handle_warnings(my_result_dict)
+        if "results" in my_result_dict and not self._run_is_verbose(result):
+            del my_result_dict["results"]
         header = f"[{self.host_label(result)}]: {status.upper()}{item} =>"
         if dupe_of is not None:
             msg = f'{header} same result as "{dupe_of}"'
         else:
-            msg = f"{header}{self._dump_results(result._result, indent=2)}"
+            msg = f"{header}{self._dump_results(my_result_dict, indent=2)}"
         if status == "failed" and self.get_option("show_task_path_on_failure"):
             self._print_task_path(result._task)
         self._display.display(
