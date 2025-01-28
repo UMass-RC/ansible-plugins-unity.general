@@ -107,10 +107,10 @@ class RamdiskCacheContextManager:
             ):
                 display.v(f"cache timed out, truncating...")
                 open(self.cache_path, "w").close()
-                os.utime(self.cache_path, times=(time.time(), time.time()))
         else:
             open(self.cache_path, "w").close()
         os.chmod(self.cache_path, 0o600)
+        os.utime(self.cache_path, times=(time.time(), time.time()))
         self.cache_file = open(self.cache_path, self.open_mode)
         display.v(f"({self.name}) acquiring {self.lock_type} lock on file '{self.cache_path}'...'")
         fcntl.flock(self.cache_file, self.flock_flag)
