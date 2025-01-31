@@ -1,4 +1,6 @@
-## unity ansible plugins
+## unity general ansible plugins
+
+NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.umass.edu/unity/ansible-collections/general)
 
 ### bitwarden
 
