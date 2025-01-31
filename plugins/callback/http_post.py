@@ -3,13 +3,15 @@ import re
 import sys
 import socket
 import shutil
-import requests
 import subprocess
 from io import BytesIO
 from datetime import datetime, timezone
 from requests.exceptions import SSLError
 
+import requests
+
 from ansible.playbook import Playbook
+from ansible.playbook.play import Play
 from ansible.executor.task_result import TaskResult
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
@@ -136,6 +138,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def __init__(self):
         super(CallbackModule, self).__init__()
         self._playbook_name = None
+        self._all_plays_check_mode = True
 
     # https://github.com/ansible/ansible/pull/84496
     def get_options(self):
@@ -151,6 +154,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         if not self._display.buffer:
             self._real_display.warning(
                 "http_post: log not uploaded because there is nothing to upload."
+            )
+            return
+        if self._all_plays_check_mode:
+            self._real_display.warning(
+                "http_post: log not uploaded because all plays were run in check mode."
             )
             return
         filename = self.get_option("upload_filename").format(
@@ -201,3 +209,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         super(CallbackModule, self).deduped_playbook_on_start(playbook)
         self._playbook_name = os.path.basename(playbook._file_name)
+
+    def deduped_playbook_on_play_start(self, play: Play) -> None:
+        super(CallbackModule, self).deduped_playbook_on_play_start(play)
+        self._all_plays_check_mode &= bool(play.check_mode)
