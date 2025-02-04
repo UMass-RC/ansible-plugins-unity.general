@@ -1,8 +1,10 @@
 import os
+import sys
 import json
 import time
 import fcntl
 import getpass
+import platform
 import subprocess
 
 from typing import IO
@@ -19,11 +21,17 @@ this cache system can be seen as a nested dictionary. each cache file is a dicti
 get_cache_path provides a mapping from a simple name like "bitwarden" to a fully qualified path.
 """
 
-UNAME2RAMDISK_PATH = {
-    "linux": "/dev/shm",
-    "darwin": "~/.tmpdisk/shm",  # https://github.com/imothee/tmpdisk
-}
-
+OS = platform.system().lower()
+if OS == "linux":
+    DEFAULT_RAMDISK_PATH = "/dev/shm"
+elif OS == "darwin":
+    DEFAULT_RAMDISK_PATH = os.expanduser("~/.tmpdisk/shm")
+    if not os.path.isdir(DEFAULT_RAMDISK_PATH):
+        raise AnsibleError(
+            f'"{ramdisk_path}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
+        )
+else:
+    raise AnsibleError(f"ramdisk_cache: unsupported OS: {OS}")
 
 def get_cache_path(name: str, plugin_options: dict) -> str:
     """
@@ -36,23 +44,7 @@ def get_cache_path(name: str, plugin_options: dict) -> str:
     if plugin_options["ramdisk_cache_path"] is not None:
         ramdisk_path = plugin_options["ramdisk_cache_path"]
     else:
-        try:
-            uname = subprocess.check_output("uname", text=True).strip().lower()
-        except FileNotFoundError as e:
-            raise AnsibleError("unsupported operating system: `uname` command not found.") from e
-        try:
-            ramdisk_path = os.path.expanduser(UNAME2RAMDISK_PATH[uname])
-        except KeyError as e:
-            raise AnsibleError(
-                f'unsupported OS: "{uname}". supported: {UNAME2RAMDISK_PATH.keys()}'
-            ) from e
-        if not os.path.isdir(ramdisk_path):
-            if uname == "darwin":
-                raise AnsibleError(
-                    f'"{ramdisk_path}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
-                )
-            else:
-                raise AnsibleError(f'"{ramdisk_path}" is not a directory!')
+        ramdisk_path = DEFAULT_RAMDISK_PATH
     return os.path.join(ramdisk_path, f".{name}-{username}")
 
 
