@@ -87,9 +87,9 @@ class DedupeCallback(CallbackBase):
         make sure the user knows which runners were interrupted
         since they might be blocking the playbook and might need to be excluded
         """
-        id = f"{os.getpid()}.[{threading.get_ident()}"
+        id = f"{os.getpid()}.{threading.get_ident()}"
         try:
-            display.v(f"{id}] acquiring sigint handler lock...")
+            display.v(f"[{id}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
             display.v(f"[{id}] sigint handler lock acquired.")
             if self.__sigint_handler_run:
