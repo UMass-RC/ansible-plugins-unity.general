@@ -90,6 +90,7 @@ class DedupeCallback(CallbackBase):
         """
         _id = f"pid={os.getpid()} thread={threading.get_ident()} self={self}"
         _id_hash = hashlib.md5(_id.encode()).hexdigest()[:5]
+        display.v(f"[{_id_hash}] = SIGINT caught!")
         display.v(f"[{_id_hash}] = {_id}")
         display.v(f"[{_id_hash}] stack trace: {traceback.format_stack()}")
         try:
@@ -97,7 +98,9 @@ class DedupeCallback(CallbackBase):
             self.__sigint_handler_lock.acquire()
             display.v(f"[{_id_hash}] sigint handler lock acquired.")
             if self.__sigint_handler_run:
-                display.warning("multiple SIGINT, sending SIGKILL...")
+                display.warning(
+                    f"[{_id_hash}] caught multiple SIGINT, sending SIGKILL to PID {os.getpid()}. Use -v for more information."
+                )
                 os.kill(os.getpid(), signal.SIGKILL)
             if not self.first_task_started:
                 display.v(
