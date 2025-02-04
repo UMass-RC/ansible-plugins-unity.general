@@ -87,11 +87,11 @@ class DedupeCallback(CallbackBase):
         make sure the user knows which runners were interrupted
         since they might be blocking the playbook and might need to be excluded
         """
-        id = f"{os.getpid()}.{threading.get_ident()}"
+        _id = f"{os.getpid()}.{threading.get_ident()}.{id(self)}"
         try:
-            display.v(f"[{id}] acquiring sigint handler lock...")
+            display.v(f"[{_id}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
-            display.v(f"[{id}] sigint handler lock acquired.")
+            display.v(f"[{_id}] sigint handler lock acquired.")
             if self.__sigint_handler_run:
                 display.warning("multiple SIGINT, sending SIGKILL...")
                 os.kill(os.getpid(), signal.SIGKILL)
@@ -105,7 +105,7 @@ class DedupeCallback(CallbackBase):
             self.__maybe_task_end()
             self.original_sigint_handler(signum, frame)
         finally:
-            display.v(f"[{id}] releasing sigint handler lock...")
+            display.v(f"[{_id}] releasing sigint handler lock...")
             self.__sigint_handler_lock.release()
 
     def __init__(self):
