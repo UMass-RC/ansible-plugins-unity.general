@@ -4,7 +4,6 @@ import json
 import signal
 import hashlib
 import threading
-from copy import deepcopy
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -89,12 +88,13 @@ class DedupeCallback(CallbackBase):
         since they might be blocking the playbook and might need to be excluded
         """
         try:
+            display.v(f"[{threading.get_ident()}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
-            if (
-                self.__sigint_handler_run
-                or not self.first_task_started
-                or os.getpid() != self.pid_where_sigint_trapped
-            ):
+            display.v(f"[{threading.get_ident()}] sigint handler lock acquired.")
+            if self.__sigint_handler_run:
+                display.warning("multiple SIGINT, sending SIGKILL...")
+                os.kill(os.getpid(), signal.SIGKILL)
+            if not self.first_task_started or os.getpid() != self.pid_where_sigint_trapped:
                 return
             self.__sigint_handler_run = True
             for hostname in self.running_hosts:
@@ -104,6 +104,7 @@ class DedupeCallback(CallbackBase):
             self.__maybe_task_end()
             self.original_sigint_handler(signum, frame)
         finally:
+            display.v(f"[{threading.get_ident()}] releasing sigint handler lock...")
             self.__sigint_handler_lock.release()
 
     def __init__(self):
