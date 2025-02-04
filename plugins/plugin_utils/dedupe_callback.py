@@ -88,8 +88,8 @@ class DedupeCallback(CallbackBase):
         since they might be blocking the playbook and might need to be excluded
         """
         _id = f"pid={os.getpid()} thread={threading.get_ident()} self={self}"
-        display.v(f"[{_id_hash}] = {_id}")
         _id_hash = hashlib.md5(_id.encode()).hexdigest()[:5]
+        display.v(f"[{_id_hash}] = {_id}")
         try:
             display.v(f"[{_id_hash}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
