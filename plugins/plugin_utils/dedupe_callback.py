@@ -103,10 +103,11 @@ class DedupeCallback(CallbackBase):
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
-            self.original_sigint_handler(signum, frame)
         finally:
             display.v(f"[{_id}] releasing sigint handler lock...")
             self.__sigint_handler_lock.release()
+            display.v(f"[{_id}] executing original sigint handler...")
+            self.original_sigint_handler(signum, frame)
 
     def __init__(self):
         super(DedupeCallback, self).__init__()
