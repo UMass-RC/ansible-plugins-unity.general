@@ -4,6 +4,7 @@ import json
 import signal
 import hashlib
 import threading
+import traceback
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -90,6 +91,7 @@ class DedupeCallback(CallbackBase):
         _id = f"pid={os.getpid()} thread={threading.get_ident()} self={self}"
         _id_hash = hashlib.md5(_id.encode()).hexdigest()[:5]
         display.v(f"[{_id_hash}] = {_id}")
+        display.v(f"[{_id_hash}] stack trace: {traceback.format_stack()}")
         try:
             display.v(f"[{_id_hash}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
