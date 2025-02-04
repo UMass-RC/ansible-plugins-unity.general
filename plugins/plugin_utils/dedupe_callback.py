@@ -88,19 +88,23 @@ class DedupeCallback(CallbackBase):
         since they might be blocking the playbook and might need to be excluded
         """
         _id = f"pid={os.getpid()} thread={threading.get_ident()} self={self}"
+        display.v(f"[{_id_hash}] = {_id}")
+        _id_hash = hashlib.md5(_id.encode()).hexdigest()[:5]
         try:
-            display.v(f"[{_id}] acquiring sigint handler lock...")
+            display.v(f"[{_id_hash}] acquiring sigint handler lock...")
             self.__sigint_handler_lock.acquire()
-            display.v(f"[{_id}] sigint handler lock acquired.")
+            display.v(f"[{_id_hash}] sigint handler lock acquired.")
             if self.__sigint_handler_run:
                 display.warning("multiple SIGINT, sending SIGKILL...")
                 os.kill(os.getpid(), signal.SIGKILL)
             if not self.first_task_started:
-                display.v(f"[{_id}]: first task not yet started, skipping special sigint logic...")
+                display.v(
+                    f"[{_id_hash}]: first task not yet started, skipping special sigint logic..."
+                )
                 return
             if os.getpid() != self.pid_where_sigint_trapped:
                 display.v(
-                    f"[{_id}]: pid != {self.pid_where_sigint_trapped}, skipping special sigint logic..."
+                    f"[{_id_hash}]: pid != {self.pid_where_sigint_trapped}, skipping special sigint logic..."
                 )
                 return
             self.__sigint_handler_run = True
@@ -110,9 +114,9 @@ class DedupeCallback(CallbackBase):
             self.running_hosts = set()
             self.__maybe_task_end()
         finally:
-            display.v(f"[{_id}] releasing sigint handler lock...")
+            display.v(f"[{_id_hash}] releasing sigint handler lock...")
             self.__sigint_handler_lock.release()
-            display.v(f"[{_id}] executing original sigint handler...")
+            display.v(f"[{_id_hash}] executing original sigint handler...")
             self.original_sigint_handler(signum, frame)
 
     def __init__(self):
