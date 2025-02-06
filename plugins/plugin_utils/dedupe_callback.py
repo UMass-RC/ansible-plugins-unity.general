@@ -89,7 +89,7 @@ def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
     """
     builds a list of hosts for each item
     then, groups items with identical lists of hosts
-    automatically enable nice_yaml
+    if multiline isn't explicitly set to False, it may be automatically enabled
     """
     item_hash2hostnames = {}
     item_hash2item = {}
