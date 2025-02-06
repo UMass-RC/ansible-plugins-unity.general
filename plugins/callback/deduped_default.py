@@ -12,8 +12,13 @@ from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
+    DedupeCallback,
+    ResultID,
+    WarningID,
+    ExceptionID,
+    result_ids2str,
+)
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
@@ -47,6 +52,10 @@ DOCUMENTATION = r"""
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
     * async tasks are not allowed.
+    * \"display_ok_hosts\" and \"display_skipped_hosts\" don't make them displayed immediately,
+      instead their "msg" attributes are deduped and displayed at task end.
+    * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
+      a "msg", then the skipped reason becomes the msg.
   requirements:
   - whitelist in configuration
   author: Simon Leary
@@ -71,6 +80,30 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
+def _indent(_input: str, num_spaces=2) -> str:
+    return (" " * num_spaces) + _input.replace("\n", ("\n" + (" " * num_spaces)))
+
+
+def _format_status_result_ids_msg(status: str, result_ids: list[ResultID], msg: str = None):
+    result_ids_str = result_ids2str(result_ids)
+    if "\n" in result_ids_str:
+        if not msg:
+            return f"{status}:\n{_indent(result_ids_str)}"
+        return "\n".join(
+            [
+                f"{status}:",
+                "  hosts:",
+                _indent(result_ids_str, num_spaces=4),
+                "  msg:",
+                _indent(msg, num_spaces=4),
+            ]
+        )
+    else:
+        if not msg:
+            return f"{status}: {result_ids_str}"
+        return f"{status}: {result_ids_str} => {msg}"
+
+
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
@@ -89,29 +122,29 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
-    def deduped_runner_or_runner_item_end(
-        self, result: TaskResult, status: str, dupe_of: str | None
+    def deduped_result(
+        self, result: TaskResult, status: str, result_id: ResultID, dupe_of: list[ResultID]
     ):
         if not (
             self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
-            or (status in STATUSES_PRINT_IMMEDIATELY)
-            or (status == "ok" and self.get_option("display_ok_hosts"))
-            or (status == "skipped" and self.get_option("display_skipped_hosts"))
+            or status in STATUSES_PRINT_IMMEDIATELY
         ):
             return
         my_result_dict = copy.deepcopy(result._result)
-        if "item" in my_result_dict:
-            item = f" (item={self._get_item_label(my_result_dict)})"
+        if result_id.item is not None:
+            item_str = f" (item={self._get_item_label(my_result_dict)})"
         else:
-            item = ""
+            item_str = ""
         self._clean_results(my_result_dict, result._task.action)
-        self._handle_exception(my_result_dict)
-        self._handle_warnings(my_result_dict)
+        # warnings, exceptions have been moved to deduped_warning, deduped_exception
+        my_result_dict = {
+            k: v for k, v in my_result_dict.items() if k not in ["warnings", "exceptions"]
+        }
         if "results" in my_result_dict and not self._run_is_verbose(result):
             del my_result_dict["results"]
-        header = f"[{self.host_label(result)}]: {status.upper()}{item} =>"
-        if dupe_of is not None:
-            msg = f'{header} same result as "{dupe_of}"'
+        header = f"{status}: [{result_id}]: =>"
+        if len(dupe_of) > 0:
+            msg = f"{header} same result (not including diff) as {dupe_of[0]}"
         else:
             msg = f"{header}{self._dump_results(my_result_dict, indent=2)}"
         if status == "failed" and self.get_option("show_task_path_on_failure"):
@@ -122,21 +155,58 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
 
+    def deduped_warning(
+        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
+    ) -> None:
+        if len(dupe_of) > 0:
+            warning = f"same warning as {dupe_of[0]}"
+        else:
+            warning = f"{warning_id}: {warning}"
+        self._handle_warnings({"warnings": [warning]})
+
+    def deduped_exception(
+        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+    ) -> None:
+        if len(dupe_of) > 0:
+            exception = f"same exception as {dupe_of[0]}"
+        else:
+            exception = f"{exception_id}: {exception}"
+        self._handle_exceptions({"exceptions": [exception]})
+
     def deduped_task_end(
         self,
-        sorted_diffs_and_hostnames: list[dict, list[str]],
-        status2hostnames: dict[str, list[str]],
+        status2msg2result_ids: dict[str, list[ResultID]],
+        sorted_results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
+        warning2warning_ids: dict[str, list[WarningID]],
+        exception2exception_ids: dict[str, list[ExceptionID]],
     ):
-        for diff, hostnames in sorted_diffs_and_hostnames:
+        for diff, result_ids in sorted_diffs_and_groupings:
             self._display.display(self._get_diff(diff))
-            self._display.display(f"changed: {format_hostnames(hostnames)}", color=C.COLOR_CHANGED)
-        for status, hostnames in status2hostnames.items():
-            if status == "changed":
-                continue  # we already did this
-            if len(hostnames) == 0:
+            self._display.display(
+                _format_status_result_ids_msg("changed", result_ids),
+                color=C.COLOR_CHANGED,
+            )
+        for status, msg2result_ids in status2msg2result_ids.items():
+            if len(msg2result_ids) == 0:  # nothing to do
+                continue
+            if status in STATUSES_PRINT_IMMEDIATELY:  # already done
                 continue
             color = _STATUS_COLORS[status]
-            self._display.display(f"{status}: {format_hostnames(hostnames)}", color=color)
+            for msg, result_ids in msg2result_ids.items():
+                if msg:
+                    self._display.display(
+                        _format_status_result_ids_msg(status, result_ids, msg),
+                        color=color,
+                    )
+                else:
+                    # unless there is a message, no need to print changed again
+                    if status == "changed":
+                        continue
+                    self._display.display(
+                        _format_status_result_ids_msg(status, result_ids),
+                        color=color,
+                    )
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
