@@ -67,6 +67,15 @@ DOCUMENTATION = r"""
           key: upload_url
       env:
         - name: CALLBACK_HTTP_POST_URL
+    upload_check_mode:
+      description: whether to upload when playbook was run in check mode
+      type: bool
+      default: false
+      ini:
+        - section: callback_http_post
+          key: upload_check_mode
+      env:
+        - name: CALLBACK_HTTP_POST_UPLOAD_CHECK_MODE
     redact_bitwarden:
       description: check bitwarden cache file for secrets and remove them from task results
       type: bool
@@ -156,9 +165,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
                 "http_post: log not uploaded because there is nothing to upload."
             )
             return
-        if self._all_plays_check_mode:
+        if self._all_plays_check_mode and not self.get_option("upload_check_mode"):
             self._real_display.warning(
-                "http_post: log not uploaded because all plays were run in check mode."
+                "http_post: log not uploaded because all plays were run in check mode. this can be forced using the 'upload_check_mode' option."
             )
             return
         filename = self.get_option("upload_filename").format(
