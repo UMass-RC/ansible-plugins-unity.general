@@ -8,7 +8,7 @@ class ModuleDocFragment(object):
         pretty_results:
           default: true
         display_ok_hosts:
-          default: false
+          default: true
         display_skipped_hosts:
-          default: false
+          default: true
     """

@@ -19,68 +19,122 @@ from ansible.plugins.callback import CallbackBase
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
-from ansible.module_utils.common.text.converters import to_text
+
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 display = Display()
 
 
-def _hash_object(x) -> str:
-    json_bytes = json.dumps(x, sort_keys=True).encode("utf8")
+def _hash_object_dirty(x) -> str:
+    "for non json-serializable objects, just casts to string."
+    json_bytes = json.dumps(x, sort_keys=True, default=str).encode("utf8")
     return hashlib.md5(json_bytes).hexdigest()
 
 
-def _anonymize_result(hostname: str, result: dict) -> dict:
+# TODO does this work?
+def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
     """
-    remove the "item" key from result
-    remove hostname from any string result.values() or string result.values().values()
-    if result has an item, remove that item from any string result.values() or string result.values().values()
-    case insensitive
+    replace all identifiers with "ANONYMOUS" in string leaf nodes of dict tree
+    """
+    replace_me = "(" + "|".join([re.escape(y) for y in identifiers]) + ")"
+
+    def anonymize_or_recurse_or_nothing(x):
+        if isinstance(x, str):
+            return re.sub(replace_me, "ANONYMOUS", x, flags=re.IGNORECASE)
+        elif isinstance(x, list):
+            return {anonymize_or_recurse_or_nothing(e) for e in x}
+        elif isinstance(x, dict):
+            return {k: anonymize_or_recurse_or_nothing(v) for k, v in x.items()}
+        return x
+
+    return anonymize_or_recurse_or_nothing(_input)
+
+
+class ResultID:
+    """
+    normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
-    def anonymize_if_string(x: str) -> str:
-        if "item" in result:
-            replace_me = rf"\b({re.escape(hostname)}|{re.escape(to_text(result["item"]))})\b"
+    def __init__(self, hostname: str, item: object):
+        self.hostname = hostname
+        self.item = item
+
+    def __str__(self):
+        if self.item:
+            return f"{self.hostname}(item={self.item})"
+        return self.hostname
+
+
+class WarningID:
+    """
+    normally I prefer to just use dictionaries but having a type makes it easier for variable names
+    """
+
+    def __init__(self, hostname: str, item: object, index: int):
+        self.hostname = hostname
+        self.item = item
+        self.index = index
+
+    def __str__(self):
+        if self.item:
+            return f"{self.hostname}(item={self.item})[{self.index}]"
+        return f"{self.hostname}[{self.index}]"
+
+
+class ExceptionID(WarningID):
+    pass
+
+
+def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
+    """
+    builds a list of hosts for each item
+    then, groups items with identical lists of hosts
+    automatically enable nice_yaml
+    """
+    item_hash2hostnames = {}
+    item_hash2item = {}
+    for result_id in result_ids:
+        item_hash = _hash_object_dirty(result_id.item)
+        item_hash2item[item_hash] = result_id.item
+        item_hash2hostnames.setdefault(item_hash, set()).add(result_id.hostname)
+    hostnames_str2items = {}
+    for item_hash, hostnames in item_hash2hostnames.items():
+        hostnames_str = ",".join(sorted(list(hostnames)))
+        item = item_hash2item[item_hash]
+        hostnames_str2items.setdefault(hostnames_str, []).append(item)
+    output = []
+    for hostnames_str, items in hostnames_str2items.items():
+        if not any(items):
+            output.append(hostnames_str)
         else:
-            replace_me = rf"\b{re.escape(hostname)}\b"
-        if not isinstance(x, str):
-            display.debug(
-                f'unable to anonymize, not a string: "{to_text(val)}" of type "{type(val)}"'
+            output.append(
+                f"{hostnames_str}: items={json.dumps(items, sort_keys=True, default=str)}"  # dirty serialize
             )
-            return x
-        return re.sub(replace_me, "ANONYMOUS", x, flags=re.IGNORECASE)
-
-    anonymous_result = {}
-    for key, val in result.items():
-        if key == "item":
-            continue
-        if isinstance(val, dict):
-            anonymous_result[key] = {k: anonymize_if_string(v) for k, v in val.items()}
-        else:
-            anonymous_result[key] = anonymize_if_string(val)
-    return anonymous_result
+    if multiline or (multiline is None and sum(len(x) for x in output) > 100):
+        return "\n".join(output)
+    return ", ".join(output)
 
 
 class DedupeCallback(CallbackBase):
     """
     Callback plugin that reduces output size by culling redundant output.
     * at the end of the task, print the list of hosts that returned each status.
-    * for the \"changed\" status, group any identical diffs and print the list of hosts which
-      generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
-      is used as the diff. Effectively, diff mode is always on.
-    * identical errors are not printed multiple times. Instead, errors following the first printed
-      will say \"same as <previous hostname>\". The errors are also anonymized so that they can
-      be grouped even when the hostname is part of the error.
-    * since we are collecting diffs and waiting to display them until the end of the task,
-      in the event of an interrupt, mark all currently running runners as completed
-      with the \"interrupted\" status. Then print the end-of-task summary as normal,
-      then call the normal SIGINT handler and terminate ansible.
-      with this plugin it is now easy to find out which hosts are hanging up your playbook.
-      sometimes Ansible will actually ignore this interrupt and continue running, and you just
-      have to send it again.
+    * each result is "anonymized", so that hostname and item differences are ignored for deduping.
+      each result is broken up into four parts: diffs, warnings, exceptions, and "stripped result".
+      "stripped result" is just the result dict minus diffs, warnings, and exceptions.
+      duplicate diffs, warnings, exceptions, and stripped results are grouped so that unnecessary
+      output can be avoided. each can be printed immediately or at the end of task.
+    * each result is given a "status", which can be one of:
+      ok changed unreachable failed skipped ignored interrupted running
+    * since information might not be printed immediately, SIGINT is trapped to display results
+      before ansible exits.
+    * If a result hash changed=true but no diff, a \"no diff\" message is used as the diff
     * when using the `--step` option in `ansible-playbook`, output from the just-completed task
       is not printed until the start of the next task, which is not natural.
     * only the linear and debug strategies are allowed.
     * async tasks are not allowed.
+    * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
+      a "msg", then the skipped reason becomes the msg.
     """
 
     def __sigint_handler(self, signum, frame):
@@ -114,7 +168,7 @@ class DedupeCallback(CallbackBase):
                 return
             self.__sigint_handler_run = True
             for hostname in self.running_hosts:
-                self.status2hostnames["interrupted"].append(hostname)
+                self.status2result_ids["interrupted"].append(ResultID(hostname, None))
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
@@ -127,13 +181,17 @@ class DedupeCallback(CallbackBase):
     def __init__(self):
         super(DedupeCallback, self).__init__()
         self.task_name = None
-        self.status2hostnames = None
-        self.running_hosts = None
-        self.diff_hash2hostnames = None
-        self.diff_hash2diff = None
         self.task_is_loop = None
-        self.results_printed = None
         self.task_end_done = None
+        self.running_hosts = None
+        self.status2result_ids = None
+        self.exception2exception_ids = None
+        self.warning2warning_ids = None
+        self.diff_hash2result_ids = None
+        self.diff_hash2diff = None
+        self.result_stripped_hash2result_ids = None
+        self.result_stripped_hash2result_stripped = None
+        self.result_stripped_hash2status = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
         self.first_task_started = False
@@ -146,11 +204,13 @@ class DedupeCallback(CallbackBase):
 
     def __task_start(self, task: Task):
         self.__maybe_task_end()
-        if not self.first_task_started:
-            self.first_task_started = True
         self.task_name = task.get_name()
-        del self.status2hostnames
-        self.status2hostnames = {
+        self.task_is_loop = bool(task.loop)
+        self.task_end_done = False
+        del self.running_hosts
+        self.running_hosts = set()
+        del self.status2result_ids
+        self.status2result_ids = {
             "ok": [],
             "changed": [],
             "unreachable": [],
@@ -159,16 +219,22 @@ class DedupeCallback(CallbackBase):
             "ignored": [],
             "interrupted": [],
         }
-        del self.running_hosts
-        self.running_hosts = set()
-        del self.diff_hash2hostnames
-        self.diff_hash2hostnames = {}
+        del self.exception2exception_ids
+        self.exception2exception_ids = {}
+        del self.warning2warning_ids
+        self.warning2warning_ids = {}
+        del self.diff_hash2result_ids
+        self.diff_hash2result_ids = {}
         del self.diff_hash2diff
         self.diff_hash2diff = {}
-        self.task_is_loop = bool(task.loop)
-        del self.results_printed
-        self.results_printed = {}
-        self.task_end_done = False
+        del self.result_stripped_hash2result_ids
+        self.result_stripped_hash2result_ids = {}
+        del self.result_stripped_hash2result_stripped
+        self.result_stripped_hash2result_stripped = {}
+        del self.result_stripped_hash2status
+        self.result_stripped_hash2status = {}
+        if not self.first_task_started:
+            self.first_task_started = True
 
     def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
@@ -193,37 +259,99 @@ class DedupeCallback(CallbackBase):
             return
         self.task_end_done = True
         self.__update_status_totals()
-        # sort the diff groupings such that the biggest groupings (most hostnames) go last
-        sorted_diffs_and_hostnames = []
-        sorted_diff_hash2hostnames = dict(
-            sorted(self.diff_hash2hostnames.items(), key=lambda x: len(x[1]))
-        )
-        for diff_hash, hostnames in sorted_diff_hash2hostnames.items():
-            diff = self.diff_hash2diff[diff_hash]
-            sorted_diffs_and_hostnames.append((diff, hostnames))
-        self.deduped_task_end(sorted_diffs_and_hostnames, self.status2hostnames)
 
-    def __duplicate_result_of(self, result: dict, anonymous_result: dict) -> str | None:
-        """
-        return value is either a hostname or "{hostname} (item={item})" or None
-        """
-        for hostname, host_results_printed in self.results_printed.items():
-            for printed_result, printed_anonymous_result in host_results_printed:
-                if (result == printed_result) or (anonymous_result == printed_anonymous_result):
-                    if "item" in printed_result:
-                        # TODO use _get_item_label?
-                        return f"{hostname} (item={printed_result["item"]})"
-                    else:
-                        return hostname
-        return None
+        sorted_diffs_and_groupings = []
+        sorted_diff_hash2result_ids = dict(
+            sorted(self.diff_hash2result_ids.items(), key=lambda x: len(x[1]))
+        )
+        for diff_hash, grouping in sorted_diff_hash2result_ids.items():
+            diff = self.diff_hash2diff[diff_hash]
+            sorted_diffs_and_groupings.append((diff, grouping))
+
+        sorted_results_stripped_and_groupings = []
+        status2msg2result_ids = {}
+        sorted_result_stripped_hash2result_ids = dict(
+            sorted(self.result_stripped_hash2result_ids.items(), key=lambda x: len(x[1]))
+        )
+        for result_stripped_hash, result_ids in sorted_result_stripped_hash2result_ids.items():
+            result_stripped = self.result_stripped_hash2result_stripped[result_stripped_hash]
+            sorted_results_stripped_and_groupings.append((result_stripped, result_ids))
+            msg = result_stripped.get("msg", None)
+            status = self.result_stripped_hash2status[result_stripped_hash]
+            status2msg2result_ids.setdefault(status, {}).setdefault(msg, []).extend(result_ids)
+        self.deduped_task_end(
+            status2msg2result_ids,
+            sorted_results_stripped_and_groupings,
+            sorted_diffs_and_groupings,
+            self.warning2warning_ids,
+            self.exception2exception_ids,
+        )
 
     def __runner_or_runner_item_end(self, result: TaskResult, status: str):
-        hostname = result._host.get_name()
-        anonymous_result = _anonymize_result(hostname, result._result)
-        duplicate_of = self.__duplicate_result_of(result._result, anonymous_result)
-        self.__register_result_diff(result)
-        self.deduped_runner_or_runner_item_end(result, status, duplicate_of)
-        self.results_printed.setdefault(hostname, []).append([result._result, anonymous_result])
+        # hostname = result._host.get_name()
+        # item = result._result.get("item", None)
+        hostname = CallbackBase.host_label(result)
+        item = self._get_item_label(result._result)
+        result_id = ResultID(hostname, item)
+        result_stripped_dupes = []
+        warning2dupes = {}
+        exception2dupes = {}
+        # prompte "skipped_reason" to "msg" so that user can see
+        if (
+            status == "skipped"
+            and "msg" not in result._result
+            and "skipped_reason" in result._result
+        ):
+            result._result["msg"] = result._result["skipped_reason"]
+        result_stripped = {
+            k: v for k, v in result._result.items() if k not in ["exceptions", "warnings"]
+        }
+        result_stripped_hash = _hash_object_dirty(
+            _anonymize_dict([hostname, str(item)], result_stripped)
+        )
+        if result_stripped_hash in self.result_stripped_hash2result_ids:
+            result_stripped_dupes = self.result_stripped_hash2result_ids[result_stripped_hash]
+            self.result_stripped_hash2result_ids[result_stripped_hash].append(result_id)
+        else:
+            self.result_stripped_hash2result_ids[result_stripped_hash] = [result_id]
+            self.result_stripped_hash2result_stripped[result_stripped_hash] = result_stripped
+            self.result_stripped_hash2status[result_stripped_hash] = status
+        for i, exception in enumerate(result._result.get("exceptions", [])):
+            exception_id = ExceptionID(hostname, item, i)
+            self.exception2exception_ids.setdefault(exception, []).append(exception_id)
+        for i, warning in enumerate(result._result.get("warnings", [])):
+            warning_id = WarningID(hostname, item, i)
+            self.warning2warning_ids.setdefault(warning, []).append(warning_id)
+        if result._result.get("changed", False):
+            diff_or_diffs = result._result.get("diff", [])
+            if not isinstance(diff_or_diffs, list):
+                diffs = [diff_or_diffs]
+            else:
+                diffs = diff_or_diffs
+            diffs = [x for x in diffs if x]
+            if len(diffs) == 0:
+                diffs = [
+                    {
+                        "prepared": stringc(
+                            "task reports changed=true but does not report any diff.",
+                            C.COLOR_CHANGED,
+                        )
+                    }
+                ]
+            for diff in diffs:
+                diff_no_headers = {
+                    k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
+                }
+                diff_no_headers = _anonymize_dict([hostname, str(item)], diff_no_headers)
+                diff_hash = _hash_object_dirty(diff_no_headers)
+                self.diff_hash2result_ids.setdefault(diff_hash, []).append(result_id)
+                self.diff_hash2diff[diff_hash] = diff
+        self.deduped_result(result, status, result_id, result_stripped_dupes)
+        for (warning_id, warning), dupes in warning2dupes.items():
+            self.deduped_warning(warning, warning_id, dupe_of=dupes)
+        for (exception_id, exception), dupes in exception2dupes.items():
+            self.deduped_exception(exception, exception_id, dupe_of=dupes)
+
         if not self.task_is_loop:
             try:
                 self.running_hosts.remove(hostname)
@@ -231,36 +359,13 @@ class DedupeCallback(CallbackBase):
                 display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
-        self.status2hostnames[status].append(hostname)
+        self.status2result_ids[status].append(result_id)
+        display.v(str(self.status2result_ids))
         self.__update_status_totals()
-
-    def __register_result_diff(self, result: TaskResult):
-        hostname = result._host.get_name()
-        if not result._result.get("changed", False):
-            return
-        diffs = result._result.get("diff", None)
-        if not diffs:
-            diffs = [
-                {
-                    "prepared": stringc(
-                        "task reports changed=true but does not report any diff.",
-                        C.COLOR_CHANGED,
-                    )
-                }
-            ]
-        if not isinstance(diffs, list):
-            diffs = [diffs]
-        for diff in diffs:
-            diff_no_headers = {
-                k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
-            }
-            diff_hash = _hash_object(diff_no_headers)
-            self.diff_hash2hostnames.setdefault(diff_hash, []).append(hostname)
-            self.diff_hash2diff[diff_hash] = diff
 
     def __update_status_totals(self):
         status_totals = {
-            status: len(hostnames) for status, hostnames in self.status2hostnames.items()
+            status: len(result_ids) for status, result_ids in self.status2result_ids.items()
         }
         # I have to work around this edge case because _runner_on_completed removes hostname
         # from the running_hosts list, and the same host can't be removed multiple times.
@@ -487,32 +592,72 @@ class DedupeCallback(CallbackBase):
         """
         pass
 
-    def deduped_runner_or_runner_item_end(
-        self, result: TaskResult, status: str, dupe_of: str | None
+    def deduped_result(
+        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
     ) -> None:
         """
-        this is called when a runner or runner item finishes. possible values for status are:
+        use this if you need to print results immediately rather than waiting until end of task
+        possible values for status are:
         ok changed unreachable failed skipped ignored interrupted
-        if this same result has already been returned by another runner for this task, then
-        dupe_of will be the hostname of that runner.
-        hostnames are ignored when checking if another host has made the same result.
-        please do not modify the result!
+        hostnames, items, diffs, warnings, and exceptions are all ignored in dupe_of_stripped.
+        """
+        pass
+
+    def deduped_diff(self, diff: dict, result_id: ResultID, dupe_of: list[ResultID]):
+        """
+        use this if you need to print diffs immediately rather than waiting until end of task
+        hostnames and items are ignored when checking for dupes/groupings
+        """
+        pass
+
+    def deduped_warning(
+        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
+    ) -> None:
+        """
+        use this if you need to print warnings immediately rather than waiting until end of task
+        hostnames and items are ignored when checking for dupes/groupings
+        """
+        pass
+
+    def deduped_exception(
+        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+    ) -> None:
+        """
+        use this if you need to print exceptions immediately rather than waiting until end of task
+        hostnames and items are ignored when checking for dupes/groupings
         """
         pass
 
     def deduped_task_end(
         self,
-        sorted_diffs_and_hostnames: list[tuple[dict, list[str]]],
-        status2hostnames: dict[str, list[str]],
+        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
+        sorted_results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
+        warning2warning_ids: dict[str, list[WarningID]],
+        exception2exception_ids: dict[str, list[ExceptionID]],
     ) -> None:
         """
-        sorted_diffs_and_hostnames: list of tuples where the first element of each tuple is a
-        diff dict. the second element in each tuple is a list of hostnames. the list of tuples
-        is sorted such that the largest lists of hostnames are last. these are only the diffs from
-        results where changed==True.
-
-        status2hostnames: dict from status to list of hostnames. possible values for status are:
+        status2msg2result_ids: dict from status to dict of message to list of hostnames.
+        possible values for status are:
         ok changed unreachable failed skipped ignored interrupted running
         not sorted.
+
+        sorted_results_stripped_and_groupings: list of tuples where the first element of each tuple
+        is a stripped result dict. a stripped result dict is a result dict without diffs, warnings,
+        or exceptions. the second element in each tuple is a list of ResultIDs that produced
+        that result. hostnames and items are ignored when grouping ResultIDs. the list of tuples
+        is sorted such that the largest groupings are last. a "stripped result" is a result dict
+
+        sorted_diffs_and_groupings: list of tuples where the first element of each tuple is a
+        diff dict. the second element in each tuple is a list of ResultIDs that produced
+        that result. hostnames and items are ignored when grouping ResultIDs. the list of tuples
+        is sorted such that the largest groupings are last. these are only the diffs from
+        results where changed==True.
+
+        warning2warning_ids: dict from strings to WarningIDs
+
+        exception2exception_ids: dict from strings to WarningIDs
+
+        hostnames and items are ignored for finding dupes/groupings.
         """
         pass
