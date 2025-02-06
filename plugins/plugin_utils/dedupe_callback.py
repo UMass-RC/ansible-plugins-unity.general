@@ -360,7 +360,6 @@ class DedupeCallback(CallbackBase):
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
         self.status2result_ids[status].append(result_id)
-        display.v(str(self.status2result_ids))
         self.__update_status_totals()
 
     def __update_status_totals(self):
