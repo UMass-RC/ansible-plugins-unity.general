@@ -42,7 +42,7 @@ def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
         if isinstance(x, str):
             return re.sub(replace_me, "ANONYMOUS", x, flags=re.IGNORECASE)
         elif isinstance(x, list):
-            return {anonymize_or_recurse_or_nothing(e) for e in x}
+            return [anonymize_or_recurse_or_nothing(e) for e in x]
         elif isinstance(x, dict):
             return {k: anonymize_or_recurse_or_nothing(v) for k, v in x.items()}
         return x
