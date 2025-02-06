@@ -131,10 +131,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         ):
             return
         my_result_dict = copy.deepcopy(result._result)
-        if result_id.item is not None:
-            item_str = f" (item={self._get_item_label(my_result_dict)})"
-        else:
-            item_str = ""
         self._clean_results(my_result_dict, result._task.action)
         # warnings, exceptions have been moved to deduped_warning, deduped_exception
         my_result_dict = {
