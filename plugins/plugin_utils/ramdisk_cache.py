@@ -1,11 +1,9 @@
 import os
-import sys
 import json
 import time
 import fcntl
 import getpass
 import platform
-import subprocess
 
 from typing import IO
 
@@ -25,13 +23,10 @@ OS = platform.system().lower()
 if OS == "linux":
     DEFAULT_RAMDISK_PATH = "/dev/shm"
 elif OS == "darwin":
-    DEFAULT_RAMDISK_PATH = os.expanduser("~/.tmpdisk/shm")
-    if not os.path.isdir(DEFAULT_RAMDISK_PATH):
-        raise AnsibleError(
-            f'"{ramdisk_path}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
-        )
+    DEFAULT_RAMDISK_PATH = os.path.expanduser("~/.tmpdisk/shm")
 else:
     raise AnsibleError(f"ramdisk_cache: unsupported OS: {OS}")
+
 
 def get_cache_path(name: str, plugin_options: dict) -> str:
     """
@@ -45,6 +40,11 @@ def get_cache_path(name: str, plugin_options: dict) -> str:
         ramdisk_path = plugin_options["ramdisk_cache_path"]
     else:
         ramdisk_path = DEFAULT_RAMDISK_PATH
+        # special warning to install special program on macos
+        if OS == "darwin" and not os.path.isdir(DEFAULT_RAMDISK_PATH):
+            raise AnsibleError(
+                f'"{DEFAULT_RAMDISK_PATH}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
+            )
     return os.path.join(ramdisk_path, f".{name}-{username}")
 
 
