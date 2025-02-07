@@ -55,7 +55,7 @@ class ResultID:
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
-    def __init__(self, hostname: str, item: object):
+    def __init__(self, hostname: str, item: str | None):
         self.hostname = hostname
         self.item = item
 
@@ -70,7 +70,7 @@ class WarningID:
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
-    def __init__(self, hostname: str, item: object, index: int):
+    def __init__(self, hostname: str, item: str | None, index: int):
         self.hostname = hostname
         self.item = item
         self.index = index
@@ -91,25 +91,19 @@ def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
     then, groups items with identical lists of hosts
     if multiline isn't explicitly set to False, it may be automatically enabled
     """
-    item_hash2hostnames = {}
-    item_hash2item = {}
+    item2hostnames = {}
     for result_id in result_ids:
-        item_hash = _hash_object_dirty(result_id.item)
-        item_hash2item[item_hash] = result_id.item
-        item_hash2hostnames.setdefault(item_hash, set()).add(result_id.hostname)
+        item2hostnames.setdefault(result_id.item, set()).add(result_id.hostname)
     hostnames_str2items = {}
-    for item_hash, hostnames in item_hash2hostnames.items():
+    for item, hostnames in item2hostnames.items():
         hostnames_str = ",".join(sorted(list(hostnames)))
-        item = item_hash2item[item_hash]
         hostnames_str2items.setdefault(hostnames_str, []).append(item)
     output = []
     for hostnames_str, items in hostnames_str2items.items():
         if not any(items):
             output.append(hostnames_str)
         else:
-            output.append(
-                f"{hostnames_str}: items={json.dumps(items, sort_keys=True, default=str)}"  # dirty serialize
-            )
+            output.append(f"{hostnames_str}: items={json.dumps(items, sort_keys=True)}")
     if multiline or (multiline is None and sum(len(x) for x in output) > 100):
         return "\n".join(output)
     return ", ".join(output)
@@ -168,7 +162,7 @@ class DedupeCallback(CallbackBase):
                 return
             self.__sigint_handler_run = True
             for hostname in self.running_hosts:
-                self.status2result_ids["interrupted"].append(ResultID(hostname, None))
+                self._register_result({}, ResultID(hostname, None), "interrupted")
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
@@ -287,13 +281,27 @@ class DedupeCallback(CallbackBase):
             self.exception2exception_ids,
         )
 
+    def _register_result(self, result: dict, result_id: ResultID, status: str) -> list[ResultID]:
+        "returns resultIDs of duplicates, not comparing diffs/exceptions/warnings"
+        result_stripped_dupes = []
+        result_stripped = {k: v for k, v in result.items() if k not in ["exceptions", "warnings"]}
+        result_stripped_hash = _hash_object_dirty(
+            _anonymize_dict([result_id.hostname, str(result_id.item)], result_stripped)
+        )
+        if result_stripped_hash in self.result_stripped_hash2result_ids:
+            result_stripped_dupes = self.result_stripped_hash2result_ids[result_stripped_hash]
+            self.result_stripped_hash2result_ids[result_stripped_hash].append(result_id)
+        else:
+            self.result_stripped_hash2result_ids[result_stripped_hash] = [result_id]
+            self.result_stripped_hash2result_stripped[result_stripped_hash] = result_stripped
+            self.result_stripped_hash2status[result_stripped_hash] = status
+        self.status2result_ids[status].append(result_id)
+        return result_stripped_dupes
+
     def __runner_or_runner_item_end(self, result: TaskResult, status: str):
-        # hostname = result._host.get_name()
-        # item = result._result.get("item", None)
         hostname = CallbackBase.host_label(result)
         item = self._get_item_label(result._result)
         result_id = ResultID(hostname, item)
-        result_stripped_dupes = []
         warning2dupes = {}
         exception2dupes = {}
         # prompte "skipped_reason" to "msg" so that user can see
@@ -303,19 +311,9 @@ class DedupeCallback(CallbackBase):
             and "skipped_reason" in result._result
         ):
             result._result["msg"] = result._result["skipped_reason"]
-        result_stripped = {
-            k: v for k, v in result._result.items() if k not in ["exceptions", "warnings"]
-        }
-        result_stripped_hash = _hash_object_dirty(
-            _anonymize_dict([hostname, str(item)], result_stripped)
+        result_stripped_dupes = self._register_result(
+            result._result, ResultID(hostname, item), status
         )
-        if result_stripped_hash in self.result_stripped_hash2result_ids:
-            result_stripped_dupes = self.result_stripped_hash2result_ids[result_stripped_hash]
-            self.result_stripped_hash2result_ids[result_stripped_hash].append(result_id)
-        else:
-            self.result_stripped_hash2result_ids[result_stripped_hash] = [result_id]
-            self.result_stripped_hash2result_stripped[result_stripped_hash] = result_stripped
-            self.result_stripped_hash2status[result_stripped_hash] = status
         for i, exception in enumerate(result._result.get("exceptions", [])):
             exception_id = ExceptionID(hostname, item, i)
             self.exception2exception_ids.setdefault(exception, []).append(exception_id)
@@ -359,7 +357,6 @@ class DedupeCallback(CallbackBase):
                 display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
-        self.status2result_ids[status].append(result_id)
         self.__update_status_totals()
 
     def __update_status_totals(self):
