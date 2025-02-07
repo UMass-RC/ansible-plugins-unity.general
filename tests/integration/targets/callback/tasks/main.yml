@@ -55,8 +55,8 @@
       loop_control:
         loop_var: test
         label: "{{ test.name }}"
-      register: outputs
-      failed_when: outputs.failed and not (test.allow_nonzero_exit_code | default(false))
+      register: playbook_runs
+      failed_when: playbook_runs.failed and not (test.allow_nonzero_exit_code | default(false))
       changed_when: false
       vars:
         inventory: "{{ role_path }}/inventory.yml"
@@ -77,9 +77,12 @@
 
     - name: assert that stderr is empty (no callback errors)
       fail:
-        msg: "found non-empty stderr: '{{item.stderr}}'"
-      when: (item.stderr != "") and (not (item.test.allow_non_empty_stderr | default(false)))
-      loop: "{{ outputs.results }}"
+        msg: "found non-empty stderr: '{{playbook_run.stderr}}'"
+      when: (playbook_run.stderr != "") and (not (playbook_run.test.allow_non_empty_stderr | default(false)))
+      loop: "{{ playbook_runs.results }}"
+      loop_control:
+        loop_var: playbook_run
+        label: "{{ playbook_run.test.name }}"
 
     - name: munge playbook output with sed
       command:
