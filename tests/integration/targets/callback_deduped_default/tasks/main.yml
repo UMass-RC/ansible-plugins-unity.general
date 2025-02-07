@@ -588,7 +588,6 @@
                 ok: dedupe[1-2]
                 interrupted: dedupe3
                 elapsed: <omitted> seconds
-
           - name: fatal no hosts matched
             environment:
               ANSIBLE_NOCOLOR: "true"
