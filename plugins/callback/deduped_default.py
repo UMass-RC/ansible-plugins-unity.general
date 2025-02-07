@@ -98,8 +98,8 @@ def _format_status_result_ids_msg(status: str, result_ids: list[ResultID], msg: 
         )
     else:
         if not msg:
-            return f"{status}: [{result_ids_str}]"
-        return f"{status}: [{result_ids_str}] => {msg}"
+            return f"{status}: {result_ids_str}"
+        return f"{status}: {result_ids_str} => {msg}"
 
 
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
@@ -138,7 +138,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         }
         if "results" in my_result_dict and not self._run_is_verbose(result):
             del my_result_dict["results"]
-        header = f"{status}: [{result_id}]: =>"
+        header = f"{status}: {result_id} =>"
         if len(dupe_of) > 0:
             msg = f"{header} same result (not including diff) as {dupe_of[0]}"
         else:
