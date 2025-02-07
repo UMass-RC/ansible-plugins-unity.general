@@ -188,13 +188,13 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
                 continue
             color = _STATUS_COLORS[status]
             for msg, result_ids in msg2result_ids.items():
-                # unless there is a message, no need to print changed again
-                # TODO can this message be printed earlier along with its accompanying diff?
-                if status == "changed" and not msg:
-                    continue
+                msg = msg.replace("\n", "\\n")
+                estimated_prefix_len = len(_format_status_result_ids_msg(status, result_ids))
+                max_msg_len = 100 - estimated_prefix_len
+                if len(msg) > max_msg_len:
+                    msg = msg[: max_msg_len - 3] + "..."
                 self._display.display(
-                    _format_status_result_ids_msg(status, result_ids, msg),
-                    color=color,
+                    _format_status_result_ids_msg(status, result_ids, msg), color=color
                 )
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
