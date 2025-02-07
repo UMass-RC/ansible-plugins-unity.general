@@ -44,8 +44,7 @@
                       content: |
                         Foo bar
                         Bar baz bam!
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -72,6 +71,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: formatted diff
@@ -98,8 +99,7 @@
                       content: |
                         Foo bar
                         Bar baz bam!
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -125,6 +125,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: dedupe diff
@@ -142,8 +144,7 @@
                     copy:
                       dest: "{{ tempfile.path }}"
                       content: "{{ '{{ dedupe_me }}' }}"
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: [
                 "",
                 "PLAY [dedupegroup] *************************************************************",
@@ -173,6 +174,8 @@
                 "dedupe1                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
                 "dedupe2                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
                 "dedupe3                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: dedupe normal loop
@@ -199,8 +202,7 @@
                       - foo
                       - foo
                       - bar
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -217,6 +219,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           # once upon a time I relied on the size of the loop variable to determine the number of runners that would be spawned
@@ -247,8 +251,7 @@
                     debug:
                         msg: "{{ item | sha1 }}"
                     loop: "{{ loopvar }}"
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -269,6 +272,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: don't display non verbose OK results
@@ -286,8 +291,7 @@
                 tasks:
                   - name: noop
                     ansible.builtin.assert: { that: true, quiet: true }
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -301,6 +305,8 @@
                 "dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
                 "dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
                 "dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: dedupe errors
@@ -318,8 +324,7 @@
                   - name: fail
                     fail:
                       msg: "{{ dedupe_me }}"
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -340,6 +345,8 @@
                 "dedupe1                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   ",
                 "dedupe2                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   ",
                 "dedupe3                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: dedupe errors in list items
@@ -364,8 +371,7 @@
                       - bar
                       - bar
                       - baz
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -397,6 +403,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: multiple plays
@@ -419,8 +427,7 @@
                 tasks:
                   - name: bar
                     debug: msg='bar'
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -442,6 +449,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: skipped (no hosts matched) on 1st play
@@ -462,8 +471,7 @@
                 tasks:
                   - name: bar
                     debug: msg='bar'
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -480,6 +488,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: skipped (no hosts matched) on 2nd play
@@ -500,8 +510,7 @@
                 tasks:
                   - name: bar
                     debug: msg='bar'
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -518,6 +527,8 @@
                 "",
                 "PLAY RECAP *********************************************************************",
                 "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
+                "",
+                "",
               ]
 
           - name: skipped (when=false) 1st task
@@ -536,8 +547,7 @@
                     when: false
                   - name: bar
                     debug: msg='bar'
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -575,8 +585,7 @@
                   - name: bar
                     debug: msg='bar'
                     when: false
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -618,8 +627,7 @@
             timeout: 4
             allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output:
               [
                 "",
@@ -672,6 +680,8 @@
                 "PLAY [testhost] ****************************************************************",
                 "",
                 "PLAY RECAP *********************************************************************",
+                "",
+                "",
               ]
 
   always:

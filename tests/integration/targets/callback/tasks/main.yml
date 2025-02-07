@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - block:
-    - name: Create temporary playbook files
+    - name: create temporary playbook files
       tempfile:
         state: file
         suffix: temp
@@ -20,19 +20,36 @@
       register: temporary_playbook_files
       no_log: true
 
-    - name: Set temporary playbook file content
-      copy:
-        content: "{{ test.playbook }}"
-        dest: "{{ temporary_playbook_files.results[test_idx].path }}"
+    - name: create temporary playbook output files
+      tempfile:
+        state: file
+        suffix: temp
       loop: "{{ tests }}"
       loop_control:
         loop_var: test
-        index_var: test_idx
         label: "{{ test.name }}"
+      register: temporary_playbook_output_files
       no_log: true
 
-    - name: Collect outputs
-      command: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }}"
+    - name: write playbook to file
+      copy:
+        content: "{{ test.playbook }}"
+        dest: "{{ playbook_file }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      vars:
+        playbook_file: "
+          {%- for result in temporary_playbook_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+      no_log: true
+
+    - name: run playbook
+      shell: "{{timeout_command_prepend}} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} | tee {{ output_file }}"
       environment: "{{ test.environment }}"
       loop: "{{ tests }}"
       loop_control:
@@ -49,7 +66,14 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
-      no_log: true
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+        timeout_command_prepend: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }}"
+      # no_log: true
 
     - name: assert that stderr is empty (no callback errors)
       fail:
@@ -57,56 +81,102 @@
       when: (item.stderr != "") and (not (item.test.allow_non_empty_stderr | default(false)))
       loop: "{{ outputs.results }}"
 
-    - name: Assert test output equals expected output
-      assert:
-        that: result.output.differences | length == 0
-      loop: "{{ results }}"
+    - name: munge playbook output with sed
+      command:
+        argv:
+          - sed
+          - -E
+          - "{{ test.sed_E_command }}"
+          -  -i
+          - "{{ output_file }}"
+      loop: "{{ tests }}"
       loop_control:
-        loop_var: result
-        label: "{{ result.name }}"
-      register: assertions
+        loop_var: test
+        label: "{{ test.name }}"
+      when: test.sed_E_command is defined
+      changed_when: false
       vars:
-        results: >-
-          {%- set results = []                                                                           -%}
-          {%- for result in outputs.results                                                              -%}
-          {%-   set output_lines_replaced = []                                                           -%}
-          {%-   set differences = []                                                                     -%}
-          {%-   for i in range([result.test.expected_output | count, result.stdout_lines | count] | max) -%}
-          {%-     set output_line_replaced_versions = [result.stdout_lines[i] | default("")]             -%}
-          {%-     set expected_line = result.test.expected_output[i] | default("")                       -%}
-          {%-     for match, replace in (result.test.regex_replacements | default([]))                   -%}
-          {{-       output_line_replaced_versions.append(output_line_replaced_versions[-1] | regex_replace(match, replace))  -}}
-          {%-     endfor                                                                                 -%}
-          {%-     set output_line_replaced = output_line_replaced_versions[-1]                           -%}
-          {{-     output_lines_replaced.append(output_line_replaced)                                     -}}
-          {%-     if expected_line != output_line_replaced                                               -%}
-          {{-       differences.append({
-                      ("line_%s" | format(i+1)): {
-                        'expected': expected_line,
-                        'versions of line after each replacement': output_line_replaced_versions,
-                        'replacements': (result.test.regex_replacements | default([]))
-                      }
-                    })                                                                                   -}}
-          {%-     endif                                                                                  -%}
-          {%-   endfor                                                                                   -%}
-          {{-   results.append({
-                  'name': result.test.name,
-                  'output': {
-                      'differences': differences,
-                      'expected': result.test.expected_output,
-                      'got (before regex replace)': result.stdout_lines,
-                      'got (after regex replace)': output_lines_replaced
-                  }
-                })                                                                                       -}}
-          {%- endfor                                                                                     -%}
-          {{- results                                                                                    -}}
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+      no_log: true
+
+    - name: slurp munged playbook output
+      slurp:
+        src: "{{ output_file }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      changed_when: false
+      vars:
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+      register: munged_outputs
+
+    - name: display expected vs actual diff (don't forget to add the `--diff` argument to `ansible-test integration`)
+      return_args:
+        changed: true
+        diff:
+          before_header: expected output
+          before: "{{ expected_output }}"
+          after_header: actual output ({{ output_file }})
+          after: "{{ output }}"
+      when: expected_output != output
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      vars:
+        expected_output: "{{ test.expected_output | join('\n') }}"
+        output: "
+          {%- for result in munged_outputs.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.content | b64decode -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+
+    - name: assert that expected output == actual output
+      fail:
+        msg: "the following tests did not produce the expected output: {{ failed_tests }}"
+      when: failed_tests != ''
+      vars:
+         failed_tests: "
+          {%- for result in munged_outputs.results -%}
+          {%-   if (result.test.expected_output | join('\n')) != (result.content | b64decode) -%}
+          {{-     result.test.name -}}{{- ', ' -}}
+          {%-   endif -%}
+          {%- endfor -%}"
 
   always:
-    - name: Remove temporary playbooks
+    - name: remove temporary playbooks
       file:
         path: "{{ temporary_file.path }}"
         state: absent
       loop: "{{ temporary_playbook_files.results }}"
+      loop_control:
+        loop_var: temporary_file
+        label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+      no_log: true
+
+    - name: remove temporary playbook output files
+      file:
+        path: "{{ temporary_file.path }}"
+        state: absent
+      loop: "{{ temporary_playbook_output_files.results }}"
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
