@@ -96,7 +96,7 @@ def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
         item2hostnames.setdefault(result_id.item, set()).add(result_id.hostname)
     hostnames_str2items = {}
     for item, hostnames in item2hostnames.items():
-        hostnames_str = ",".join(sorted(list(hostnames)))
+        hostnames_str = format_hostnames(hostnames)
         hostnames_str2items.setdefault(hostnames_str, []).append(item)
     output = []
     for hostnames_str, items in hostnames_str2items.items():
