@@ -52,8 +52,6 @@ DOCUMENTATION = r"""
       item in the loop. 'item_statuses' is a simple overview of all the items.
     * only the linear and debug strategies are allowed.
     * async tasks are not allowed.
-    * \"display_ok_hosts\" and \"display_skipped_hosts\" don't make them displayed immediately,
-      instead their "msg" attributes are deduped and displayed at task end.
     * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
       a "msg", then the skipped reason becomes the msg.
   requirements:
@@ -127,7 +125,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     ):
         if not (
             self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
-            or status in STATUSES_PRINT_IMMEDIATELY
+            or (status in STATUSES_PRINT_IMMEDIATELY)
+            or (status == "ok" and self.get_option("display_ok_hosts"))
+            or (status == "skipped" and self.get_option("display_skipped_hosts"))
         ):
             return
         my_result_dict = copy.deepcopy(result._result)
