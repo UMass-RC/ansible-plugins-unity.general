@@ -186,8 +186,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         for status, msg2result_ids in status2msg2result_ids.items():
             if len(msg2result_ids) == 0:  # nothing to do
                 continue
-            if status in STATUSES_PRINT_IMMEDIATELY:  # already done
-                continue
             color = _STATUS_COLORS[status]
             for msg, result_ids in msg2result_ids.items():
                 # unless there is a message, no need to print changed again
