@@ -98,8 +98,8 @@ def _format_status_result_ids_msg(status: str, result_ids: list[ResultID], msg: 
         )
     else:
         if not msg:
-            return f"{status}: {result_ids_str}"
-        return f"{status}: {result_ids_str} => {msg}"
+            return f"{status}: [{result_ids_str}]"
+        return f"{status}: [{result_ids_str}] => {msg}"
 
 
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
