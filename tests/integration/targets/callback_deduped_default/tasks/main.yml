@@ -197,10 +197,10 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: [testhost(item=foo)]: =>
+              ok: testhost(item=foo) =>
                 msg: {{ 'foo' | sha1 }}
-              ok: [testhost(item=foo)]: => same result (not including diff) as testhost(item=foo)
-              ok: [testhost(item=bar)]: =>
+              ok: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
+              ok: testhost(item=bar) =>
                 msg: {{ 'bar' | sha1 }}
               ok: testhost: items=["bar"] => {{ 'bar' | sha1 }}
               ok: testhost => All items completed
@@ -248,10 +248,10 @@
               elapsed: <omitted> seconds
 
               TASK [foo] *********************************************************************
-              ok: [testhost(item=foo)]: =>
+              ok: testhost(item=foo) =>
                 msg: {{ 'foo' | sha1 }}
-              ok: [testhost(item=foo)]: => same result (not including diff) as testhost(item=foo)
-              ok: [testhost(item=bar)]: =>
+              ok: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
+              ok: testhost(item=bar) =>
                 msg: {{ 'bar' | sha1 }}
               ok: testhost: items=["bar"] => {{ 'bar' | sha1 }}
               ok: testhost => All items completed
@@ -311,11 +311,11 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
-              failed: [dedupe1]: =>
+              failed: dedupe1 =>
                 changed: false
                 msg: foo
-              failed: [dedupe2]: => same result (not including diff) as dedupe1
-              failed: [dedupe3]: =>
+              failed: dedupe2 => same result (not including diff) as dedupe1
+              failed: dedupe3 =>
                 changed: false
                 msg: bar
               elapsed: <omitted> seconds
@@ -353,27 +353,27 @@
               PLAY [testhost] ****************************************************************
 
               TASK [fail] ********************************************************************
-              failed: [testhost(item=foo)]: =>
+              failed: testhost(item=foo) =>
                 ansible_loop_var: item
                 changed: false
                 item: foo
                 msg: {{ 'foo' | sha1 }}
-              failed: [testhost(item=foo)]: => same result (not including diff) as testhost(item=foo)
-              failed: [testhost(item=bar)]: =>
+              failed: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
+              failed: testhost(item=bar) =>
                 ansible_loop_var: item
                 changed: false
                 item: bar
                 msg: {{ 'bar' | sha1 }}
-              failed: [testhost(item=bar)]: => same result (not including diff) as testhost(item=bar)
-              failed: [testhost(item=baz)]: =>
+              failed: testhost(item=bar) => same result (not including diff) as testhost(item=bar)
+              failed: testhost(item=baz) =>
                 ansible_loop_var: item
                 changed: false
                 item: baz
                 msg: {{ 'baz' | sha1 }}
-              failed: [testhost]: =>
+              failed: testhost =>
                 changed: false
                 msg: One or more items failed
-              failed: [testhost(items=["foo", "bar", "baz"])]
+              failed: testhost(items=["foo", "bar", "baz"])
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -405,7 +405,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: foo
               ok: testhost => foo
               elapsed: <omitted> seconds
@@ -413,7 +413,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: bar
               ok: testhost => bar
               elapsed: <omitted> seconds
@@ -448,7 +448,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: bar
               ok: testhost => bar
               elapsed: <omitted> seconds
@@ -480,7 +480,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: foo
               ok: testhost => foo
               elapsed: <omitted> seconds
@@ -517,9 +517,9 @@
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: bar
-              ok: [testhost]: => bar
+              ok: testhost => bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -547,9 +547,9 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: [testhost]: =>
+              ok: testhost =>
                 msg: foo
-              ok: [testhost]: => foo
+              ok: testhost => foo
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
