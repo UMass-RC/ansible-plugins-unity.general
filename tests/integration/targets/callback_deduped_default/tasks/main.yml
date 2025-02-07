@@ -56,6 +56,7 @@
               +Foo bar
 
               changed: testhost
+              changed:(1) testhost
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
@@ -66,6 +67,7 @@
               +Bar baz bam!
 
               changed: testhost
+              changed:(1) testhost
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -107,6 +109,7 @@
                REPLACED bar
               -Bar baz bam!
               changed: testhost
+              changed:(1) testhost
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
@@ -116,6 +119,7 @@
                REPLACED bar
               +Bar baz bam!
               changed: testhost
+              changed:(1) testhost
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -160,6 +164,7 @@
               \ No newline at end of file
 
               changed: dedupe[1-2]
+              changed:(3) dedupe[1-3]
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -197,14 +202,14 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost(item=foo) =>
+              ok: testhost: items=["foo"] => 
                 msg: {{ 'foo' | sha1 }}
-              ok: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
-              ok: testhost(item=bar) =>
+              ok: testhost: items=["foo"] => same result (not including diff) as testhost(item=foo)
+              ok: testhost: items=["bar"] => 
                 msg: {{ 'bar' | sha1 }}
-              ok: testhost: items=["bar"] => {{ 'bar' | sha1 }}
-              ok: testhost => All items completed
-              ok: testhost: items=["foo"] => {{ 'foo' | sha1 }}
+              ok:(1) testhost: items=["bar"] => {{ 'bar' | sha1 }}
+              ok:(1) testhost => All items completed
+              ok:(2) testhost: items=["foo"] => {{ 'foo' | sha1 }}
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -244,18 +249,18 @@
               PLAY [testhost] ****************************************************************
 
               TASK [set_fact] ****************************************************************
-              ok: testhost
+              ok:(1) testhost
               elapsed: <omitted> seconds
 
               TASK [foo] *********************************************************************
-              ok: testhost(item=foo) =>
+              ok: testhost: items=["foo"] => 
                 msg: {{ 'foo' | sha1 }}
-              ok: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
-              ok: testhost(item=bar) =>
+              ok: testhost: items=["foo"] => same result (not including diff) as testhost(item=foo)
+              ok: testhost: items=["bar"] => 
                 msg: {{ 'bar' | sha1 }}
-              ok: testhost: items=["bar"] => {{ 'bar' | sha1 }}
-              ok: testhost => All items completed
-              ok: testhost: items=["foo"] => {{ 'foo' | sha1 }}
+              ok:(1) testhost: items=["bar"] => {{ 'bar' | sha1 }}
+              ok:(1) testhost => All items completed
+              ok:(2) testhost: items=["foo"] => {{ 'foo' | sha1 }}
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -282,7 +287,7 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [noop] ********************************************************************
-              ok: dedupe[1-3] => All assertions passed
+              ok:(3) dedupe[1-3] => All assertions passed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -311,13 +316,15 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
-              failed: dedupe1 =>
+              failed: dedupe1 => 
                 changed: false
                 msg: foo
               failed: dedupe2 => same result (not including diff) as dedupe1
-              failed: dedupe3 =>
+              failed: dedupe3 => 
                 changed: false
                 msg: bar
+              failed:(1) dedupe3 => bar
+              failed:(2) dedupe[1-2] => foo
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -353,27 +360,30 @@
               PLAY [testhost] ****************************************************************
 
               TASK [fail] ********************************************************************
-              failed: testhost(item=foo) =>
+              failed: testhost: items=["foo"] => 
                 ansible_loop_var: item
                 changed: false
                 item: foo
                 msg: {{ 'foo' | sha1 }}
-              failed: testhost(item=foo) => same result (not including diff) as testhost(item=foo)
-              failed: testhost(item=bar) =>
+              failed: testhost: items=["foo"] => same result (not including diff) as testhost(item=foo)
+              failed: testhost: items=["bar"] => 
                 ansible_loop_var: item
                 changed: false
                 item: bar
                 msg: {{ 'bar' | sha1 }}
-              failed: testhost(item=bar) => same result (not including diff) as testhost(item=bar)
-              failed: testhost(item=baz) =>
+              failed: testhost: items=["bar"] => same result (not including diff) as testhost(item=bar)
+              failed: testhost: items=["baz"] => 
                 ansible_loop_var: item
                 changed: false
                 item: baz
                 msg: {{ 'baz' | sha1 }}
-              failed: testhost =>
+              failed: testhost => 
                 changed: false
                 msg: One or more items failed
-              failed: testhost(items=["foo", "bar", "baz"])
+              failed:(1) testhost: items=["baz"] => {{ 'baz' | sha1 }}
+              failed:(1) testhost => One or more items failed
+              failed:(2) testhost: items=["foo"] => {{ 'foo' | sha1 }}
+              failed:(2) testhost: items=["bar"] => {{ 'bar' | sha1 }}
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -405,17 +415,17 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: foo
-              ok: testhost => foo
+              ok:(1) testhost => foo
               elapsed: <omitted> seconds
 
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: bar
-              ok: testhost => bar
+              ok:(1) testhost => bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -448,9 +458,9 @@
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: bar
-              ok: testhost => bar
+              ok:(1) testhost => bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -480,9 +490,9 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: foo
-              ok: testhost => foo
+              ok:(1) testhost => foo
               elapsed: <omitted> seconds
 
               PLAY [emptygroup] **************************************************************
@@ -513,13 +523,13 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              skipped: testhost
+              skipped:(1) testhost
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: bar
-              ok: testhost => bar
+              ok:(1) testhost => bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -547,13 +557,13 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost =>
+              ok: testhost => 
                 msg: foo
-              ok: testhost => foo
+              ok:(1) testhost => foo
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
-              skipped: testhost
+              skipped:(1) testhost
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
@@ -580,14 +590,15 @@
             allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
-            expected_output: |+
+            expected_output: |
 
-                PLAY [dedupegroup] *************************************************************
+              PLAY [dedupegroup] *************************************************************
 
-                TASK [overwrite file] **********************************************************
-                ok: dedupe[1-2]
-                interrupted: dedupe3
-                elapsed: <omitted> seconds
+              TASK [overwrite file] **********************************************************
+              ok:(2) dedupe[1-2]
+              interrupted:(1) dedupe3
+              elapsed: <omitted> seconds
+
           - name: fatal no hosts matched
             environment:
               ANSIBLE_NOCOLOR: "true"

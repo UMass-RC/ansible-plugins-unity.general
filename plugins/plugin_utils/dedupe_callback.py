@@ -104,7 +104,9 @@ def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
             output.append(hostnames_str)
         else:
             output.append(f"{hostnames_str}: items={json.dumps(items, sort_keys=True)}")
-    if multiline or (multiline is None and sum(len(x) for x in output) > 100):
+    if multiline is None and len(result_ids) > 1 and any(x.item for x in result_ids):
+        multiline = True
+    if multiline:
         return "\n".join(output)
     return ", ".join(output)
 
