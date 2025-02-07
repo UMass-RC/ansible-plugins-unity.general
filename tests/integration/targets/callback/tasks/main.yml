@@ -126,16 +126,15 @@
         changed: true
         diff:
           before_header: expected output
-          before: "{{ expected_output }}"
+          before: "{{ test.expected_output }}"
           after_header: actual output ({{ output_file }})
           after: "{{ output }}"
-      when: expected_output != output
+      when: test.expected_output != output
       loop: "{{ tests }}"
       loop_control:
         loop_var: test
         label: "{{ test.name }}"
       vars:
-        expected_output: "{{ test.expected_output | join('\n') }}"
         output: "
           {%- for result in munged_outputs.results -%}
           {%-   if result.test.name == test.name -%}
@@ -156,7 +155,7 @@
       vars:
          failed_tests: "
           {%- for result in munged_outputs.results -%}
-          {%-   if (result.test.expected_output | join('\n')) != (result.content | b64decode) -%}
+          {%-   if result.test.expected_output != (result.content | b64decode) -%}
           {{-     result.test.name -}}{{- ', ' -}}
           {%-   endif -%}
           {%- endfor -%}"
