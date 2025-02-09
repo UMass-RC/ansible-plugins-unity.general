@@ -18,7 +18,6 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
     ResultID,
     WarningID,
     ExceptionID,
-    result_ids2str,
     format_status_result_ids_msg,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
