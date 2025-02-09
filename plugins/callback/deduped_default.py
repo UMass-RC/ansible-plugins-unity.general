@@ -1,3 +1,4 @@
+import os
 import copy
 import datetime
 
@@ -18,11 +19,11 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
     WarningID,
     ExceptionID,
     result_ids2str,
+    format_status_result_ids_msg,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
-
 
 DOCUMENTATION = r"""
   name: deduped_default
@@ -54,6 +55,11 @@ DOCUMENTATION = r"""
     * async tasks are not allowed.
     * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
       a "msg", then the skipped reason becomes the msg.
+    * if a task is changed and its result has a "msg", then a new diff is added to the result
+      containing that message. This means that at the end of task, you can safely skip over
+      all changed results from `status2msg2result_ids`.
+    * if you find that loop items are taking up too much space on screen, that means that you should
+      be setting the label with `loop_control`
   requirements:
   - whitelist in configuration
   author: Simon Leary
@@ -78,89 +84,14 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
-def _indent(_input: str, num_spaces=2) -> str:
-    return (" " * num_spaces) + _input.replace("\n", ("\n" + (" " * num_spaces)))
-
-
 def _truncate_width(_input: str, max_width: int) -> str:
     output = []
     for line in _input.splitlines():
         if len(line) > max_width:
-            output.append(line[:max_width])
+            output.append(line[: max_width - 3] + "...")
         else:
             output.append(line)
     return "\n".join(output)
-
-
-def _format_status_result_ids_msg(
-    status: str,
-    result_ids: list[ResultID],
-    msg: str = None,
-    count=True,
-    preferred_max_width: int | None = None,
-    truncated_msg_min_len: int = 10,
-    multiline=None,
-):
-    """
-    8 possible output formats:
-      - {status}: {result_ids}
-      - {status}:({count}) {result_ids}
-      - {status}: {result_ids} => {msg}
-      - {status}:({count}) {result_ids} => {msg}
-      - |
-        {status}:
-          {result_ids}
-      - |
-        {status}:({count})
-          {result_ids}
-      - |
-        {status}:
-          {result_ids}
-        msg:
-          {msg}
-      - |
-        {status}:({count})
-          {result_ids}
-        msg:
-          {msg}
-    output format is decided by whether:
-      - `count` is enabled
-      - `msg` is None
-      - `result_ids2str(result_ids)` contains a newline or `multiline` is enabled
-
-    `preferred_max_width` and `truncated_msg_min_length` determine how the width is truncated.
-    for the single-line outputs, `msg` is truncated so that the entire output has fewer than
-    `preferred_max_width` characters, but `msg` will be truncated to no fewer than
-    `truncated_msg_min_len` characters. for multi-line outputs, only the message lines are
-    truncated, even if the {result_ids} lines go past `preferred_max_width`.
-    `truncated_msg_min_len` is ignored when truncating multi-line output, since the msg is not
-    prefixed by any other data.
-
-    `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
-    force output to be on one line or on muliple lines, respectively.
-    """
-    result_ids_str = result_ids2str(result_ids, multiline=multiline)
-    count_str = f"({len(result_ids)})" if count else ""
-    if "\n" in result_ids_str:
-        if not msg:
-            return f"{status}:{count_str}\n{_indent(result_ids_str)}"
-        return "\n".join(
-            [
-                f"{status}:",
-                f"  hosts/items {count_str}:",
-                _indent(result_ids_str, num_spaces=4),
-                "  msg:",
-                _truncate_width(_indent(msg, num_spaces=4), max_width=preferred_max_width),
-            ]
-        )
-    else:
-        if not msg:
-            return f"{status}:{count_str} {result_ids_str}"
-        prefix = f"{status}:{count_str} {result_ids_str} => "
-        if preferred_max_width is None:
-            return prefix + msg
-        truncated_msg_len = max([preferred_max_width - len(prefix), truncated_msg_min_len])
-        return prefix + msg[:truncated_msg_len]
 
 
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
@@ -199,15 +130,18 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         }
         if "results" in my_result_dict and not self._run_is_verbose(result):
             del my_result_dict["results"]
-        # header = f"{status}: {result_id} =>"
-        if len(dupe_of) > 0:
-            msg = f"same result (not including diff) as {dupe_of[0]}"
-        else:
-            msg = self._dump_results(my_result_dict, indent=2)
         if status == "failed" and self.get_option("show_task_path_on_failure"):
             self._print_task_path(result._task)
+        if len(dupe_of) > 0:
+            msg = f"same result (not including diff) as {dupe_of[0]}"
+            output = format_status_result_ids_msg(status, [result_id], msg)
+        else:
+            # can't use _dump_results() as msg because it has its own newlines and indentation
+            output = format_status_result_ids_msg(status, [result_id], None) + (
+                self._dump_results(my_result_dict, indent=2)
+            )
         self._display.display(
-            _format_status_result_ids_msg(status, [result_id], msg, count=False),
+            output,
             color=_STATUS_COLORS[status],
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
@@ -241,16 +175,18 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         for diff, result_ids in sorted_diffs_and_groupings:
             self._display.display(self._get_diff(diff))
             self._display.display(
-                _format_status_result_ids_msg("changed", result_ids, count=False),
+                format_status_result_ids_msg("changed", result_ids),
                 color=C.COLOR_CHANGED,
             )
         for status, msg2result_ids in status2msg2result_ids.items():
             if len(msg2result_ids) == 0:  # nothing to do
                 continue
+            if status == "changed":
+                continue
             color = _STATUS_COLORS[status]
             for msg, result_ids in msg2result_ids.items():
                 self._display.display(
-                    _format_status_result_ids_msg(status, result_ids, msg, preferred_max_width=80),
+                    format_status_result_ids_msg(status, result_ids, msg),
                     color=color,
                 )
         elapsed = datetime.datetime.now() - self.task_start_time

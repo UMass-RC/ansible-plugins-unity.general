@@ -117,6 +117,18 @@ class CallbackModule(DedupedDefaultCallback):
         output += "\r"
         self._display.display(output, newline=False)
 
+    def deduped_result(self, *args, **kwargs):
+        self._clear_line()  # destroy last status line
+        DedupedDefaultCallback.deduped_result(self, *args, **kwargs)
+
+    def deduped_warning(self, *args, **kwargs):
+        self._clear_line()  # destroy last status line
+        DedupedDefaultCallback.deduped_warning(self, *args, **kwargs)
+
+    def deduped_exception(self, *args, **kwargs):
+        self._clear_line()  # destroy last status line
+        DedupedDefaultCallback.deduped_exception(self, *args, **kwargs)
+
     def deduped_task_end(self, *args, **kwargs):
-        self._clear_line()
+        self._display.display("\n")  # preserve last status line
         DedupedDefaultCallback.deduped_task_end(self, *args, **kwargs)

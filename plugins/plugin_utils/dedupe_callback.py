@@ -5,6 +5,7 @@ import signal
 import hashlib
 import threading
 import traceback
+from textwrap import TextWrapper
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -23,6 +24,22 @@ from ansible.playbook.included_file import IncludedFile
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 display = Display()
+textwrapper = TextWrapper(replace_whitespace=False)
+
+
+def wrap_text(x, width: int = None, indent=""):
+    if width is None:
+        textwrapper.width = os.get_terminal_size().columns
+    else:
+        textwrapper.width = width
+    textwrapper.initial_indent = indent
+    textwrapper.subsequent_indent = indent
+    output_chunks = (
+        []
+    )  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
+    for line in x.splitlines():
+        output_chunks.append("\n".join(textwrapper.wrap(line)))
+    return "\n".join(output_chunks)
 
 
 def _hash_object_dirty(x) -> str:
@@ -55,13 +72,14 @@ class ResultID:
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
-    def __init__(self, hostname: str, item: str | None):
+    def __init__(self, hostname: str, item: object):
+        assert isinstance(hostname, str)
         self.hostname = hostname
         self.item = item
 
     def __str__(self):
         if self.item:
-            return f"{self.hostname}(item={self.item})"
+            return f"{self.hostname} (item={self.item})"
         return self.hostname
 
 
@@ -70,14 +88,16 @@ class WarningID:
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
-    def __init__(self, hostname: str, item: str | None, index: int):
+    def __init__(self, hostname: str, item: object, index: int):
+        assert isinstance(hostname, str)
+        assert isinstance(index, int)
         self.hostname = hostname
         self.item = item
         self.index = index
 
     def __str__(self):
         if self.item:
-            return f"{self.hostname}(item={self.item})[{self.index}]"
+            return f"{self.hostname} (item={self.item})[{self.index}]"
         return f"{self.hostname}[{self.index}]"
 
 
@@ -85,30 +105,96 @@ class ExceptionID(WarningID):
     pass
 
 
-def result_ids2str(result_ids: list[ResultID], multiline: bool = None):
+def result_ids2str(
+    result_ids: list[ResultID],
+    multiline: bool | None = None,
+    preferred_max_width: int | None = None,
+):
     """
     builds a list of hosts for each item
     then, groups items with identical lists of hosts
     if multiline isn't explicitly set to False, it may be automatically enabled
     """
-    item2hostnames = {}
+    if preferred_max_width is None:
+        preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
+    item_hash2hostnames = {}
+    item_hash2item = {}
     for result_id in result_ids:
-        item2hostnames.setdefault(result_id.item, set()).add(result_id.hostname)
+        item_hash = _hash_object_dirty(result_id.item)
+        item_hash2item[item_hash] = result_id.item
+        item_hash2hostnames.setdefault(item_hash, set()).add(result_id.hostname)
     hostnames_str2items = {}
-    for item, hostnames in item2hostnames.items():
+    for item_hash, hostnames in item_hash2hostnames.items():
+        item = item_hash2item[item_hash]
         hostnames_str = format_hostnames(hostnames)
         hostnames_str2items.setdefault(hostnames_str, []).append(item)
-    output = []
+    output_groupings = []
     for hostnames_str, items in hostnames_str2items.items():
-        if not any(items):
-            output.append(hostnames_str)
-        else:
-            output.append(f"{hostnames_str}: items={json.dumps(items, sort_keys=True)}")
-    if multiline is None and len(result_ids) > 1 and any(x.item for x in result_ids):
+        # dont want: foo,bar (items=["foo", None])
+        # want: foo,bar; foo,bar(item="foo")
+        if None in items:
+            items.remove(None)
+            output_groupings.append(hostnames_str)
+        if len(items) == 1:
+            output_groupings.append(f"{hostnames_str} (item={items[0]})")
+        elif len(items) > 1:
+            output_groupings.append(
+                f"{hostnames_str} (items={json.dumps(items, sort_keys=True, default=str)})"
+            )  # dirty serialize
+    oneline_output = "; ".join(output_groupings)
+    if multiline is None and len(oneline_output) > preferred_max_width:
         multiline = True
     if multiline:
-        return "\n".join(output)
-    return ", ".join(output)
+        return "\n".join([wrap_text(x) for x in output_groupings])
+    return oneline_output
+
+
+def format_status_result_ids_msg(
+    status: str,
+    result_ids: list[ResultID],
+    msg: str = None,
+    preferred_max_width: int | None = None,
+    multiline=None,
+):
+    """
+    4 possible output formats:
+      - {status}: {result_ids}
+      - {status}: {result_ids} => {msg}
+      - |
+        {status}:
+          {result_ids}
+      - |
+        {status}:
+          {result_ids} =>
+            {msg}
+    output format is decided by whether:
+      - `msg` is None
+      - `result_ids2str(result_ids)` contains a newline or `multiline` is enabled
+
+    `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
+    force output to be on one line or on muliple lines, respectively.
+    """
+    if preferred_max_width is None:
+        preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
+    if len(result_ids) == 1:
+        result_ids_str = str(result_ids[0])
+    else:
+        result_ids_str = result_ids2str(
+            result_ids, multiline=multiline, preferred_max_width=preferred_max_width
+        )
+    if msg is not None:
+        one_line_output = f"{status}: {result_ids_str} => {msg}"
+    else:
+        one_line_output = f"{status}: {result_ids_str}"
+    if multiline is None and len(one_line_output) > preferred_max_width:
+        multiline = True
+    if not multiline:
+        return one_line_output
+    result_ids_str_wrapped = wrap_text(result_ids_str, indent="  ", width=preferred_max_width)
+    if not msg:
+        return f"{status}:\n{result_ids_str_wrapped}"
+    msg_wrapped = wrap_text(msg, indent="    ", width=preferred_max_width)
+    return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
 
 class DedupeCallback(CallbackBase):
@@ -131,6 +217,11 @@ class DedupeCallback(CallbackBase):
     * async tasks are not allowed.
     * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
       a "msg", then the skipped reason becomes the msg.
+    * if a task is changed and its result has a "msg", then a new diff is added to the result
+      containing that message. This means that at the end of task, you can safely skip over
+      all changed results from `status2msg2result_ids`.
+    * if you find that loop items are taking up too much space on screen, that means that you should
+      be setting the label with `loop_control`
     """
 
     def __sigint_handler(self, signum, frame):
@@ -329,6 +420,8 @@ class DedupeCallback(CallbackBase):
             else:
                 diffs = diff_or_diffs
             diffs = [x for x in diffs if x]
+            if msg := result._result.get("msg", None):
+                diffs.append({"prepared": msg.strip()})
             if len(diffs) == 0:
                 diffs = [
                     {
