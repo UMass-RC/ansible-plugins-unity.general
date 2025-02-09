@@ -126,9 +126,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             msg = f"same result (not including diff) as {dupe_of[0]}"
             output = format_status_result_ids_msg(status, [result_id], msg)
         else:
-            # can't use _dump_results() as msg because it has its own newlines and indentation
-            output = format_status_result_ids_msg(status, [result_id], None) + (
-                self._dump_results(my_result_dict, indent=2)
+            output = format_status_result_ids_msg(
+                status,
+                [result_id],
+                self._dump_results(my_result_dict, indent=2),
+                do_format_msg=False,  # _dump_results already has leading newline, indentation
             )
         self._display.display(
             output,

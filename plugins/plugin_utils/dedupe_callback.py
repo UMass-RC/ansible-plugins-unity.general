@@ -162,6 +162,7 @@ def format_status_result_ids_msg(
     msg: str = None,
     preferred_max_width: int | None = None,
     multiline=None,
+    do_format_msg=True,
 ):
     """
     4 possible output formats:
@@ -206,6 +207,8 @@ def format_status_result_ids_msg(
     )
     if not msg:
         return f"{status}:\n{result_ids_str_wrapped}"
+    if not do_format_msg:
+        return f"{status}:\n{result_ids_str_wrapped} =>{msg}"
     msg_wrapped = wrap_text_if_tty(msg, indent="    ", width=preferred_max_width)
     return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
