@@ -84,16 +84,6 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
-def _truncate_width(_input: str, max_width: int) -> str:
-    output = []
-    for line in _input.splitlines():
-        if len(line) > max_width:
-            output.append(line[: max_width - 3] + "...")
-        else:
-            output.append(line)
-    return "\n".join(output)
-
-
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
