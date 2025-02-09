@@ -176,7 +176,7 @@ def format_status_result_ids_msg(
           {result_ids} =>
             {msg}
     output format is decided by whether:
-      - `msg` is None
+      - `msg` is truey/falsey
       - `result_ids2str(result_ids)` contains a newline or `multiline` is enabled
 
     `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
@@ -190,7 +190,7 @@ def format_status_result_ids_msg(
         result_ids_str = result_ids2str(
             result_ids, multiline=multiline, preferred_max_width=preferred_max_width
         )
-    if msg is not None:
+    if msg:
         one_line_output = f"{status}: {result_ids_str} => {msg}"
     else:
         one_line_output = f"{status}: {result_ids_str}"
