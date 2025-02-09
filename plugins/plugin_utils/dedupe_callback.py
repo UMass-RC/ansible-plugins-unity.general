@@ -1,11 +1,12 @@
 import re
+import sys
 import os
 import json
 import signal
 import hashlib
 import threading
 import traceback
-from textwrap import TextWrapper
+import textwrap
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -24,10 +25,12 @@ from ansible.playbook.included_file import IncludedFile
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 display = Display()
-textwrapper = TextWrapper(replace_whitespace=False)
+textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
 
-def wrap_text(x, width: int = None, indent=""):
+def wrap_text_if_tty(x, width: int = None, indent=""):
+    if not sys.stdout.isatty():
+        return textwrap.indent(x, prefix=indent)
     if width is None:
         textwrapper.width = os.get_terminal_size().columns
     else:
@@ -115,7 +118,7 @@ def result_ids2str(
     then, groups items with identical lists of hosts
     if multiline isn't explicitly set to False, it may be automatically enabled
     """
-    if preferred_max_width is None:
+    if preferred_max_width is None and sys.stdout.isatty():
         preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
     item_hash2hostnames = {}
     item_hash2item = {}
@@ -142,10 +145,14 @@ def result_ids2str(
                 f"{hostnames_str} (items={json.dumps(items, sort_keys=True, default=str)})"
             )  # dirty serialize
     oneline_output = "; ".join(output_groupings)
-    if multiline is None and len(oneline_output) > preferred_max_width:
+    if (
+        multiline is None
+        and preferred_max_width is not None
+        and len(oneline_output) > preferred_max_width
+    ):
         multiline = True
     if multiline:
-        return "\n".join([wrap_text(x) for x in output_groupings])
+        return "\n".join([wrap_text_if_tty(x) for x in output_groupings])
     return oneline_output
 
 
@@ -174,8 +181,8 @@ def format_status_result_ids_msg(
     `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
     force output to be on one line or on muliple lines, respectively.
     """
-    if preferred_max_width is None:
-        preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
+    if preferred_max_width is None and sys.stdout.isatty():
+        preferred_max_width = os.get_terminal_size().columns
     if len(result_ids) == 1:
         result_ids_str = str(result_ids[0])
     else:
@@ -186,14 +193,20 @@ def format_status_result_ids_msg(
         one_line_output = f"{status}: {result_ids_str} => {msg}"
     else:
         one_line_output = f"{status}: {result_ids_str}"
-    if multiline is None and len(one_line_output) > preferred_max_width:
+    if (
+        multiline is None
+        and preferred_max_width is not None
+        and len(one_line_output) > preferred_max_width
+    ):
         multiline = True
     if not multiline:
         return one_line_output
-    result_ids_str_wrapped = wrap_text(result_ids_str, indent="  ", width=preferred_max_width)
+    result_ids_str_wrapped = wrap_text_if_tty(
+        result_ids_str, indent="  ", width=preferred_max_width
+    )
     if not msg:
         return f"{status}:\n{result_ids_str_wrapped}"
-    msg_wrapped = wrap_text(msg, indent="    ", width=preferred_max_width)
+    msg_wrapped = wrap_text_if_tty(msg, indent="    ", width=preferred_max_width)
     return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
 
