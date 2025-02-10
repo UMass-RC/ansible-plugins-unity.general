@@ -295,9 +295,12 @@ class DedupeCallback(CallbackBase):
         self.task_end_done = None
         self.running_hosts = None
         self.status2result_ids = None
-        self.warning2warning_ids = None
-        self.exception2exception_ids = None
-        self.deprecation2deprecation_ids = None
+        self.warning_hash2warning = None
+        self.warning_hash2warning_ids = None
+        self.exception_hash2exception = None
+        self.exception_hash2exception_ids = None
+        self.deprecation_hash2deprecation = None
+        self.deprecation_hash2deprecation_ids = None
         self.diff_hash2result_ids = None
         self.diff_hash2diff = None
         self.result_stripped_hash2result_ids = None
@@ -330,8 +333,8 @@ class DedupeCallback(CallbackBase):
             "ignored": [],
             "interrupted": [],
         }
-        del self.warning2warning_ids
-        self.warning2warning_ids = {}
+        del self.warning_hash2warning_ids
+        self.warning_hash2warning_ids = {}
         del self.exception2exception_ids
         self.exception2exception_ids = {}
         del self.deprecation2deprecation_ids
@@ -392,13 +395,27 @@ class DedupeCallback(CallbackBase):
             msg = result_stripped.get("msg", None)
             status = self.result_stripped_hash2status[result_stripped_hash]
             status2msg2result_ids.setdefault(status, {}).setdefault(msg, []).extend(result_ids)
+
+        warnings_and_groupings = []
+        for warning_hash, warning_ids in self.warning_hash2warning_ids.items():
+            warning = self.warning_hash2warning[warning_hash]
+            warnings_and_groupings.append((warning, warning_ids))
+        exceptions_and_groupings = []
+        for exception_hash, exception_ids in self.exception_hash2exception_ids.items():
+            exception = self.exception_hash2exception[exception_hash]
+            exceptions_and_groupings.append((exception, exception_ids))
+        deprecations_and_groupings = []
+        for deprecation_hash, deprecation_ids in self.deprecation_hash2deprecation_ids.items():
+            deprecation = self.deprecation_hash2deprecation[deprecation_hash]
+            deprecations_and_groupings.append((deprecation, deprecation_ids))
+
         self.deduped_task_end(
             status2msg2result_ids,
             sorted_results_stripped_and_groupings,
             sorted_diffs_and_groupings,
-            self.warning2warning_ids,
-            self.exception2exception_ids,
-            self.deprecation2deprecation_ids,
+            warnings_and_groupings,
+            exceptions_and_groupings,
+            deprecations_and_groupings,
         )
 
     def _register_result(self, result: dict, result_id: ResultID, status: str) -> list[ResultID]:
@@ -439,13 +456,19 @@ class DedupeCallback(CallbackBase):
         )
         for i, warning in enumerate(result._result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
-            self.warning2warning_ids.setdefault(warning, []).append(warning_id)
+            warning_hash = _hash_object_dirty(warning)
+            self.warning_hash2warning.setdefault(warning_hash, warning)
+            self.warning_hash2warning_ids.setdefault(warning, []).append(warning_id)
         for i, deprecation in enumerate(result._result.get("deprecations", [])):
             deprecation_id = DeprecationID(hostname, item, i)
-            self.deprecation2deprecation_ids.setdefault(deprecation, []).append(deprecation_id)
+            deprecation_hash = _hash_object_dirty(deprecation)
+            self.deprecation_hash2deprecation.setdefault(deprecation_hash, deprecation)
+            self.deprecation_hash2deprecation_ids.setdefault(deprecation, []).append(deprecation_id)
         if exception := result._result.get("exception", None):
+            exception_hash = _hash_object_dirty(exception)
             exception_id = ExceptionID(hostname, item)
-            self.exception2exception_ids.setdefault(exception, []).append(exceptionID)
+            self.exception_hash2exception.setdefault(exception_hash, exception)
+            self.exception_hash2exception_ids.setdefault(exception, []).append(exceptionID)
         if result._result.get("changed", False):
             diff_or_diffs = result._result.get("diff", [])
             if not isinstance(diff_or_diffs, list):
@@ -725,7 +748,8 @@ class DedupeCallback(CallbackBase):
         use this if you need to print results immediately rather than waiting until end of task
         possible values for status are:
         ok changed unreachable failed skipped ignored interrupted
-        hostnames, items, diffs, warnings, and exceptions are all ignored in dupe_of_stripped.
+        hostnames, items, diffs, warnings, deprecations, and exceptions are all ignored
+        when checking for dupes.
         """
         pass
 
@@ -768,9 +792,9 @@ class DedupeCallback(CallbackBase):
         status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
         sorted_results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
         sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
-        warning2warning_ids: dict[str, list[WarningID]],
-        exception2exception_ids: dict[str, list[ExceptionID]],
-        deprecation2deprecation_ids: dict[str, list[DeprecationID]],
+        warnings_and_groupings: list[tuple[object, list[WarningID]]],
+        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
+        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ) -> None:
         """
         status2msg2result_ids: dict from status to dict of message to list of hostnames.
@@ -789,10 +813,6 @@ class DedupeCallback(CallbackBase):
         that result. hostnames and items are ignored when grouping ResultIDs. the list of tuples
         is sorted such that the largest groupings are last. these are only the diffs from
         results where changed==True.
-
-        warning2warning_ids: dict from strings to WarningIDs
-
-        exception2exception_ids: dict from strings to WarningIDs
 
         hostnames and items are ignored for finding dupes/groupings.
         """

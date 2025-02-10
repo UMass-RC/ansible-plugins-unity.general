@@ -172,9 +172,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         status2msg2result_ids: dict[str, list[ResultID]],
         sorted_results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
         sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
-        warning2warning_ids: dict[str, list[WarningID]],
-        exception2exception_ids: dict[str, list[ExceptionID]],
-        deprecation2deprecation_ids: dict[str, list[DeprecationID]],
+        warnings_and_groupings: list[tuple[object, list[WarningID]]],
+        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
+        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ):
         for diff, result_ids in sorted_diffs_and_groupings:
             self._display.display(self._get_diff(diff))
