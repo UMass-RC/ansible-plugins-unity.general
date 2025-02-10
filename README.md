@@ -2,6 +2,12 @@
 
 NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.umass.edu/unity/ansible-collections/general)
 
+### install
+
+* `mkdir -p /path/to/unity/general`
+* `git clone <this-repo> /path/to/unity/general`
+* `export ANSIBLE_COLLECTIONS_PATH=/path/to/unity/general:$ANSIBLE_COLLECTIONS_PATH`
+
 ### list plugins
 ```sh
 $ ansible-doc --metadata-dump unity.general 2>/dev/null | jq -C '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)'
