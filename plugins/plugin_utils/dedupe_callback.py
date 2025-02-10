@@ -228,7 +228,7 @@ class DedupeCallback(CallbackBase):
             try:
                 self.running_hosts.remove(hostname)
             except KeyError:
-                display.warning(
+                self._display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
         self.status2hostnames[status].append(hostname)
