@@ -6,7 +6,7 @@ NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.um
 
 * `mkdir -p /path/to/unity/general`
 * `git clone <this-repo> /path/to/unity/general`
-* `export ANSIBLE_COLLECTIONS_PATH=/path/to/unity/general:$ANSIBLE_COLLECTIONS_PATH`
+* `export ANSIBLE_COLLECTIONS_PATH=/path/to:$ANSIBLE_COLLECTIONS_PATH`
 
 ### list plugins
 ```sh
