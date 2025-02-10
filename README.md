@@ -18,6 +18,10 @@ NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.um
 * print the hostnames of any running runners when KeyboardInterrupt is received, so you can exclude nodes that block your playbook
 * pipe diffs through formatter (`delta`, `diffr`, ...)
 
+![dedupe and diff formatting example](https://gitlab.rc.umass.edu/-/project/81/uploads/e08ed56f1911a1d306aba4ef26a20c25/image.png)
+
+in the above example, the `apt` diff has been deduplicated for a whole list of hosts, and diffs are piped through `delta`. This is a screenshot taken from a web browser, since the log was converted to HTML using `aha` and uploaded to a web server using `http_post`.
+
 #### slack
 
 * let other plugins add lines to a slack message sent using the python API at the end of a playbook
