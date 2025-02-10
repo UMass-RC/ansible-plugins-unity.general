@@ -761,7 +761,7 @@ class DedupeCallback(CallbackBase):
         pass
 
     def deduped_exception(
-        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+        self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
         """
         use this if you need to print exceptions immediately rather than waiting until end of task
@@ -770,7 +770,7 @@ class DedupeCallback(CallbackBase):
         pass
 
     def deduped_warning(
-        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
+        self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
         """
         use this if you need to print warnings immediately rather than waiting until end of task
@@ -779,7 +779,7 @@ class DedupeCallback(CallbackBase):
         pass
 
     def deduped_deprecation(
-        self, deprecation: str, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
+        self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         """
         use this if you need to print deprecations immediately rather than waiting until end of task

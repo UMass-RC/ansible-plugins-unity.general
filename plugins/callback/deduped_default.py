@@ -141,7 +141,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         )
 
     def deduped_warning(
-        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
+        self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
         if len(dupe_of) > 0:
             warning = f"same warning as {dupe_of[0]}"
@@ -150,7 +150,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self._handle_warnings({"warnings": [warning]})
 
     def deduped_exception(
-        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+        self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
         if len(dupe_of) > 0:
             exception = f"same exception as {dupe_of[0]}"
@@ -159,7 +159,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self._handle_exceptions({"exceptions": [exception]})
 
     def deduped_deprecation(
-        self, deprecation: str, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
+        self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         if len(dupe_of) > 0:
             deprecation = f"same deprecation as {dupe_of[0]}"
