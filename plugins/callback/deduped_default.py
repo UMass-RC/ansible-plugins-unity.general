@@ -18,6 +18,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
     ResultID,
     WarningID,
     ExceptionID,
+    DeprecationID,
     format_status_result_ids_msg,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
@@ -113,9 +114,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             return
         my_result_dict = copy.deepcopy(result._result)
         self._clean_results(my_result_dict, result._task.action)
-        # warnings, exceptions have been moved to deduped_warning, deduped_exception
+        # warnings, exceptions, deprecations have been moved to their own functions
         my_result_dict = {
-            k: v for k, v in my_result_dict.items() if k not in ["warnings", "exceptions"]
+            k: v
+            for k, v in my_result_dict.items()
+            if k not in ["warnings", "exceptions", "deprecations"]
         }
         if "results" in my_result_dict and not self._run_is_verbose(result):
             del my_result_dict["results"]
@@ -155,6 +158,15 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             exception = f"{exception_id}: {exception}"
         self._handle_exceptions({"exceptions": [exception]})
 
+    def deduped_deprecation(
+        self, deprecation: str, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
+    ) -> None:
+        if len(dupe_of) > 0:
+            deprecation = f"same deprecation as {dupe_of[0]}"
+        else:
+            deprecation = f"{deprecation_id}: {deprecation}"
+        self._handle_warnings({"deprecations": [deprecation]})
+
     def deduped_task_end(
         self,
         status2msg2result_ids: dict[str, list[ResultID]],
@@ -162,6 +174,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
         warning2warning_ids: dict[str, list[WarningID]],
         exception2exception_ids: dict[str, list[ExceptionID]],
+        deprecation2deprecation_ids: dict[str, list[DeprecationID]],
     ):
         for diff, result_ids in sorted_diffs_and_groupings:
             self._display.display(self._get_diff(diff))

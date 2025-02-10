@@ -108,6 +108,10 @@ class ExceptionID(WarningID):
     pass
 
 
+class DeprecationID(WarningID):
+    pass
+
+
 def result_ids2str(
     result_ids: list[ResultID],
     multiline: bool | None = None,
@@ -288,8 +292,9 @@ class DedupeCallback(CallbackBase):
         self.task_end_done = None
         self.running_hosts = None
         self.status2result_ids = None
-        self.exception2exception_ids = None
         self.warning2warning_ids = None
+        self.exception2exception_ids = None
+        self.deprecation2deprecation_ids = None
         self.diff_hash2result_ids = None
         self.diff_hash2diff = None
         self.result_stripped_hash2result_ids = None
@@ -322,10 +327,12 @@ class DedupeCallback(CallbackBase):
             "ignored": [],
             "interrupted": [],
         }
-        del self.exception2exception_ids
-        self.exception2exception_ids = {}
         del self.warning2warning_ids
         self.warning2warning_ids = {}
+        del self.exception2exception_ids
+        self.exception2exception_ids = {}
+        del self.deprecation2deprecation_ids
+        self.deprecation2deprecation_ids = {}
         del self.diff_hash2result_ids
         self.diff_hash2result_ids = {}
         del self.diff_hash2diff
@@ -388,6 +395,7 @@ class DedupeCallback(CallbackBase):
             sorted_diffs_and_groupings,
             self.warning2warning_ids,
             self.exception2exception_ids,
+            self.deprecation2deprecation_ids,
         )
 
     def _register_result(self, result: dict, result_id: ResultID, status: str) -> list[ResultID]:
@@ -413,6 +421,7 @@ class DedupeCallback(CallbackBase):
         result_id = ResultID(hostname, item)
         warning2dupes = {}
         exception2dupes = {}
+        deprecation2dupes = {}
         # prompte "skipped_reason" to "msg" so that user can see
         if (
             status == "skipped"
@@ -423,12 +432,15 @@ class DedupeCallback(CallbackBase):
         result_stripped_dupes = self._register_result(
             result._result, ResultID(hostname, item), status
         )
-        for i, exception in enumerate(result._result.get("exceptions", [])):
-            exception_id = ExceptionID(hostname, item, i)
-            self.exception2exception_ids.setdefault(exception, []).append(exception_id)
         for i, warning in enumerate(result._result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
             self.warning2warning_ids.setdefault(warning, []).append(warning_id)
+        for i, exception in enumerate(result._result.get("exceptions", [])):
+            exception_id = ExceptionID(hostname, item, i)
+            self.exception2exception_ids.setdefault(exception, []).append(exception_id)
+        for i, deprecation in enumerate(result._result.get("deprecations", [])):
+            deprecation_id = DeprecationID(hostname, item, i)
+            self.deprecation2deprecation_ids.setdefault(deprecation, []).append(deprecation_id)
         if result._result.get("changed", False):
             diff_or_diffs = result._result.get("diff", [])
             if not isinstance(diff_or_diffs, list):
@@ -460,6 +472,8 @@ class DedupeCallback(CallbackBase):
             self.deduped_warning(warning, warning_id, dupe_of=dupes)
         for (exception_id, exception), dupes in exception2dupes.items():
             self.deduped_exception(exception, exception_id, dupe_of=dupes)
+        for (deprecation_id, deprecation), dupes in deprecation2dupes.items():
+            self.deduped_deprecation(deprecation, deprecation_id, dupe_of=dupes)
 
         if not self.task_is_loop:
             try:
@@ -717,6 +731,15 @@ class DedupeCallback(CallbackBase):
         """
         pass
 
+    def deduped_exception(
+        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+    ) -> None:
+        """
+        use this if you need to print exceptions immediately rather than waiting until end of task
+        hostnames and items are ignored when checking for dupes/groupings
+        """
+        pass
+
     def deduped_warning(
         self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
@@ -726,11 +749,11 @@ class DedupeCallback(CallbackBase):
         """
         pass
 
-    def deduped_exception(
-        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+    def deduped_deprecation(
+        self, deprecation: str, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         """
-        use this if you need to print exceptions immediately rather than waiting until end of task
+        use this if you need to print deprecations immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
         pass
@@ -742,6 +765,7 @@ class DedupeCallback(CallbackBase):
         sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
         warning2warning_ids: dict[str, list[WarningID]],
         exception2exception_ids: dict[str, list[ExceptionID]],
+        deprecation2deprecation_ids: dict[str, list[DeprecationID]],
     ) -> None:
         """
         status2msg2result_ids: dict from status to dict of message to list of hostnames.
