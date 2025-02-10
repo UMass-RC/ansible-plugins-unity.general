@@ -2,7 +2,35 @@
 
 NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.umass.edu/unity/ansible-collections/general)
 
-### bitwarden
+### list plugins
+```sh
+$ ansible-doc --metadata-dump unity.general 2>/dev/null | jq -C '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)'
+```
+```json
+{
+  "callback": [
+    "unity.general.cron",
+    "unity.general.deduped_default",
+    "unity.general.http_post",
+    "unity.general.slack",
+    "unity.general.status_oneline"
+  ],
+  "lookup": [
+    "unity.general.bitwarden",
+    "unity.general.bitwarden_attachment_download"
+  ],
+  "module": [
+    "unity.general.bitwarden_copy_attachment"
+  ]
+}
+```
+
+### view documentation for plugin
+```sh
+ansible-doc -t callback unity.general.cron
+```
+
+#### bitwarden
 
 * add caching/locking to make bitwarden lookups fast and safe in parallel
     * for security, by default this is stored in `/dev/shm/` on linux machines and `tmpdisk` is recommended on macos
@@ -10,7 +38,7 @@ NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.um
 * allow downloading attachments to remote host, with permissions/owner/group required and `no_log: true` as the default
 * better error messages
 
-### stdout callback plugins
+#### stdout callback plugins
 
 * don't display duplicate results and diffs
 * condense host lists into "folded node sets" using Clustershell python API
@@ -18,11 +46,11 @@ NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.um
 * print the hostnames of any running runners when KeyboardInterrupt is received, so you can exclude nodes that block your playbook
 * pipe diffs through formatter (`delta`, `diffr`, ...)
 
-### slack
+#### slack
 
 * let other plugins add lines to a slack message sent using the python API at the end of a playbook
 
-### html upload
+#### html upload
 
 * use `aha` to make an HTML document very similar to command line output, complete with all colors, upload that document to a webserver
 * read bitwarden cache to ensure that no secrets are uploaded
