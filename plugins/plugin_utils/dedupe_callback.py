@@ -86,9 +86,16 @@ class ResultID:
         return self.hostname
 
 
+class ExceptionID(ReusltID):
+    "there can be only 1 exception per result"
+
+    pass
+
+
 class WarningID:
     """
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
+    there can be multiple warnings per result so there must also be an index
     """
 
     def __init__(self, hostname: str, item: object, index: int):
@@ -102,10 +109,6 @@ class WarningID:
         if self.item:
             return f"{self.hostname} (item={self.item})[{self.index}]"
         return f"{self.hostname}[{self.index}]"
-
-
-class ExceptionID(WarningID):
-    pass
 
 
 class DeprecationID(WarningID):
@@ -222,8 +225,8 @@ class DedupeCallback(CallbackBase):
     Callback plugin that reduces output size by culling redundant output.
     * at the end of the task, print the list of hosts that returned each status.
     * each result is "anonymized", so that hostname and item differences are ignored for deduping.
-      each result is broken up into four parts: diffs, warnings, exceptions, and "stripped result".
-      "stripped result" is just the result dict minus diffs, warnings, and exceptions.
+      each result is broken up into five parts: diffs, warnings, exceptions, deprecations, and
+      "stripped result". "stripped result" is just the remainder with the other parts removed.
       duplicate diffs, warnings, exceptions, and stripped results are grouped so that unnecessary
       output can be avoided. each can be printed immediately or at the end of task.
     * each result is given a "status", which can be one of:
@@ -401,7 +404,9 @@ class DedupeCallback(CallbackBase):
     def _register_result(self, result: dict, result_id: ResultID, status: str) -> list[ResultID]:
         "returns resultIDs of duplicates, not comparing diffs/exceptions/warnings"
         result_stripped_dupes = []
-        result_stripped = {k: v for k, v in result.items() if k not in ["exceptions", "warnings"]}
+        result_stripped = {
+            k: v for k, v in result.items() if k not in ["exception", "warnings", "deprecations"]
+        }
         result_stripped_hash = _hash_object_dirty(
             _anonymize_dict([result_id.hostname, str(result_id.item)], result_stripped)
         )
@@ -435,12 +440,12 @@ class DedupeCallback(CallbackBase):
         for i, warning in enumerate(result._result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
             self.warning2warning_ids.setdefault(warning, []).append(warning_id)
-        for i, exception in enumerate(result._result.get("exceptions", [])):
-            exception_id = ExceptionID(hostname, item, i)
-            self.exception2exception_ids.setdefault(exception, []).append(exception_id)
         for i, deprecation in enumerate(result._result.get("deprecations", [])):
             deprecation_id = DeprecationID(hostname, item, i)
             self.deprecation2deprecation_ids.setdefault(deprecation, []).append(deprecation_id)
+        if exception := result._result.get("exception", None):
+            exception_id = ExceptionID(hostname, item)
+            self.exception2exception_ids.setdefault(exception, []).append(exceptionID)
         if result._result.get("changed", False):
             diff_or_diffs = result._result.get("diff", [])
             if not isinstance(diff_or_diffs, list):
