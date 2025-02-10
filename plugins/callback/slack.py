@@ -19,7 +19,7 @@ DOCUMENTATION = r"""
   description: TODO
   requirements:
       - whitelist in configuration
-      - slack-sdk (python library)
+      - [slack-sdk](https://pypi.org/project/slack-sdk/)
   options:
     bot_user_oauth_token:
       required: true
