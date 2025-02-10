@@ -30,9 +30,9 @@ NOTE: the Github repo is only a mirror of [the Gitlab repo](https://gitlab.rc.um
 
 ### install
 
-* `mkdir -p /path/to/unity/general`
-* `git clone <this-repo> /path/to/unity/general`
-* `export ANSIBLE_COLLECTIONS_PATH=/path/to:$ANSIBLE_COLLECTIONS_PATH`
+* `mkdir -p /path/to/ansible_collections/unity/general`
+* `git clone <this-repo> /path/to/ansible_collections/unity/general`
+* `export ANSIBLE_COLLECTIONS_PATH=/path/to/ansible_collections:$ANSIBLE_COLLECTIONS_PATH`
 
 ### list plugins
 ```sh
