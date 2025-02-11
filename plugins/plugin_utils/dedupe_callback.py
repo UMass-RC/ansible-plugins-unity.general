@@ -495,6 +495,7 @@ class DedupeCallback(CallbackBase):
             result._result, result_id, status
         )
         self.deduped_result(result, status, result_id, result_stripped_dupes)
+        self.__update_status_totals()
 
     def __update_status_totals(self):
         status_totals = {
