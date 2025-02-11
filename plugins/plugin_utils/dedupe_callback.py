@@ -224,14 +224,14 @@ def format_status_result_ids_msg(
 
 class Grouper:
     def __init__(self, id_type):
-        self.id_type = id_type
+        self._id_type = id_type
         self._preprocessed_values = []
         self.values_1st_match = []
         self.ids = []
 
     def add(self, _id, value, preprocessed_value=None) -> list[object]:
         "returns list of dupes"
-        assert isinstance(_id, self.id_type)
+        assert isinstance(_id, self._id_type), f"expected {self._id_type}, got {type(_id)}"
         if preprocessed_value is None:
             preprocessed_value = value
         for i, group_preprocessed_value in enumerate(self._preprocessed_values):
@@ -241,7 +241,7 @@ class Grouper:
                 return dupes
         self._preprocessed_values.append(preprocessed_value)
         self.values_1st_match.append(value)
-        self.ids.append(_id)
+        self.ids.append([_id])
         return []
 
     def export(self) -> list[tuple[object, list[object]]]:
@@ -328,6 +328,7 @@ class DedupeCallback(CallbackBase):
         self.task_end_done = None
         self.running_hosts = None
         self.status2result_ids = None
+        self.result_id2status = None
         self.warning_grouper = None
         self.exception_grouper = None
         self.deprecation_grouper = None
@@ -361,20 +362,20 @@ class DedupeCallback(CallbackBase):
             "ignored": [],
             "interrupted": [],
         }
+        del self.result_id2status
+        self.result_id2status = {}
         del (
             self.warning_grouper,
             self.exception_grouper,
             self.deprecation_grouper,
             self.diff_grouper,
             self.result_stripped_grouper,
-            self.result_stripped_status,
         )
         self.warning_grouper = Grouper(WarningID)
         self.exception_grouper = Grouper(ExceptionID)
         self.deprecation_grouper = Grouper(DeprecationID)
-        self.diff_grouper = Grouper(ResultID)
+        self.diff_grouper = Grouper(DiffID)
         self.result_stripped_grouper = Grouper(ResultID)
-        self.result_stripped_status = []
         if not self.first_task_started:
             self.first_task_started = True
 
@@ -404,7 +405,7 @@ class DedupeCallback(CallbackBase):
 
         status2msg2result_ids = {}
         for i, (result_stripped, grouping) in enumerate(self.result_stripped_grouper.export()):
-            status = self.result_stripped_status = [i]
+            status = self.result_id2status[grouping[0]]
             status2msg2result_ids.setdefault(status, {}).setdefault(
                 result_stripped.get("msg", None), []
             ).extend(grouping)
@@ -424,41 +425,37 @@ class DedupeCallback(CallbackBase):
         hostname = result_id.hostname
         item = result_id.item
         # prompte "skipped_reason" to "msg" so that user can see
-        if (
-            status == "skipped"
-            and "msg" not in result._result
-            and "skipped_reason" in result._result
-        ):
-            result._result["msg"] = result._result["skipped_reason"]
+        if status == "skipped" and "msg" not in result and "skipped_reason" in result:
+            result["msg"] = result["skipped_reason"]
         result_stripped = {
             k: v for k, v in result.items() if k not in ["exception", "warnings", "deprecations"]
         }
+        anon_result_stripped = _anonymize_dict([str(hostname), str(item)], result_stripped)
+        result_stripped_dupes = self.result_stripped_grouper.add(
+            result_id, result_stripped, preprocessed_value=anon_result_stripped
+        )
 
-        i = self.result_stripped_grouper.add(result_id, result_stripped)
-        self.result_stripped_status[i] = status
-        result_stripped_dupes = self.result_stripped_grouper.value_group_pairs[i]
-
-        for i, warning in enumerate(result._result.get("warnings", [])):
+        for i, warning in enumerate(result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
             dupe_of = self.warning_grouper.add(warning_id, warning)
             self.deduped_warning(warning, warning_id, dupe_of)
-        for i, deprecation in enumerate(result._result.get("deprecations", [])):
+        for i, deprecation in enumerate(result.get("deprecations", [])):
             deprecation_id = DeprecationID(hostname, item, i)
             dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)
             self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
-        if exception := result._result.get("exception", None):
+        if exception := result.get("exception", None):
             exception_id = ExceptionID(hostname, item)
             dupe_of = self.exception_grouper.add(exception_id, exception)
             self.deduped_exception(exception, exception_id, dupe_of)
 
-        if result._result.get("changed", False):
-            diff_or_diffs = result._result.get("diff", [])
+        if result.get("changed", False):
+            diff_or_diffs = result.get("diff", [])
             if not isinstance(diff_or_diffs, list):
                 diffs = [diff_or_diffs]
             else:
                 diffs = diff_or_diffs
             diffs = [x for x in diffs if x]
-            if msg := result._result.get("msg", None):
+            if msg := result.get("msg", None):
                 diffs.append({"prepared": msg.strip()})
             if len(diffs) == 0:
                 diffs = [
@@ -476,8 +473,6 @@ class DedupeCallback(CallbackBase):
                 anon_diff = _anonymize_dict([hostname, str(item)], diff_no_headers)
                 self.diff_grouper.add(DiffID(hostname, item, i), diff, preprocessed_value=anon_diff)
 
-        self.deduped_result(result, status, result_id, result_stripped_dupes)
-
         if not self.task_is_loop:
             try:
                 self.running_hosts.remove(hostname)
@@ -487,11 +482,19 @@ class DedupeCallback(CallbackBase):
                 )
         self.__update_status_totals()
 
+        self.result_id2status[result_id] = status
+        self.status2result_ids[status].append(result_id)
+
+        return result_stripped_dupes
+
     def __runner_or_runner_item_end(self, result: TaskResult, status: str):
         hostname = CallbackBase.host_label(result)
         item = self._get_item_label(result._result)
         result_id = ResultID(hostname, item)
-        self.__runner_or_runner_item_end_dict(result._result, result_id, status)
+        result_stripped_dupes = self.__runner_or_runner_item_end_dict(
+            result._result, result_id, status
+        )
+        self.deduped_result(result, status, result_id, result_stripped_dupes)
 
     def __update_status_totals(self):
         status_totals = {
