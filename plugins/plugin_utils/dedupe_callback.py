@@ -491,7 +491,7 @@ class DedupeCallback(CallbackBase):
         hostname = CallbackBase.host_label(result)
         item = self._get_item_label(result._result)
         result_id = ResultID(hostname, item)
-        self.__runner_or_runnner_item_end_dict(result._result, result_id, status)
+        self.__runner_or_runner_item_end_dict(result._result, result_id, status)
 
     def __update_status_totals(self):
         status_totals = {
