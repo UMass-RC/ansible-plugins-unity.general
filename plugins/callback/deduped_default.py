@@ -170,12 +170,14 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     def deduped_task_end(
         self,
         status2msg2result_ids: dict[str, list[ResultID]],
-        sorted_results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
-        sorted_diffs_and_groupings: list[tuple[dict, list[ResultID]]],
+        results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        diffs_and_groupings: list[tuple[dict, list[ResultID]]],
         warnings_and_groupings: list[tuple[object, list[WarningID]]],
         exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
         deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ):
+        # Largest groupings last
+        sorted_diffs_and_groupings = sorted(diffs_and_groupings, key=lambda x: len(x[1]))
         for diff, result_ids in sorted_diffs_and_groupings:
             self._display.display(self._get_diff(diff))
             self._display.display(
