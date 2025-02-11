@@ -1,18 +1,32 @@
-from ansible_collections.unity.general.plugins.callback.deduped_default import (
-    CallbackModule as DedupedDefaultCallback,
+import shutil
+import subprocess
+
+from ansible.executor.task_result import TaskResult
+
+from ansible_collections.unity.general.plugins.plugin_utils.color import decolorize
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
+    VALID_STATUSES,
+    ResultID,
+    DiffID,
+    WarningID,
+    ExceptionID,
+    DeprecationID,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
     BufferedCallback,
 )
+from ansible_collections.unity.general.plugins.callback.deduped_default import (
+    CallbackModule as DedupedDefaultCallback,
+)
 
-DOCUMENTATION = r"""
+DOCUMENTATION = rf"""
   name: cron
-  type: stdout
-  short_description: suitable for a cron job
+  type: notification
+  short_description: No output if nothing interesting happened. HTML output for cron email.
   version_added: 2.18.1
   description: |
-    Callback plugin that reduces output size by culling redundant output.
-    * nothing is printed unless one of the results is changed or failed
+    * ANSI text is converted to HTML using aha
     * at the end of the task, print the list of hosts that returned each status.
     * for the \"changed\" status, group any identical diffs and print the list of hosts which
       generated that diff. If a runner returns changed=true but no diff, a \"no diff\" message
@@ -36,48 +50,134 @@ DOCUMENTATION = r"""
     * async tasks are not allowed.
   requirements:
     - whitelist in configuration
+    - aha
   options:
-    ignore_unreachable:
+    redact_bitwarden:
+      description: check bitwarden cache file for secrets and remove them from task results
       type: bool
       default: false
       ini:
         - section: callback_cron
-          key: ignore_unreachable
+          key: redact_bitwarden
       env:
-        - name: CALLBACK_CRON_IGNORE_UNREACHABLE
-    result_format:
-      default: yaml
-    pretty_results:
+        - name: CALLBACK_CRON_REDACT_BITWARDEN
+    statuses_enable_print:
+      description: |
+        if any task result has any of these statuses, output will be printed.
+        status can be one of {VALID_STATUSES}
+      type: list
+      elements: str
+      default:
+        - changed
+        - failed
+        - unreachable
+      ini:
+        - section: callback_cron
+          key: statuses_enable_print
+      env:
+        - name: CALLBACK_CRON_STATUSES_ENABLE_PRINT
+    warning_enable_print:
+      type: bool
       default: true
+      ini:
+        - section: callback_cron
+          key: warning_enable_print
+      env:
+        - name: CALLBACK_CRON_WARNING_ENABLE_PRINT
+    exception_enable_print:
+      type: bool
+      default: true
+      ini:
+        - section: callback_cron
+          key: exception_enable_print
+      env:
+        - name: CALLBACK_CRON_EXCEPTION_ENABLE_PRINT
+    deprecation_enable_print:
+      type: bool
+      default: true
+      ini:
+        - section: callback_cron
+          key: deprecation_enable_print
+      env:
+        - name: CALLBACK_CRON_DEPRECATION_ENABLE_PRINT
   author: Simon Leary
   extends_documentation_fragment:
     - unity.general.default_callback_default_options
     - default_callback
-    - result_format_callback
     - unity.general.format_diff
+    - unity.general.ramdisk_cache
 """
-
-STATUSES_DO_PRINT = ["changed", "failed"]
 
 
 class CallbackModule(DedupedDefaultCallback, BufferedCallback):
-    CALLBACK_VERSION = 2.0
-    CALLBACK_TYPE = "stdout"
+    CALLBACK_VERSION = 4.0
+    CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.cron"
     CALLBACK_NEEDS_WHITELIST = True
 
     def __init__(self):
-        super(CallbackModule, self).__init__()
-        self.do_print = False
+        super().__init__()
+        self._do_print = False
+        self.set_options()
+        statuses_enable_print = self.get_option("statuses_enable_print")
+        invalid_statuses = [x for x in statuses_enable_print if x not in VALID_STATUSES]
+        assert (
+            len(invalid_statuses) == 0
+        ), f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
 
-    def deduped_runner_or_runner_item_end(self, result, status, dupe_of):
-        if status in STATUSES_DO_PRINT or (
-            status == "unreachable" and (self.get_option("ignore_unreachable") is False)
+    # https://github.com/ansible/ansible/pull/84496
+    def get_options(self):
+        return self._plugin_options
+
+    def deduped_runner_or_runner_item_end(self, result: TaskResult, status: str, dupe_of: str):
+        if self.get_option("redact_bitwarden"):
+            result._result = bitwarden_redact(result._result, self.get_options())
+        return super().deduped_runner_or_runner_item_end(result, status, dupe_of)
+
+    def deduped_task_end(
+        self,
+        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
+        results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        warnings_and_groupings: list[tuple[object, list[WarningID]]],
+        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
+        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
+    ) -> None:
+        if (
+            (len(warnings_and_groupings) > 0 and self.get_option("warning_enable_print"))
+            or (len(exceptions_and_groupings) > 0 and self.get_option("exception_enable_print"))
+            or (len(deprecations_and_groupings) > 0 and self.get_option("deprecation_enable_print"))
+            or any(
+                x in self.get_option("statuses_enable_print") for x in status2msg2result_ids.keys()
+            )
         ):
-            self.do_print = True
-        super(CallbackModule, self).deduped_runner_or_runner_item_end(result, status, dupe_of)
+            self._do_print = True
+        return super().deduped_task_end(
+            status2msg2result_ids,
+            results_stripped_and_groupings,
+            diffs_and_groupings,
+            warnings_and_groupings,
+            exceptions_and_groupings,
+            deprecations_and_groupings,
+        )
 
-    def deduped_playbook_on_stats(self, stats):
-        super().deduped_playbook_on_stats(stats)
-        if self.do_print:
-            self.display_buffer()
+    def deduped_playbook_on_stats(self, *args, **kwargs):
+        super().deduped_playbook_on_stats(*args, **kwargs)
+        if not self._do_print:
+            return
+        if not self._display.buffer:
+            self._real_display.warning("cron: no playbook output to print!")
+            return
+        if shutil.which("aha") is None:
+            self._real_display.warning("cron: aha not found!")
+            html = f"<html><body><pre>{decolorize(self._display.buffer)}</pre></body></html>"
+        else:
+            aha_proc = subprocess.Popen(
+                ["aha", "--black"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            html, _ = aha_proc.communicate(input=self._display.buffer)
+        self._real_display.display(html)
