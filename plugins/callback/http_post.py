@@ -55,8 +55,8 @@ DOCUMENTATION = r"""
     * async tasks are not allowed.
   requirements:
     - whitelist in configuration
-    - [aha](https://github.com/theZiz/aha)
-    - [requests](https://pypi.org/project/requests/)
+    - "[aha](https://github.com/theZiz/aha)"
+    - "[requests](https://pypi.org/project/requests/)"
     - HTTPS web server that allows file upload
   options:
     upload_url:
