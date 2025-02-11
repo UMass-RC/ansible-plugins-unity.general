@@ -776,7 +776,7 @@ class DedupeCallback(CallbackBase):
         self,
         status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
         results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
-        diffs_and_groupings: list[tuple[dict, list[ResultID]]],
+        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
         warnings_and_groupings: list[tuple[object, list[WarningID]]],
         exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
         deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
