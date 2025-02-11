@@ -24,6 +24,17 @@ from ansible.playbook.included_file import IncludedFile
 
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
+VALID_STATUSES = [
+    "ok",
+    "changed",
+    "unreachable",
+    "failed",
+    "skipped",
+    "ignored",
+    "interrupted",
+    "running",
+]
+
 display = Display()
 textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
@@ -262,8 +273,7 @@ class DedupeCallback(CallbackBase):
       "stripped result". "stripped result" is just the remainder with the other parts removed.
       duplicate diffs, warnings, exceptions, and stripped results are grouped so that unnecessary
       output can be avoided. each can be printed immediately or at the end of task.
-    * each result is given a "status", which can be one of:
-      ok changed unreachable failed skipped ignored interrupted running
+    * each result is given a "status", see dedupe_callback.VALID_STATUSES
     * since information might not be printed immediately, SIGINT is trapped to display results
       before ansible exits.
     * If a result hash changed=true but no diff, a \"no diff\" message is used as the diff
@@ -721,8 +731,7 @@ class DedupeCallback(CallbackBase):
         """
         status_totals: dictionary from status to a string representing the total number of runners
         or runner items that have that status. the total is usually digits, but it will have
-        the value "?" when using a loop. possible values for status are:
-        ok changed unreachable failed skipped ignored interrupted running
+        the value "?" when using a loop. see dedupe_callback.VALID_STATUSES
         """
         pass
 
@@ -731,8 +740,7 @@ class DedupeCallback(CallbackBase):
     ) -> None:
         """
         use this if you need to print results immediately rather than waiting until end of task
-        possible values for status are:
-        ok changed unreachable failed skipped ignored interrupted
+        see dedupe_callback.VALID_STATUSES
         hostnames, items, diffs, warnings, deprecations, and exceptions are all ignored
         when checking for dupes.
         """
@@ -783,8 +791,7 @@ class DedupeCallback(CallbackBase):
     ) -> None:
         """
         status2msg2result_ids: dict from status to dict of message to list of hostnames.
-        possible values for status are:
-        ok changed unreachable failed skipped ignored interrupted running
+        see dedupe_callback.VALID_STATUSES
 
         results_stripped_and_groupings: list of tuples where the first element of each tuple
         is a stripped result dict. a stripped result dict is a result dict without diffs, warnings,
