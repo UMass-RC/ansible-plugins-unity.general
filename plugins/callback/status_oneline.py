@@ -47,6 +47,7 @@ DOCUMENTATION = r"""
     - result_format_callback # defines result_format, pretty_results options
     - default_callback
     - unity.general.format_diff
+    - unity.general.wrap_text
 """
 
 _STATUS_COLORS = {

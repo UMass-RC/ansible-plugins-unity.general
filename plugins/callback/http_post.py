@@ -134,6 +134,7 @@ DOCUMENTATION = r"""
     - default_callback
     - unity.general.format_diff
     - unity.general.ramdisk_cache
+    - unity.general.wrap_text
 """
 
 # https://stackoverflow.com/a/14693789/18696276

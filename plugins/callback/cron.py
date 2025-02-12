@@ -110,6 +110,7 @@ DOCUMENTATION = r"""
     - default_callback
     - unity.general.format_diff
     - unity.general.ramdisk_cache
+    - unity.general.wrap_text
 """
 
 

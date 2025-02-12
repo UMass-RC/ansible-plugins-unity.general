@@ -71,7 +71,7 @@ DOCUMENTATION = r"""
     - result_format_callback # defines result_format, pretty_results options
     - default_callback
     - unity.general.format_diff
-    - unity.general.text_wrap
+    - unity.general.wrap_text
 """
 
 _STATUS_COLORS = {
@@ -130,12 +130,13 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             self._print_task_path(result._task)
         if len(dupe_of) > 0:
             msg = f"same result (not including diff) as {dupe_of[0]}"
-            output = format_status_result_ids_msg(status, [result_id], msg)
+            output = format_status_result_ids_msg(status, self.get_options(), [result_id], msg)
         else:
             output = format_status_result_ids_msg(
                 status,
                 [result_id],
-                self._dump_results(my_result_dict, indent=2),
+                self.get_options(),
+                msg=self._dump_results(my_result_dict, indent=2),
                 do_format_msg=False,  # _dump_results already has leading newline, indentation
             )
         self._display.display(
@@ -187,7 +188,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
             self._display.display(self._get_diff(diff))
             self._display.display(
-                format_status_result_ids_msg("changed", result_ids),
+                format_status_result_ids_msg("changed", result_ids, self.get_options()),
                 color=C.COLOR_CHANGED,
             )
         for status, msg2result_ids in status2msg2result_ids.items():
@@ -198,7 +199,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             color = _STATUS_COLORS[status]
             for msg, result_ids in msg2result_ids.items():
                 self._display.display(
-                    format_status_result_ids_msg(status, result_ids, msg),
+                    format_status_result_ids_msg(status, result_ids, self.get_options(), msg=msg),
                     color=color,
                 )
         elapsed = datetime.datetime.now() - self.task_start_time

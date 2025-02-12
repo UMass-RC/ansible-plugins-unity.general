@@ -39,8 +39,8 @@ display = Display()
 textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
 
-def wrap_text_if_tty(x, width: int = None, indent=""):
-    if not sys.stdout.isatty():
+def _indent_and_maybe_wrap(x, plugin_options: dict, width: int = None, indent=""):
+    if not (plugin_options["wrap_text"] and sys.stdout.isatty()):
         return textwrap.indent(x, prefix=indent)
     if width is None:
         textwrapper.width = os.get_terminal_size().columns
@@ -130,6 +130,7 @@ class DiffID(WarningID):
 
 def result_ids2str(
     result_ids: list[ResultID],
+    plugin_options: dict,
     multiline: bool | None = None,
     preferred_max_width: int | None = None,
 ):
@@ -137,6 +138,9 @@ def result_ids2str(
     builds a list of hosts for each item
     then, groups items with identical lists of hosts
     if multiline isn't explicitly set to False, it may be automatically enabled
+
+    `plugin_options` is the result from AnsiblePlugin.get_options()
+    your plugin must extend the unity.general.wrap_text documentation fragment
     """
     if preferred_max_width is None and sys.stdout.isatty():
         preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
@@ -172,13 +176,14 @@ def result_ids2str(
     ):
         multiline = True
     if multiline:
-        return "\n".join([wrap_text_if_tty(x) for x in output_groupings])
+        return "\n".join([_indent_and_maybe_wrap(x, plugin_options) for x in output_groupings])
     return oneline_output
 
 
 def format_status_result_ids_msg(
     status: str,
     result_ids: list[ResultID],
+    plugin_options: dict,
     msg: str = None,
     preferred_max_width: int | None = None,
     multiline=None,
@@ -201,6 +206,9 @@ def format_status_result_ids_msg(
 
     `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
     force output to be on one line or on muliple lines, respectively.
+
+    `plugin_options` is the result from AnsiblePlugin.get_options()
+    your plugin must extend the unity.general.wrap_text documentation fragment
     """
     if preferred_max_width is None and sys.stdout.isatty():
         preferred_max_width = os.get_terminal_size().columns
@@ -208,7 +216,7 @@ def format_status_result_ids_msg(
         result_ids_str = str(result_ids[0])
     else:
         result_ids_str = result_ids2str(
-            result_ids, multiline=multiline, preferred_max_width=preferred_max_width
+            result_ids, plugin_options, multiline=multiline, preferred_max_width=preferred_max_width
         )
     if msg:
         one_line_output = f"{status}: {result_ids_str} => {msg}"
@@ -222,14 +230,16 @@ def format_status_result_ids_msg(
         multiline = True
     if not multiline:
         return one_line_output
-    result_ids_str_wrapped = wrap_text_if_tty(
-        result_ids_str, indent="  ", width=preferred_max_width
+    result_ids_str_wrapped = _indent_and_maybe_wrap(
+        result_ids_str, plugin_options, indent="  ", width=preferred_max_width
     )
     if not msg:
         return f"{status}:\n{result_ids_str_wrapped}"
     if not do_format_msg:
         return f"{status}:\n{result_ids_str_wrapped} =>{msg}"
-    msg_wrapped = wrap_text_if_tty(msg, indent="    ", width=preferred_max_width)
+    msg_wrapped = _indent_and_maybe_wrap(
+        msg, plugin_options, indent="    ", width=preferred_max_width
+    )
     return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
 
