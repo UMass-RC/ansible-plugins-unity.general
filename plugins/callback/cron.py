@@ -20,7 +20,7 @@ from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
 
-DOCUMENTATION = rf"""
+DOCUMENTATION = r"""
   name: cron
   type: notification
   short_description: No output if nothing interesting happened. HTML output for cron email.
@@ -64,7 +64,7 @@ DOCUMENTATION = rf"""
     statuses_enable_print:
       description: |
         if any task result has any of these statuses, output will be printed.
-        status can be one of {VALID_STATUSES}
+        see plugins.plugin_utils.dedupe_callback.VALID_STATUSES
       type: list
       elements: str
       default:
