@@ -24,6 +24,9 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
+from ansible_collections.unity.general.plugins.plugin_utils.options_fixed_callback import (
+    OptionsFixedCallback,
+)
 
 DOCUMENTATION = r"""
   name: deduped_default
@@ -85,7 +88,7 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
-class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
