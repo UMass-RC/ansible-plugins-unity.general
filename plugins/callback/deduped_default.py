@@ -178,7 +178,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     ):
         # Largest groupings last
         sorted_diffs_and_groupings = sorted(diffs_and_groupings, key=lambda x: len(x[1]))
-        for diff, result_ids in sorted_diffs_and_groupings:
+        for diff, diff_ids in sorted_diffs_and_groupings:
+            # convert DiffID to ResultID, discarding index
+            result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
             self._display.display(self._get_diff(diff))
             self._display.display(
                 format_status_result_ids_msg("changed", result_ids),
