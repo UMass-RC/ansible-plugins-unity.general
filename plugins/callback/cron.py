@@ -77,6 +77,7 @@ DOCUMENTATION = r"""
       env:
         - name: CALLBACK_CRON_STATUSES_ENABLE_PRINT
     warning_enable_print:
+      description: if enabled, any task result warnings will cause output to be printed.
       type: bool
       default: true
       ini:
@@ -85,6 +86,7 @@ DOCUMENTATION = r"""
       env:
         - name: CALLBACK_CRON_WARNING_ENABLE_PRINT
     exception_enable_print:
+      description: if enabled, any task result exceptions will cause output to be printed.
       type: bool
       default: true
       ini:
@@ -93,6 +95,7 @@ DOCUMENTATION = r"""
       env:
         - name: CALLBACK_CRON_EXCEPTION_ENABLE_PRINT
     deprecation_enable_print:
+      description: if enabled, any task result deprecation warnings will cause output to be printed.
       type: bool
       default: true
       ini:
