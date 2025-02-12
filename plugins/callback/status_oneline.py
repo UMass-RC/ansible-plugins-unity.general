@@ -43,7 +43,8 @@ DOCUMENTATION = r"""
     - whitelist in configuration
   author: Simon Leary
   extends_documentation_fragment:
-    - unity.general.default_callback_default_options
+    - unity.general.default_callback_default_options # override defaults in default_callback
+    - result_format_callback # defines result_format, pretty_results options
     - default_callback
     - unity.general.format_diff
 """
