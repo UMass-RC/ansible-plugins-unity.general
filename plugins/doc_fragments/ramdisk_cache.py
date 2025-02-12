@@ -1,10 +1,7 @@
 class ModuleDocFragment(object):
     DOCUMENTATION = r"""
       requirements:
-        - linux or macos
-        - "for linux: /dev/shm/ must exist"
-        - "for macOS: L(TmpDisk,https://github.com/imothee/tmpdisk)"
-        - "for macOS: ~/tmpdisk/shm must be created with tmpdisk"
+        - "for macOS: ~/tmpdisk/shm must be created with L(TmpDisk,https://github.com/imothee/tmpdisk)"
       options:
         cache_timeout_seconds:
           description: |
@@ -36,6 +33,9 @@ class ModuleDocFragment(object):
               key: path
           env:
             - name: RAMDISK_CACHE_PATH
+      attributes:
+        platform:
+          platforms: linux,macos
       extends_documentation_fragment:
       - unity.general.ramdisk_cache_path
     """
