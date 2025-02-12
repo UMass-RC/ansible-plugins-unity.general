@@ -40,7 +40,7 @@ in the above example, the `apt` diff has been deduplicated for a whole list of h
 
 ### list plugins
 ```sh
-$ ansible-doc --metadata-dump unity.general 2>/dev/null | jq -C '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)'
+ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)'
 ```
 ```json
 {
@@ -64,4 +64,14 @@ $ ansible-doc --metadata-dump unity.general 2>/dev/null | jq -C '.all | with_ent
 ### view documentation for plugin
 ```sh
 ansible-doc -t callback unity.general.cron
+```
+
+### view documentation for all plugins
+```sh
+ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "ansible-doc --json -t \($type) \($plugin)"' | bash
+```
+
+### view requirements for each plugin
+```sh
+ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "ansible-doc --json -t \($type) \($plugin)"' | bash | jq '.[].doc | .name as $name | {$name: .requirements}'
 ```
