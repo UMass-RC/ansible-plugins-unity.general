@@ -1,6 +1,5 @@
 import re
 import os
-import json
 import signal
 import hashlib
 import threading
