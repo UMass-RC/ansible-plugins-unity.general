@@ -12,6 +12,7 @@ import requests
 
 from ansible.playbook import Playbook
 from ansible.playbook.play import Play
+from ansible.errors import AnsibleError
 from ansible.executor.task_result import TaskResult
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
@@ -208,7 +209,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
                 ).with_traceback(sys.exc_info()[2])
             else:
                 raise
-        response.raise_for_status()
+        if response.status_code != 200:
+            self._display.v(f'response text: "{response.text}"')
+            raise AnsibleError(
+                f'http_post: status_code={response.status_code}, reason="{response.reason}"\nUse -v to see response text.'
+            )
         self._real_display.v("http_post: done.")
         if download_url := self.get_option("download_url"):
             download_url = download_url.format(filename=filename)
