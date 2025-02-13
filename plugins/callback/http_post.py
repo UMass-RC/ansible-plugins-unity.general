@@ -210,7 +210,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             else:
                 raise
         if response.status_code != 200:
-            self._display.v(f'response text: "{response.text}"')
+            self._real_display.v(f'response text: "{response.text}"')
             raise AnsibleError(
                 f'http_post: status_code={response.status_code}, reason="{response.reason}"\nUse -v to see response text.'
             )
