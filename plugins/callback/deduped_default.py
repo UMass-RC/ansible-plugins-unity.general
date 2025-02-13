@@ -6,6 +6,8 @@ import hashlib
 import datetime
 import textwrap
 
+from beartype import beartype
+
 from ansible import constants as C
 from ansible.playbook import Playbook
 from ansible.playbook.task import Task
@@ -21,6 +23,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.hostlist import form
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     DedupeCallback,
     ResultID,
+    DiffID,
     WarningID,
     ExceptionID,
     DeprecationID,
@@ -97,16 +100,19 @@ def _hash_object_dirty(x) -> str:
     return hashlib.md5(json_bytes).hexdigest()
 
 
+@beartype
 class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
     CALLBACK_NEEDS_WHITELIST = True
 
+    @beartype
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
+    @beartype
     def __task_start(self, task):
         self.task_start_time = datetime.datetime.now()
         # DefaultCallback.v2_playbook_on_task_start won't print the banner if this condition is met
@@ -116,6 +122,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
             self._print_task_banner(task)
 
+    @beartype
     def _indent_and_maybe_wrap(self, x: str, width: int = None, indent="  "):
         if not (self.get_option("wrap_text") and sys.stdout.isatty()):
             return textwrap.indent(x, prefix=indent)
@@ -132,6 +139,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             output_chunks.append("\n".join(self.textwrapper.wrap(line)))
         return "\n".join(output_chunks)
 
+    @beartype
     def result_ids2str(
         self,
         result_ids: list[ResultID],
@@ -180,11 +188,12 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             return "\n".join(output_groupings)
         return oneline_output
 
+    @beartype
     def format_status_result_ids_msg(
         self,
         status: str,
         result_ids: list[ResultID],
-        msg: str = None,
+        msg: str | None = None,
         preferred_max_width: int | None = None,
         multiline=None,
         do_format_msg=True,
@@ -237,9 +246,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         msg_wrapped = self._indent_and_maybe_wrap(msg, indent="    ", width=preferred_max_width)
         return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
+    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
+    @beartype
     def deduped_result(
         self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
     ):
@@ -278,6 +289,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
 
+    @beartype
     def deduped_warning(
         self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
@@ -287,6 +299,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             warning = f"{warning_id}: {warning}"
         self._handle_warnings({"warnings": [warning]})
 
+    @beartype
     def deduped_exception(
         self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
@@ -296,6 +309,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             exception = f"{exception_id}: {exception}"
         self._handle_exception({"exception": [exception]})
 
+    @beartype
     def deduped_deprecation(
         self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
@@ -305,11 +319,12 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             deprecation = f"{deprecation_id}: {deprecation}"
         self._handle_warnings({"deprecations": [deprecation]})
 
+    @beartype
     def deduped_task_end(
         self,
-        status2msg2result_ids: dict[str, list[ResultID]],
+        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
         results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
-        diffs_and_groupings: list[tuple[dict, list[ResultID]]],
+        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
         warnings_and_groupings: list[tuple[object, list[WarningID]]],
         exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
         deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
@@ -339,45 +354,58 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
 
+    @beartype
     def deduped_playbook_on_play_start(self, play: Play):
         DefaultCallback.v2_playbook_on_play_start(self, play)
 
+    @beartype
     def deduped_playbook_on_stats(self, stats: AggregateStats):
         DefaultCallback.v2_playbook_on_stats(self, stats)
 
+    @beartype
     def deduped_playbook_on_start(self, playbook: Playbook):
         DefaultCallback.v2_playbook_on_start(self, playbook)
 
+    @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
         self.__task_start(task)
 
+    @beartype
     def deduped_playbook_on_cleanup_task_start(self, task: Task):
         DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
         self.__task_start(task)
 
+    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task):
         DefaultCallback.v2_playbook_on_handler_task_start(self, task)
         self.__task_start(task)
 
+    @beartype
     def deduped_runner_on_start(self, host: Host, task: Task):
         DefaultCallback.v2_runner_on_start(self, host, task)
 
+    @beartype
     def deduped_runner_retry(self, result: TaskResult):
         DefaultCallback.v2_runner_retry(self, result)
 
+    @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host):
         DefaultCallback.v2_playbook_on_notify(self, handler, host)
 
+    @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile):
         DefaultCallback.v2_playbook_on_include(self, included_file)
 
+    @beartype
     def deduped_playbook_on_no_hosts_matched(self):
         DefaultCallback.v2_playbook_on_no_hosts_matched(self)
 
+    @beartype
     def deduped_playbook_on_no_hosts_remaining(self):
         DefaultCallback.v2_playbook_on_no_hosts_remaining(self)
 
+    @beartype
     def deduped_playbook_on_vars_prompt(
         self,
         varname,

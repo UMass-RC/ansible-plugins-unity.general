@@ -1,5 +1,7 @@
 import shutil
 
+from beartype import beartype
+
 from ansible import constants as C
 from ansible.utils.color import stringc
 
@@ -63,27 +65,32 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
 
 
+@beartype
 def _tty_width() -> int:
     output, _ = shutil.get_terminal_size()
     return output
 
 
+@beartype
 class CallbackModule(DedupedDefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "status_oneline"
 
+    @beartype
     def __init__(self):
         super(CallbackModule, self).__init__()
 
+    @beartype
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
 
+    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         components = []
         for status, total in status_totals.items():
             color = _STATUS_COLORS[status]
-            if total == 0:
+            if total == "0":
                 continue
             components.append((f"{status}={total}", color))
 
@@ -118,18 +125,22 @@ class CallbackModule(DedupedDefaultCallback):
         output += "\r"
         self._display.display(output, newline=False)
 
+    @beartype
     def deduped_result(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_result(self, *args, **kwargs)
 
+    @beartype
     def deduped_warning(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_warning(self, *args, **kwargs)
 
+    @beartype
     def deduped_exception(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_exception(self, *args, **kwargs)
 
+    @beartype
     def deduped_task_end(self, *args, **kwargs):
         self._display.display("\n")  # preserve last status line
         DedupedDefaultCallback.deduped_task_end(self, *args, **kwargs)

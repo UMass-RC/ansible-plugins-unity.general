@@ -5,6 +5,8 @@ import hashlib
 import threading
 import traceback
 
+from beartype import beartype
+
 from ansible import constants as C
 from ansible.playbook import Playbook
 from ansible.playbook.task import Task
@@ -33,7 +35,7 @@ VALID_STATUSES = [
 display = Display()
 
 
-# TODO does this work?
+@beartype
 def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
     """
     replace all identifiers with "ANONYMOUS" in string leaf nodes of dict tree
@@ -52,6 +54,7 @@ def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
     return anonymize_or_recurse_or_nothing(_input)
 
 
+@beartype
 class ResultID:
     """
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
@@ -68,10 +71,12 @@ class ResultID:
         return self.hostname
 
 
+@beartype
 class ExceptionID(ResultID):
     "there can be only 1 exception per result"
 
 
+@beartype
 class WarningID:
     """
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
@@ -91,21 +96,26 @@ class WarningID:
         return f"{self.hostname}[{self.index}]"
 
 
+@beartype
 class DeprecationID(WarningID):
     pass
 
 
+@beartype
 class DiffID(WarningID):
     pass
 
 
+@beartype
 class Grouper:
+    @beartype
     def __init__(self, id_type):
         self._id_type = id_type
         self._preprocessed_values = []
         self.values_1st_match = []
         self.ids = []
 
+    @beartype
     def add(self, _id, value, preprocessed_value=None) -> list[object]:
         "returns list of dupes"
         assert isinstance(_id, self._id_type), f"expected {self._id_type}, got {type(_id)}"
@@ -121,6 +131,7 @@ class Grouper:
         self.ids.append([_id])
         return []
 
+    @beartype
     def export(self) -> list[tuple[object, list[object]]]:
         "each tuple has value on left and list of ids on right"
         output = []
@@ -130,6 +141,7 @@ class Grouper:
         return output
 
 
+@beartype
 class DedupeCallback(CallbackBase):
     """
     Callback plugin that reduces output size by culling redundant output.
@@ -156,6 +168,7 @@ class DedupeCallback(CallbackBase):
       be setting the label with `loop_control`
     """
 
+    @beartype
     def __sigint_handler(self, signum, frame):
         """
         make sure the user knows which runners were interrupted
@@ -197,6 +210,7 @@ class DedupeCallback(CallbackBase):
             display.v(f"[{_id_hash}] executing original sigint handler...")
             self.original_sigint_handler(signum, frame)
 
+    @beartype
     def __init__(self):
         super(DedupeCallback, self).__init__()
         self.task_name = None
@@ -221,6 +235,7 @@ class DedupeCallback(CallbackBase):
         self.original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self.__sigint_handler)
 
+    @beartype
     def __task_start(self, task: Task):
         self.__maybe_task_end()
         self.task_name = task.get_name()
@@ -255,12 +270,14 @@ class DedupeCallback(CallbackBase):
         if not self.first_task_started:
             self.first_task_started = True
 
+    @beartype
     def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
         if not task.loop:
             self.running_hosts.add(hostname)
         self.__update_status_totals()
 
+    @beartype
     def __maybe_task_end(self):
         """
         The ansible callback API does not have any notion of task end.
@@ -295,6 +312,7 @@ class DedupeCallback(CallbackBase):
             self.deprecation_grouper.export(),
         )
 
+    @beartype
     def __runner_or_runner_item_end_dict(
         self, result: dict, result_id: ResultID, status: str
     ) -> list[ResultID]:
@@ -363,6 +381,7 @@ class DedupeCallback(CallbackBase):
 
         return result_stripped_dupes
 
+    @beartype
     def __runner_or_runner_item_end(self, result: TaskResult, status: str):
         hostname = CallbackBase.host_label(result)
         item = self._get_item_label(result._result)
@@ -373,9 +392,10 @@ class DedupeCallback(CallbackBase):
         self.deduped_result(result, status, result_id, result_stripped_dupes)
         self.__update_status_totals()
 
+    @beartype
     def __update_status_totals(self):
         status_totals = {
-            status: len(result_ids) for status, result_ids in self.status2result_ids.items()
+            status: str(len(result_ids)) for status, result_ids in self.status2result_ids.items()
         }
         # I have to work around this edge case because _runner_on_completed removes hostname
         # from the running_hosts list, and the same host can't be removed multiple times.
@@ -385,9 +405,10 @@ class DedupeCallback(CallbackBase):
         if self.task_is_loop:
             status_totals["running"] = "?"
         else:
-            status_totals["running"] = len(self.running_hosts)
+            status_totals["running"] = str(len(self.running_hosts))
         self.deduped_update_status_totals(status_totals)
 
+    @beartype
     def __play_start(self, play: Play):
         strategy_fqcn = add_internal_fqcns([play.strategy])[0]
         if not strategy_fqcn in add_internal_fqcns(("linear", "debug")):
@@ -395,6 +416,7 @@ class DedupeCallback(CallbackBase):
                 f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
             )
 
+    @beartype
     def __check_diff_always(self) -> None:
         if not C.DIFF_ALWAYS:
             self._display.warning(
@@ -406,84 +428,105 @@ class DedupeCallback(CallbackBase):
     def v2_on_any(self, *args, **kwargs):
         self.deduped_on_any(*args, **kwargs)
 
+    @beartype
     def v2_runner_on_start(self, host: Host, task: Task) -> None:
         self.__runner_start(host, task)
         self.deduped_runner_on_start(host, task)
 
+    @beartype
     def v2_runner_on_unreachable(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "unreachable")
 
+    @beartype
     def v2_runner_on_skipped(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "skipped")
 
+    @beartype
     def v2_runner_item_on_skipped(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "skipped")
 
+    @beartype
     def v2_runner_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
             self.__runner_or_runner_item_end(result, "changed")
         else:
             self.__runner_or_runner_item_end(result, "ok")
 
+    @beartype
     def v2_runner_item_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
             self.__runner_or_runner_item_end(result, "changed")
         else:
             self.__runner_or_runner_item_end(result, "ok")
 
+    @beartype
     def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
         if ignore_errors:
             self.__runner_or_runner_item_end(result, "ignored")
         else:
             self.__runner_or_runner_item_end(result, "failed")
 
+    @beartype
     def v2_runner_item_on_failed(self, result: TaskResult) -> None:
         self.__runner_or_runner_item_end(result, "failed")
 
+    @beartype
     def v2_runner_retry(self, result: TaskResult) -> None:
         self.deduped_runner_retry(result)
 
+    @beartype
     def v2_on_file_diff(self, result) -> None:
         # I need to replace empty diffs with a "no diff" message, and this is not called
         # for empty diffs. instead I handle diffs during __runner_or_runner_item_end
         pass
 
+    @beartype
     def v2_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_task_start(task, is_conditional)
 
+    @beartype
     def v2_playbook_on_cleanup_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_cleanup_task_start(task)
 
+    @beartype
     def v2_playbook_on_handler_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
 
+    @beartype
     def v2_playbook_on_play_start(self, play: Play) -> None:
         self.__maybe_task_end()  # weird edge case
         self.__play_start(play)
         self.deduped_playbook_on_play_start(play)
 
+    @beartype
     def v2_playbook_on_start(self, playbook: Playbook) -> None:
         self.__check_diff_always()
         self.deduped_playbook_on_start(playbook)
 
+    @beartype
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         self.deduped_playbook_on_notify(handler, host)
 
+    @beartype
     def v2_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
         self.deduped_playbook_on_import_for_host(result, imported_file)
 
+    @beartype
     def v2_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
         self.deduped_playbook_on_not_import_for_host(result, missing_file)
 
+    @beartype
     def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
         self.deduped_playbook_on_include(included_file)
 
+    @beartype
     def v2_playbook_on_no_hosts_matched(self) -> None:
         self.deduped_playbook_on_no_hosts_matched()
 
+    @beartype
     def v2_playbook_on_no_hosts_remaining(self) -> None:
         self.deduped_playbook_on_no_hosts_remaining()
 
@@ -521,48 +564,63 @@ class DedupeCallback(CallbackBase):
     def deduped_on_any(self, *args, **kwargs) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_on_any"
 
+    @beartype
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
 
+    @beartype
     def deduped_playbook_on_play_start(self, play: Play) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_play_start"
 
+    @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
 
+    @beartype
     def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_cleanup_task_start"
 
+    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_handler_task_start"
 
+    @beartype
     def deduped_runner_on_start(self, host: Host, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_on_start"
 
+    @beartype
     def deduped_playbook_on_stats(self, stats: AggregateStats) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_stats"
 
+    @beartype
     def deduped_runner_retry(self, result: TaskResult) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_retry"
 
+    @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
 
+    @beartype
     def deduped_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_import_for_host"
 
+    @beartype
     def deduped_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_not_import_for_host"
 
+    @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_include"
 
+    @beartype
     def deduped_playbook_on_no_hosts_matched(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_matched"
 
+    @beartype
     def deduped_playbook_on_no_hosts_remaining(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
 
+    @beartype
     def deduped_playbook_on_vars_prompt(
         self,
         varname,
@@ -577,6 +635,7 @@ class DedupeCallback(CallbackBase):
     ) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
 
+    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str]) -> None:
         """
         status_totals: dictionary from status to a string representing the total number of runners
@@ -584,6 +643,7 @@ class DedupeCallback(CallbackBase):
         the value "?" when using a loop. see dedupe_callback.VALID_STATUSES
         """
 
+    @beartype
     def deduped_result(
         self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
     ) -> None:
@@ -594,12 +654,14 @@ class DedupeCallback(CallbackBase):
         when checking for dupes.
         """
 
+    @beartype
     def deduped_diff(self, diff: dict, result_id: ResultID, dupe_of: list[ResultID]):
         """
         use this if you need to print diffs immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
 
+    @beartype
     def deduped_exception(
         self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
@@ -608,6 +670,7 @@ class DedupeCallback(CallbackBase):
         hostnames and items are ignored when checking for dupes/groupings
         """
 
+    @beartype
     def deduped_warning(
         self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
@@ -616,6 +679,7 @@ class DedupeCallback(CallbackBase):
         hostnames and items are ignored when checking for dupes/groupings
         """
 
+    @beartype
     def deduped_deprecation(
         self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
@@ -624,6 +688,7 @@ class DedupeCallback(CallbackBase):
         hostnames and items are ignored when checking for dupes/groupings
         """
 
+    @beartype
     def deduped_task_end(
         self,
         status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
