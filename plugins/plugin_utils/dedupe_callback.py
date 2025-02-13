@@ -176,7 +176,7 @@ def result_ids2str(
     ):
         multiline = True
     if multiline:
-        return "\n".join([_indent_and_maybe_wrap(x, plugin_options) for x in output_groupings])
+        return "\n".join(output_groupings)
     return oneline_output
 
 
