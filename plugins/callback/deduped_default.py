@@ -252,7 +252,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     @beartype
     def deduped_result(
         self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
-    ):
+    ) -> None:
         if not (
             self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
             or (status in STATUSES_PRINT_IMMEDIATELY)

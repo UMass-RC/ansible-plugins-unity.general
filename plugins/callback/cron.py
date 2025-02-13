@@ -133,10 +133,12 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def get_options(self):
         return self._plugin_options
 
-    def deduped_runner_or_runner_item_end(self, result: TaskResult, status: str, dupe_of: str):
+    def deduped_result(
+        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
+    ) -> None:
         if self.get_option("redact_bitwarden"):
             result._result = bitwarden_redact(result._result, self.get_options())
-        return super().deduped_runner_or_runner_item_end(result, status, dupe_of)
+        return super().deduped_result(result, status, result_id, dupe_of_stripped)
 
     def deduped_task_end(
         self,
