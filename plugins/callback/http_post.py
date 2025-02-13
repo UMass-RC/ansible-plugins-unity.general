@@ -20,6 +20,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact imp
 )
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
+    ResultID,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
     BufferedCallback,
