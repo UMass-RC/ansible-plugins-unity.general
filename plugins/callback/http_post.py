@@ -198,10 +198,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             )
             # TODO is utf8 okay?
             html_bytes, _ = aha_proc.communicate(input=bytes(self._display.buffer, "utf8"))
-        self._real_display.v("http_post: uploading...")
+        upload_url = self.get_option("upload_url")
+        self._real_display.v(f'http_post: uploading... file "{filename}" to "{upload_url}"')
         try:
             response = requests.post(
-                self.get_option("upload_url"),
+                upload_url,
                 files={"file": (filename, BytesIO(html_bytes), "text/html")},
             )
         except SSLError as e:
