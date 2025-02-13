@@ -130,7 +130,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             self._print_task_path(result._task)
         if len(dupe_of) > 0:
             msg = f"same result (not including diff) as {dupe_of[0]}"
-            output = format_status_result_ids_msg(status, self.get_options(), [result_id], msg)
+            output = format_status_result_ids_msg(status, [result_id], self.get_options(), msg=msg)
         else:
             output = format_status_result_ids_msg(
                 status,
