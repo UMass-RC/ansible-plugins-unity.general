@@ -129,12 +129,11 @@ DOCUMENTATION = r"""
       default: true
   author: Simon Leary
   extends_documentation_fragment:
-    - unity.general.default_callback_default_options # override defaults in default_callback
-    - result_format_callback # defines result_format, pretty_results options
+    - unity.general.deduped_default_callback
     - default_callback
+    - result_format_callback # defines result_format, pretty_results options
     - unity.general.format_diff
     - unity.general.ramdisk_cache
-    - unity.general.wrap_text
 """
 
 # https://stackoverflow.com/a/14693789/18696276

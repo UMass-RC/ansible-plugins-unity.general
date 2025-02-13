@@ -43,11 +43,10 @@ DOCUMENTATION = r"""
     - whitelist in configuration
   author: Simon Leary
   extends_documentation_fragment:
-    - unity.general.default_callback_default_options # override defaults in default_callback
-    - result_format_callback # defines result_format, pretty_results options
+    - unity.general.deduped_default_callback
     - default_callback
+    - result_format_callback # defines result_format, pretty_results options
     - unity.general.format_diff
-    - unity.general.wrap_text
 """
 
 _STATUS_COLORS = {

@@ -1,6 +1,10 @@
 import os
+import sys
 import copy
+import json
+import hashlib
 import datetime
+import textwrap
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -13,13 +17,13 @@ from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     DedupeCallback,
     ResultID,
     WarningID,
     ExceptionID,
     DeprecationID,
-    format_status_result_ids_msg,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
@@ -67,11 +71,10 @@ DOCUMENTATION = r"""
   - whitelist in configuration
   author: Simon Leary
   extends_documentation_fragment:
-    - unity.general.default_callback_default_options # override defaults in default_callback
-    - result_format_callback # defines result_format, pretty_results options
+    - unity.general.deduped_default_callback
     - default_callback
+    - result_format_callback # defines result_format, pretty_results options
     - unity.general.format_diff
-    - unity.general.wrap_text
 """
 
 _STATUS_COLORS = {
@@ -88,11 +91,21 @@ _STATUS_COLORS = {
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
 
 
+def _hash_object_dirty(x) -> str:
+    "for non json-serializable objects, just casts to string."
+    json_bytes = json.dumps(x, sort_keys=True, default=str).encode("utf8")
+    return hashlib.md5(json_bytes).hexdigest()
+
+
 class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
     CALLBACK_NEEDS_WHITELIST = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
     def __task_start(self, task):
         self.task_start_time = datetime.datetime.now()
@@ -102,6 +115,127 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         # this must come after or else it will break self._last_task_name
         if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
             self._print_task_banner(task)
+
+    def _indent_and_maybe_wrap(self, x: str, width: int = None, indent="  "):
+        if not (self.get_option("wrap_text") and sys.stdout.isatty()):
+            return textwrap.indent(x, prefix=indent)
+        if width is None:
+            self.textwrapper.width = os.get_terminal_size().columns
+        else:
+            self.textwrapper.width = width
+        self.textwrapper.initial_indent = indent
+        self.textwrapper.subsequent_indent = indent
+        output_chunks = (
+            []
+        )  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
+        for line in x.splitlines():
+            output_chunks.append("\n".join(self.textwrapper.wrap(line)))
+        return "\n".join(output_chunks)
+
+    def result_ids2str(
+        self,
+        result_ids: list[ResultID],
+        multiline: bool | None = None,
+        preferred_max_width: int | None = None,
+    ):
+        """
+        builds a list of hosts for each item
+        then, groups items with identical lists of hosts
+        if multiline isn't explicitly set to False, it may be automatically enabled
+        """
+        if preferred_max_width is None and sys.stdout.isatty():
+            preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
+        item_hash2hostnames = {}
+        item_hash2item = {}
+        for result_id in result_ids:
+            item_hash = _hash_object_dirty(result_id.item)
+            item_hash2item[item_hash] = result_id.item
+            item_hash2hostnames.setdefault(item_hash, set()).add(result_id.hostname)
+        hostnames_str2items = {}
+        for item_hash, hostnames in item_hash2hostnames.items():
+            item = item_hash2item[item_hash]
+            hostnames_str = format_hostnames(hostnames)
+            hostnames_str2items.setdefault(hostnames_str, []).append(item)
+        output_groupings = []
+        for hostnames_str, items in hostnames_str2items.items():
+            # dont want: foo,bar (items=["foo", None])
+            # want: foo,bar; foo,bar(item="foo")
+            if None in items:
+                items.remove(None)
+                output_groupings.append(hostnames_str)
+            if len(items) == 1:
+                output_groupings.append(f"{hostnames_str} (item={items[0]})")
+            elif len(items) > 1:
+                output_groupings.append(
+                    f"{hostnames_str} (items={json.dumps(items, sort_keys=True, default=str)})"
+                )  # dirty serialize
+        oneline_output = "; ".join(output_groupings)
+        if (
+            multiline is None
+            and preferred_max_width is not None
+            and len(oneline_output) > preferred_max_width
+        ):
+            multiline = True
+        if multiline:
+            return "\n".join(output_groupings)
+        return oneline_output
+
+    def format_status_result_ids_msg(
+        self,
+        status: str,
+        result_ids: list[ResultID],
+        msg: str = None,
+        preferred_max_width: int | None = None,
+        multiline=None,
+        do_format_msg=True,
+    ):
+        """
+        4 possible output formats:
+          - {status}: {result_ids}
+          - {status}: {result_ids} => {msg}
+          - |
+            {status}:
+              {result_ids}
+          - |
+            {status}:
+              {result_ids} =>
+                {msg}
+        output format is decided by whether:
+          - `msg` is truey/falsey
+          - `result_ids2str(result_ids)` contains a newline or `multiline` is enabled
+
+        `multiline` is passed along to `result_ids2str`. it can be set to either False or True to
+        force output to be on one line or on muliple lines, respectively.
+        """
+        if preferred_max_width is None and sys.stdout.isatty():
+            preferred_max_width = os.get_terminal_size().columns
+        if len(result_ids) == 1:
+            result_ids_str = str(result_ids[0])
+        else:
+            result_ids_str = self.result_ids2str(
+                result_ids, multiline=multiline, preferred_max_width=preferred_max_width
+            )
+        if msg:
+            one_line_output = f"{status}: {result_ids_str} => {msg}"
+        else:
+            one_line_output = f"{status}: {result_ids_str}"
+        if (
+            multiline is None
+            and preferred_max_width is not None
+            and len(one_line_output) > preferred_max_width
+        ):
+            multiline = True
+        if not multiline:
+            return one_line_output
+        result_ids_str_wrapped = self._indent_and_maybe_wrap(
+            result_ids_str, indent="  ", width=preferred_max_width
+        )
+        if not msg:
+            return f"{status}:\n{result_ids_str_wrapped}"
+        if not do_format_msg:
+            return f"{status}:\n{result_ids_str_wrapped} =>{msg}"
+        msg_wrapped = self._indent_and_maybe_wrap(msg, indent="    ", width=preferred_max_width)
+        return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
@@ -130,12 +264,11 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             self._print_task_path(result._task)
         if len(dupe_of) > 0:
             msg = f"same result (not including diff) as {dupe_of[0]}"
-            output = format_status_result_ids_msg(status, [result_id], self.get_options(), msg=msg)
+            output = self.format_status_result_ids_msg(status, [result_id], msg=msg)
         else:
-            output = format_status_result_ids_msg(
+            output = self.format_status_result_ids_msg(
                 status,
                 [result_id],
-                self.get_options(),
                 msg=self._dump_results(my_result_dict, indent=2),
                 do_format_msg=False,  # _dump_results already has leading newline, indentation
             )
@@ -188,7 +321,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
             self._display.display(self._get_diff(diff))
             self._display.display(
-                format_status_result_ids_msg("changed", result_ids, self.get_options()),
+                self.format_status_result_ids_msg("changed", result_ids),
                 color=C.COLOR_CHANGED,
             )
         for status, msg2result_ids in status2msg2result_ids.items():
@@ -199,7 +332,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             color = _STATUS_COLORS[status]
             for msg, result_ids in msg2result_ids.items():
                 self._display.display(
-                    format_status_result_ids_msg(status, result_ids, self.get_options(), msg=msg),
+                    self.format_status_result_ids_msg(status, result_ids, msg=msg),
                     color=color,
                 )
         elapsed = datetime.datetime.now() - self.task_start_time
