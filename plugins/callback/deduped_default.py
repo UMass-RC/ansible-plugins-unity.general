@@ -241,7 +241,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         pass
 
     def deduped_result(
-        self, result: TaskResult, status: str, result_id: ResultID, dupe_of: list[ResultID]
+        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
     ):
         if not (
             self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
@@ -262,8 +262,8 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             del my_result_dict["results"]
         if status == "failed" and self.get_option("show_task_path_on_failure"):
             self._print_task_path(result._task)
-        if len(dupe_of) > 0:
-            msg = f"same result (not including diff) as {dupe_of[0]}"
+        if len(dupe_of_stripped) > 0:
+            msg = f"same result (not including diff) as {dupe_of_stripped[0]}"
             output = self.format_status_result_ids_msg(status, [result_id], msg=msg)
         else:
             output = self.format_status_result_ids_msg(
