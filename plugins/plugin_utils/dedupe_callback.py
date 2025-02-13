@@ -520,63 +520,48 @@ class DedupeCallback(CallbackBase):
     # DEDUPED API ##################################################################################
     def deduped_on_any(self, *args, **kwargs) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_on_any"
-        pass
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
-        pass
 
     def deduped_playbook_on_play_start(self, play: Play) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_play_start"
-        pass
 
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
-        pass
 
     def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_cleanup_task_start"
-        pass
 
     def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_handler_task_start"
-        pass
 
     def deduped_runner_on_start(self, host: Host, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_on_start"
-        pass
 
     def deduped_playbook_on_stats(self, stats: AggregateStats) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_stats"
-        pass
 
     def deduped_runner_retry(self, result: TaskResult) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_retry"
-        pass
 
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
-        pass
 
     def deduped_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_import_for_host"
-        pass
 
     def deduped_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_not_import_for_host"
-        pass
 
     def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_include"
-        pass
 
     def deduped_playbook_on_no_hosts_matched(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_matched"
-        pass
 
     def deduped_playbook_on_no_hosts_remaining(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
-        pass
 
     def deduped_playbook_on_vars_prompt(
         self,
@@ -591,7 +576,6 @@ class DedupeCallback(CallbackBase):
         unsafe=None,
     ) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
-        pass
 
     def deduped_update_status_totals(self, status_totals: dict[str, str]) -> None:
         """
@@ -599,7 +583,6 @@ class DedupeCallback(CallbackBase):
         or runner items that have that status. the total is usually digits, but it will have
         the value "?" when using a loop. see dedupe_callback.VALID_STATUSES
         """
-        pass
 
     def deduped_result(
         self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
@@ -610,14 +593,12 @@ class DedupeCallback(CallbackBase):
         hostnames, items, diffs, warnings, deprecations, and exceptions are all ignored
         when checking for dupes.
         """
-        pass
 
     def deduped_diff(self, diff: dict, result_id: ResultID, dupe_of: list[ResultID]):
         """
         use this if you need to print diffs immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
-        pass
 
     def deduped_exception(
         self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
@@ -626,7 +607,6 @@ class DedupeCallback(CallbackBase):
         use this if you need to print exceptions immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
-        pass
 
     def deduped_warning(
         self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
@@ -635,7 +615,6 @@ class DedupeCallback(CallbackBase):
         use this if you need to print warnings immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
-        pass
 
     def deduped_deprecation(
         self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
@@ -644,7 +623,6 @@ class DedupeCallback(CallbackBase):
         use this if you need to print deprecations immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
-        pass
 
     def deduped_task_end(
         self,
@@ -671,4 +649,3 @@ class DedupeCallback(CallbackBase):
 
         hostnames and items are ignored for finding dupes/groupings.
         """
-        pass
