@@ -6,8 +6,6 @@ import hashlib
 import datetime
 import textwrap
 
-from beartype import beartype
-
 from ansible import constants as C
 from ansible.playbook import Playbook
 from ansible.playbook.task import Task
@@ -19,6 +17,7 @@ from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
 
+from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     DedupeCallback,

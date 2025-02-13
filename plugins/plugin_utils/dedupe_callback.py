@@ -5,8 +5,6 @@ import hashlib
 import threading
 import traceback
 
-from beartype import beartype
-
 from ansible import constants as C
 from ansible.playbook import Playbook
 from ansible.playbook.task import Task
@@ -20,6 +18,8 @@ from ansible.plugins.callback import CallbackBase
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
+
+from ansible_collections.unity.general import beartype
 
 VALID_STATUSES = [
     "ok",

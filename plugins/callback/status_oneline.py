@@ -1,10 +1,9 @@
 import shutil
 
-from beartype import beartype
-
 from ansible import constants as C
 from ansible.utils.color import stringc
 
+from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
