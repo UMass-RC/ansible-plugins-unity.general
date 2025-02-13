@@ -19,7 +19,7 @@ from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.playbook.included_file import IncludedFile
 
-from ansible_collections.unity.general import beartype
+from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
 VALID_STATUSES = [
     "ok",
