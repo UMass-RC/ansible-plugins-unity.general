@@ -280,7 +280,7 @@ class DedupeCallback(CallbackBase):
         self.__update_status_totals()
 
         status2msg2result_ids = {}
-        for i, (result_stripped, grouping) in enumerate(self.result_stripped_grouper.export()):
+        for result_stripped, grouping in self.result_stripped_grouper.export():
             status = self.result_id2status[grouping[0]]
             status2msg2result_ids.setdefault(status, {}).setdefault(
                 result_stripped.get("msg", None), []
