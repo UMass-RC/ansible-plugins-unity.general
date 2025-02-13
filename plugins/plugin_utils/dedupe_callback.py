@@ -39,7 +39,7 @@ display = Display()
 textwrapper = textwrap.TextWrapper(replace_whitespace=False)
 
 
-def _indent_and_maybe_wrap(x, plugin_options: dict, width: int = None, indent=""):
+def _indent_and_maybe_wrap(x, plugin_options: dict, width: int = None, indent="  "):
     if not (plugin_options["wrap_text"] and sys.stdout.isatty()):
         return textwrap.indent(x, prefix=indent)
     if width is None:
