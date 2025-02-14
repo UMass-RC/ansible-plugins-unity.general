@@ -68,7 +68,7 @@ ansible-doc -t callback unity.general.cron
 
 ### view documentation for all plugins
 ```sh
-ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "ansible-doc --json -t \($type) \($plugin)"' | bash
+ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | bash | less -R
 ```
 
 ### view requirements for each plugin
