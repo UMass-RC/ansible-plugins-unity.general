@@ -18,7 +18,6 @@
         loop_var: test
         label: "{{ test.name }}"
       register: temporary_playbook_files
-      no_log: true
 
     - name: create temporary playbook output files
       tempfile:
@@ -29,7 +28,6 @@
         loop_var: test
         label: "{{ test.name }}"
       register: temporary_playbook_output_files
-      no_log: true
 
     - name: write playbook to file
       copy:
@@ -46,7 +44,7 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
-      no_log: true
+      diff: false
 
     - name: run playbook
       shell: "{{timeout_command_prepend}} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} | tee {{ output_file }}"
@@ -73,7 +71,6 @@
           {%-   endif -%}
           {%- endfor -%}"
         timeout_command_prepend: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }}"
-      # no_log: true
 
     - name: assert that stderr is empty (no callback errors)
       fail:
@@ -105,7 +102,6 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
-      no_log: true
 
     - name: slurp munged playbook output
       slurp:
@@ -178,7 +174,6 @@
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
-      no_log: true
 
     - name: remove temporary playbook output files
       file:
@@ -188,4 +183,3 @@
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
-      no_log: true
