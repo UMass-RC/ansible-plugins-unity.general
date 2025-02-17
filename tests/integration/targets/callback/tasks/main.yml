@@ -125,7 +125,7 @@
       register: munged_outputs
 
     - name: display expected vs actual diff (don't forget to add the `--diff` argument to `ansible-test integration`)
-      return_args:
+      unity.general.return_args:
         changed: true
         diff:
           before_header: "expected output ({{ ansible_playbook_cmd }})"
