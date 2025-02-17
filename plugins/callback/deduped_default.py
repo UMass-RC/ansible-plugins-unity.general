@@ -300,7 +300,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
 
     @beartype
     def deduped_exception(
-        self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
+        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
         if len(dupe_of) > 0:
             exception = f"same exception as {dupe_of[0]}"
@@ -310,13 +310,13 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
 
     @beartype
     def deduped_deprecation(
-        self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
+        self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         if len(dupe_of) > 0:
-            deprecation = f"same deprecation as {dupe_of[0]}"
+            self._display.warning(f"same deprecation as {dupe_of[0]}")
         else:
-            deprecation = f"{deprecation_id}: {deprecation}"
-        self._handle_warnings({"deprecations": [deprecation]})
+            deprecation["msg"] = f"{deprecation_id}: " + deprecation.get("msg", "")
+            self._handle_warnings({"deprecations": [deprecation]})
 
     @beartype
     def deduped_task_end(

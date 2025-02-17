@@ -672,7 +672,7 @@ class DedupeCallback(CallbackBase):
 
     @beartype
     def deduped_warning(
-        self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
+        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
         """
         use this if you need to print warnings immediately rather than waiting until end of task
@@ -681,7 +681,7 @@ class DedupeCallback(CallbackBase):
 
     @beartype
     def deduped_deprecation(
-        self, deprecation: object, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
+        self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         """
         use this if you need to print deprecations immediately rather than waiting until end of task
