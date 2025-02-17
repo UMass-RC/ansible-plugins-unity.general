@@ -165,6 +165,7 @@
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+      diff: false
 
     - name: remove temporary playbook output files
       file:
@@ -174,3 +175,4 @@
       loop_control:
         loop_var: temporary_file
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+      diff: false
