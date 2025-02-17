@@ -641,8 +641,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -663,8 +661,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -685,8 +681,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -707,8 +701,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -729,8 +721,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -751,8 +741,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -775,8 +763,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -801,8 +787,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false
