@@ -47,7 +47,7 @@
       diff: false
 
     - name: run playbook
-      shell: "{{timeout_command_prepend}} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} | tee {{ output_file }}"
+      shell: "{{timeout_command_prepend}} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} 2>&1 | tee {{ output_file }}"
       environment: "{{ test.environment }}"
       loop: "{{ tests }}"
       loop_control:
@@ -71,15 +71,6 @@
           {%-   endif -%}
           {%- endfor -%}"
         timeout_command_prepend: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }}"
-
-    - name: assert that stderr is empty (no callback errors)
-      fail:
-        msg: "found non-empty stderr: '{{playbook_run.stderr}}'"
-      when: (playbook_run.stderr != "") and (not (playbook_run.test.allow_non_empty_stderr | default(false)))
-      loop: "{{ playbook_runs.results }}"
-      loop_control:
-        loop_var: playbook_run
-        label: "{{ playbook_run.test.name }}"
 
     - name: munge playbook output with sed
       command:
