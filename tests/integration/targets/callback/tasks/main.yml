@@ -47,8 +47,7 @@
       diff: false
 
     - name: run playbook
-      shell: "{{timeout_command_prepend}} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} 2>&1 | tee {{ output_file }}"
-      environment: "{{ test.environment }}"
+      shell: "{{ env_command_prepend }} {{ timeout_command_prepend }} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} 2>&1 | tee {{ output_file }}"
       loop: "{{ tests }}"
       loop_control:
         loop_var: test
@@ -70,7 +69,12 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
-        timeout_command_prepend: "{{ ('timeout -s INT ' + (test.timeout | string)) if test.timeout is defined else '' }}"
+        timeout_command_prepend: "{{ '' if test.timeout is not defined else ('timeout -s INT ' + (test.timeout | string)) }}"
+        # env command is used rather than the environment parameter so that user can copy paste command and reproduce results
+        env_keys: "{{ (test.environment | default({})) | dict2items | map(attribute='key') }}"
+        env_values: "{{ (test.environment | default({})) | dict2items | map(attribute='value') }}"
+        env_key_value_pairs: "{{ env_keys | zip(env_values) }}"
+        env_command_prepend: "env {{ env_key_value_pairs | map('join', '=') | map('quote') | join(' ') }}"
 
     - name: munge playbook output with sed
       command:
@@ -115,9 +119,9 @@
       unity.general.return_args:
         changed: true
         diff:
-          before_header: "expected output ({{ ansible_playbook_cmd }})"
+          before_header: "expected output"
           before: "{{ test.expected_output }}"
-          after_header: actual output ({{ output_file }})
+          after_header: actual output ({{ ansible_playbook_cmd }})
           after: "{{ output }}"
       when: test.expected_output != output
       loop: "{{ tests }}"
