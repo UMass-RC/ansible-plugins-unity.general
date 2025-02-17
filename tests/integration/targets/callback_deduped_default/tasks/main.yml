@@ -814,6 +814,11 @@
                       msg: foo
                       exceptions: ["foo", "bar"]
 
+            expected_output: |+
+
+                PLAY [testhost] ****************************************************************
+
+                PLAY RECAP *********************************************************************
   always:
     - name: delete tempfile
       file:
