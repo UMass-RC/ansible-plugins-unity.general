@@ -128,7 +128,7 @@
       return_args:
         changed: true
         diff:
-          before_header: expected output
+          before_header: "expected output ({{ ansible_playbook_cmd }})"
           before: "{{ test.expected_output }}"
           after_header: actual output ({{ output_file }})
           after: "{{ output }}"
@@ -148,6 +148,12 @@
           {%- for result in temporary_playbook_output_files.results -%}
           {%-   if result.test.name == test.name -%}
           {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+        ansible_playbook_cmd: "
+          {%- for result in playbook_runs.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.cmd -}}
           {%-   endif -%}
           {%- endfor -%}"
 
