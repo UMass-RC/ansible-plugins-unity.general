@@ -315,8 +315,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         if len(dupe_of) > 0:
             self._display.warning(f"{deprecation_id}: same deprecation as {dupe_of[0]}")
         else:
-            deprecation["msg"] = f"{deprecation_id}: " + deprecation.get("msg", "")
-            self._handle_warnings({"deprecations": [deprecation]})
+            new_deprecation = deprecation.copy()
+            new_deprecation["msg"] = f"{deprecation_id}: " + new_deprecation.get("msg", "")
+            self._handle_warnings({"deprecations": [new_deprecation]})
 
     @beartype
     def deduped_task_end(
