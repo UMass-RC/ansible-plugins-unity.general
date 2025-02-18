@@ -838,7 +838,7 @@
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
             playbook: |
-              - hosts: testhost
+              - hosts: dedupegroup
                 gather_facts: false
                 tasks:
                   - name: foo
@@ -846,19 +846,7 @@
                       changed: false
                       failed: false
                       msg: foo
-                      exception: "{{ 'foo' | sha1 }}"
-                  - name: foo
-                    unity.general.return_args:
-                      changed: false
-                      failed: false
-                      msg: foo
-                      exception: "{{ 'foo' | sha1 }}"
-                  - name: bar
-                    unity.general.return_args:
-                      changed: false
-                      failed: false
-                      msg: bar
-                      exception: "{{ 'bar' | sha1 }}"
+                      exception: "{{ '{{ dedupe_me }}' }}"
                     
             expected_output: |+
 
