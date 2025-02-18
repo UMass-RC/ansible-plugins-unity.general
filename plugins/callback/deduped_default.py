@@ -313,7 +313,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
         if len(dupe_of) > 0:
-            self._display.warning(f"same deprecation as {dupe_of[0]}")
+            self._display.warning(f"{deprecation_id}: same deprecation as {dupe_of[0]}")
         else:
             deprecation["msg"] = f"{deprecation_id}: " + deprecation.get("msg", "")
             self._handle_warnings({"deprecations": [deprecation]})
