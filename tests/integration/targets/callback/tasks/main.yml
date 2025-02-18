@@ -47,7 +47,9 @@
       diff: false
 
     - name: run playbook
-      shell: "{{ env_command_prepend }} {{ timeout_command_prepend }} ansible-playbook -i {{ inventory }} {{ test.extra_args | default('') }} {{ playbook }} 2>&1 | tee {{ output_file }}"
+      shell:
+        cmd: "{{ env_command }} {{ timeout_command }} ansible-playbook -i {{ inventory }} {{ extra_args }} {{ playbook }} &> {{ output_file }}"
+        executable: /bin/bash
       loop: "{{ tests }}"
       loop_control:
         loop_var: test
@@ -57,6 +59,7 @@
       changed_when: false
       vars:
         inventory: "{{ role_path }}/inventory.yml"
+        extra_args: "{{ test.extra_args | default('') }}"
         playbook: "
           {%- for result in temporary_playbook_files.results -%}
           {%-   if result.test.name == test.name -%}
@@ -69,12 +72,12 @@
           {{-     result.path -}}
           {%-   endif -%}
           {%- endfor -%}"
-        timeout_command_prepend: "{{ '' if test.timeout is not defined else ('timeout -s INT ' + (test.timeout | string)) }}"
+        timeout_command: "{{ '' if test.timeout is not defined else ('timeout -s INT ' + (test.timeout | string)) }}"
         # env command is used rather than the environment parameter so that user can copy paste command and reproduce results
         env_keys: "{{ (test.environment | default({})) | dict2items | map(attribute='key') }}"
         env_values: "{{ (test.environment | default({})) | dict2items | map(attribute='value') }}"
         env_key_value_pairs: "{{ env_keys | zip(env_values) }}"
-        env_command_prepend: "env {{ env_key_value_pairs | map('join', '=') | map('quote') | join(' ') }}"
+        env_command: "env {{ env_key_value_pairs | map('join', '=') | map('quote') | join(' ') }}"
 
     - name: munge playbook output with sed
       command:
