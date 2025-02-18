@@ -306,7 +306,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             exception = f"{exception_id}: same exception as {dupe_of[0]}"
         else:
             exception = f"{exception_id}: {exception}"
-        self._handle_exception({"exception": [exception]})
+        self._handle_exception({"exception": exception})
 
     @beartype
     def deduped_deprecation(
