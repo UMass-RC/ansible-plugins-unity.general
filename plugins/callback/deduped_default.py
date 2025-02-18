@@ -303,7 +303,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
         if len(dupe_of) > 0:
-            exception = f"same exception as {dupe_of[0]}"
+            exception = f"{exception_id}: same exception as {dupe_of[0]}"
         else:
             exception = f"{exception_id}: {exception}"
         self._handle_exception({"exception": [exception]})
