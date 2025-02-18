@@ -586,7 +586,6 @@
             allow_nonzero_exit_code: true
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: |
-
               PLAY [dedupegroup] *************************************************************
 
               TASK [sleep] *******************************************************************
@@ -634,6 +633,36 @@
 
                 PLAY RECAP *********************************************************************
 
+            # TODO why is this line wrapped? Is it line wrapped to a reliable width, such as VT100's 80 characters?
+            sed_E_command: 's/\[ERROR\]: No matching task "nonexistent" found. Note: --start-at-task can only//;s/follow static includes.//'
+
+          - name: msg has diacritics
+            environment:
+              ANSIBLE_NOCOLOR: "true"
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    unity.general.return_args:
+                      msg: "ÅÑŚÌβŁÈ"
+            expected_output: |+
+
+              PLAY [testhost] ****************************************************************
+
+              TASK [foo] *********************************************************************
+              ok: testhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+
           - name: msg is empty string
             environment:
               ANSIBLE_NOCOLOR: "true"
@@ -650,9 +679,16 @@
                       msg: ""
             expected_output: |+
 
-                PLAY [testhost] ****************************************************************
+              PLAY [testhost] ****************************************************************
 
-                PLAY RECAP *********************************************************************
+              TASK [foo] *********************************************************************
+              ok: testhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: msg is null
             environment:
@@ -670,9 +706,16 @@
                       msg: null
             expected_output: |+
 
-                PLAY [testhost] ****************************************************************
+              PLAY [testhost] ****************************************************************
 
-                PLAY RECAP *********************************************************************
+              TASK [foo] *********************************************************************
+              ok: testhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: msg is large
             environment:
@@ -688,11 +731,39 @@
                   - name: foo
                     unity.general.return_args:
                       msg: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+            expected_output: |
+
+              PLAY [testhost] ****************************************************************
+
+              TASK [foo] *********************************************************************
+              ok: testhost => Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+
+          - name: item has diacritics
+            environment:
+              ANSIBLE_NOCOLOR: "true"
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug: msg=''
+                    loop: ['ÅÑŚÌβŁÈ']
             expected_output: |+
 
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: item is empty string
             environment:
@@ -713,6 +784,7 @@
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: item is null
             environment:
@@ -733,6 +805,7 @@
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: item is large
             environment:
@@ -755,8 +828,9 @@
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
-          - name: result has exceptions
+          - name: dedupe result exceptions
             environment:
               ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
@@ -772,13 +846,26 @@
                       changed: false
                       failed: false
                       msg: foo
-                      exception: "foo"
+                      exception: "{{ 'foo' | sha1 }}"
+                  - name: foo
+                    unity.general.return_args:
+                      changed: false
+                      failed: false
+                      msg: foo
+                      exception: "{{ 'foo' | sha1 }}"
+                  - name: bar
+                    unity.general.return_args:
+                      changed: false
+                      failed: false
+                      msg: bar
+                      exception: "{{ 'bar' | sha1 }}"
                     
             expected_output: |+
 
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
           - name: result has deprecations
             environment:
@@ -787,6 +874,7 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              ANSIBLE_DEPRECATION_WARNINGS: "true"
             playbook: |
               - hosts: testhost
                 gather_facts: false
@@ -795,14 +883,30 @@
                     unity.general.return_args:
                       changed: false
                       failed: false
-                      msg: foo
-                      exceptions: ["foo", "bar"]
-
+                      msg: I have deprecations!
+                      deprecations:
+                        - msg: {{ 'foo' | sha1 }}
+                          version: 1.2.3
+                          removed: false
+                          date: 1970/1/1
+                          collection_name: unity.general
+                        - msg: {{ 'foo' | sha1 }}
+                          version: 1.2.3
+                          removed: false
+                          date: 1970/1/1
+                          collection_name: unity.general
+                        - msg: {{ 'bar' | sha1 }}
+                          version: 4.5.6
+                          removed: false
+                          date: 1970/1/2
+                          collection_name: unity.general
             expected_output: |+
 
                 PLAY [testhost] ****************************************************************
 
                 PLAY RECAP *********************************************************************
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
   always:
     - name: delete tempfile
       file:
