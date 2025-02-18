@@ -1,8 +1,7 @@
 - name: apt update && apt install shibboleth-sp-utils
   ansible.builtin.apt:
     name: shibboleth-sp-utils
-    state: present
-    update_cache: true
+    state: "{{ unity_pkg_state }}"
   notify: systemctl daemon-reload
 
 - name: initial sanity check
