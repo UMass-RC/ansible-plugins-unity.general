@@ -23,7 +23,6 @@
         tests:
           - name: basic diff
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -73,7 +72,6 @@
 
           - name: formatted diff
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -123,7 +121,6 @@
 
           - name: dedupe diff 
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -169,7 +166,6 @@
 
           - name: dedupe normal loop
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -214,7 +210,6 @@
           # this was a bad idea because the loop variable might just be an un-expanded j2 template string
           - name: dedupe normal loop over a variable
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -263,7 +258,6 @@
 
           - name: don't display non verbose OK results
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -292,7 +286,6 @@
 
           - name: dedupe errors
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -329,7 +322,6 @@
 
           - name: dedupe errors in list items
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -386,7 +378,6 @@
 
           - name: multiple plays
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -428,7 +419,6 @@
 
           - name: skipped (no hosts matched) on 1st play
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -463,7 +453,6 @@
 
           - name: skipped (no hosts matched) on 2nd play
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -498,7 +487,6 @@
 
           - name: skipped (when=false) 1st task
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -532,7 +520,6 @@
 
           - name: skipped (when=false) 2nd task
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -568,7 +555,6 @@
           # I used to use timeout=3 but I saw a `sleep 1` marked as interrupted so I increased to timeout=4
           - name: interrupted
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -595,7 +581,6 @@
 
           - name: fatal no hosts matched
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -612,7 +597,6 @@
 
           - name: start-at-task nonexistent
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -638,7 +622,6 @@
 
           - name: msg has diacritics
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -665,7 +648,6 @@
 
           - name: msg is empty string
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -692,7 +674,6 @@
 
           - name: msg is null
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -719,7 +700,6 @@
 
           - name: msg is large
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -746,7 +726,6 @@
 
           - name: item has diacritics
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -767,7 +746,6 @@
 
           - name: item is empty string
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -788,7 +766,6 @@
 
           - name: item is null
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -809,7 +786,6 @@
 
           - name: item is large
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -832,7 +808,6 @@
 
           - name: dedupe result exceptions
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
@@ -857,7 +832,6 @@
 
           - name: result has deprecations
             environment:
-              ANSIBLE_NOCOLOR: "true"
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
