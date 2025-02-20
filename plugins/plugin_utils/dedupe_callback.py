@@ -32,6 +32,10 @@ VALID_STATUSES = [
     "running",
 ]
 
+SURROGATE_DIFF = {
+    "prepared": stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
+}
+
 display = Display()
 
 
@@ -352,14 +356,7 @@ class DedupeCallback(CallbackBase):
             if msg := result.get("msg", None):
                 diffs.append({"prepared": msg.strip()})
             if len(diffs) == 0:
-                diffs = [
-                    {
-                        "prepared": stringc(
-                            "task reports changed=true but does not report any diff.",
-                            C.COLOR_CHANGED,
-                        )
-                    }
-                ]
+                diffs.append(SURROGATE_DIFF.copy())
             for i, diff in enumerate(diffs):
                 diff_no_headers = {
                     k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
