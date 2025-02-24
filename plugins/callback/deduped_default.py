@@ -339,6 +339,8 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
                 self.format_status_result_ids_msg("changed", result_ids),
                 color=C.COLOR_CHANGED,
             )
+            if diff != sorted_diffs_and_groupings[-1][0]:  # if not the last diff
+                self._display.display("")  # extra line to separate diffs
 
         # sort by status, then by grouping size, then by first resultID in grouping
         sorted_gists_and_groupings = sorted(
