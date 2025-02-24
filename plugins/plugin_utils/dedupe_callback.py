@@ -36,19 +36,26 @@ SURROGATE_DIFF = {
     "prepared": stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
 }
 
+_ACTION_APT = add_internal_fqcns(["apt"])
+
 display = Display()
 
 
 @beartype
-def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
+def _anonymize_dict(
+    ids_literal: list[str], _input: dict, ids_regex: list[str] | None = None
+) -> dict:
     """
-    replace all identifiers with "ANONYMOUS" in string leaf nodes of dict tree
+    ids_literal: strings that should be removed
+    ids_regex: regexes that should be removed
+    replace all identifiers (ids) with "ANONYMOUS" in string leaf nodes of dict tree
     """
-    replace_me = "(" + "|".join([re.escape(y) for y in identifiers]) + ")"
+    ids = [re.escape(x) for x in ids_literal] + (ids_regex if ids_regex is not None else [])
+    replace_me = re.compile("(" + "|".join(ids) + ")", flags=re.IGNORECASE)
 
     def anonymize_or_recurse_or_nothing(x):
         if isinstance(x, str):
-            return re.sub(replace_me, "ANONYMOUS", x, flags=re.IGNORECASE)
+            return re.sub(replace_me, "ANONYMOUS", x)
         if isinstance(x, list):
             return [anonymize_or_recurse_or_nothing(e) for e in x]
         if isinstance(x, dict):
@@ -379,7 +386,12 @@ class DedupeCallback(CallbackBase):
                 diff_no_headers = {
                     k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
                 }
-                anon_diff = _anonymize_dict([hostname, item_label], diff_no_headers)
+                ids_literal = [hostname, item_label]
+                ids_regex = None
+                # diffs from the apt module include this irrelevant info which breaks up groupings
+                if gist["task_action"] in _ACTION_APT:
+                    ids_regex = [r"and \d+ not upgraded"]
+                anon_diff = _anonymize_dict(ids_literal, diff_no_headers, ids_regex=ids_regex)
                 self.diff_grouper.add(DiffID(hostname, item, i), diff, preprocessed_value=anon_diff)
 
         if not self.task_is_loop:
