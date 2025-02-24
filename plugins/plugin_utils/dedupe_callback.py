@@ -58,59 +58,80 @@ def _anonymize_dict(identifiers: list[str], _input: dict) -> dict:
     return anonymize_or_recurse_or_nothing(_input)
 
 
-@beartype
 class ResultID:
     """
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     """
 
+    @beartype
     def __init__(self, hostname: str, item: object):
         assert isinstance(hostname, str)
         self.hostname = hostname
         self.item = item
 
+    @beartype
     def __str__(self):
         if self.item:
             return f"{self.hostname} (item={self.item})"
         return self.hostname
 
 
-@beartype
 class ExceptionID(ResultID):
     "there can be only 1 exception per result"
 
 
-@beartype
 class WarningID:
     """
     normally I prefer to just use dictionaries but having a type makes it easier for variable names
     there can be multiple warnings per result so there must also be an index
     """
 
+    @beartype
     def __init__(self, hostname: str, item: object, index: int):
-        assert isinstance(hostname, str)
-        assert isinstance(index, int)
         self.hostname = hostname
         self.item = item
         self.index = index
 
+    @beartype
     def __str__(self):
         if self.item:
             return f"{self.hostname} (item={self.item})[{self.index}]"
         return f"{self.hostname}[{self.index}]"
 
 
-@beartype
 class DeprecationID(WarningID):
     pass
 
 
-@beartype
 class DiffID(WarningID):
     pass
 
 
-@beartype
+class ResultGist(dict):
+    """
+    information about a result which is necessary for stdout callback, but not so much information
+    that results can't be deduped
+    """
+
+    @beartype
+    def __init__(
+        self,
+        status: str,
+        message: str | None,
+        invocation: dict,
+        is_verbose: bool,
+        task_path: str,
+        task_action: str,
+    ):
+        super().__init__()
+        self["status"] = status
+        self["message"] = message
+        self["invocation"] = invocation
+        self["is_verbose"] = is_verbose
+        self["task_path"] = task_path
+        self["task_action"] = task_action
+
+
 class Grouper:
     @beartype
     def __init__(self, id_type):
@@ -145,7 +166,6 @@ class Grouper:
         return output
 
 
-@beartype
 class DedupeCallback(CallbackBase):
     """
     Callback plugin that reduces output size by culling redundant output.
@@ -167,7 +187,7 @@ class DedupeCallback(CallbackBase):
       a "msg", then the skipped reason becomes the msg.
     * if a task is changed and its result has a "msg", then a new diff is added to the result
       containing that message. This means that at the end of task, you can safely skip over
-      all changed results from `status2msg2result_ids`.
+      all changed results.
     * if you find that loop items are taking up too much space on screen, that means that you should
       be setting the label with `loop_control`
     """
@@ -204,7 +224,9 @@ class DedupeCallback(CallbackBase):
                 return
             self.__sigint_handler_run = True
             for hostname in self.running_hosts:
-                self.__runner_or_runner_item_end_dict({}, ResultID(hostname, None), "interrupted")
+                fake_result_id = ResultID(hostname, None)
+                self.result_id2status[fake_result_id] = "interrupted"
+                self.status2result_ids["interrupted"].append(fake_result_id)
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
@@ -227,7 +249,7 @@ class DedupeCallback(CallbackBase):
         self.exception_grouper = None
         self.deprecation_grouper = None
         self.diff_grouper = None
-        self.result_stripped_grouper = None
+        self.result_gist_grouper = None
         self.result_stripped_status = None
         # the above data is set/reset at the start of each task
         # don't try to access above data before the 1st task has started
@@ -264,13 +286,13 @@ class DedupeCallback(CallbackBase):
             self.exception_grouper,
             self.deprecation_grouper,
             self.diff_grouper,
-            self.result_stripped_grouper,
+            self.result_gist_grouper,
         )
         self.warning_grouper = Grouper(WarningID)
         self.exception_grouper = Grouper(ExceptionID)
         self.deprecation_grouper = Grouper(DeprecationID)
         self.diff_grouper = Grouper(DiffID)
-        self.result_stripped_grouper = Grouper(ResultID)
+        self.result_gist_grouper = Grouper(ResultID)
         if not self.first_task_started:
             self.first_task_started = True
 
@@ -278,6 +300,7 @@ class DedupeCallback(CallbackBase):
     def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
         if not task.loop:
+            # TODO when deletgated, this should be "delegator -> delegatee"
             self.running_hosts.add(hostname)
         self.__update_status_totals()
 
@@ -298,71 +321,68 @@ class DedupeCallback(CallbackBase):
         if (not self.first_task_started) or self.task_end_done:
             return
         self.task_end_done = True
+        self.deduped_task_end(
+            self.result_gist_grouper.export(),
+            self.diff_grouper.export(),
+        )
         self.__update_status_totals()
 
-        status2msg2result_ids = {}
-        for result_stripped, grouping in self.result_stripped_grouper.export():
-            status = self.result_id2status[grouping[0]]
-            status2msg2result_ids.setdefault(status, {}).setdefault(
-                result_stripped.get("msg", None), []
-            ).extend(grouping)
-
-        self.deduped_task_end(
-            status2msg2result_ids,
-            self.result_stripped_grouper.export(),
-            self.diff_grouper.export(),
-            self.warning_grouper.export(),
-            self.exception_grouper.export(),
-            self.deprecation_grouper.export(),
-        )
-
     @beartype
-    def __runner_or_runner_item_end_dict(
-        self, result: dict, result_id: ResultID, status: str
-    ) -> list[ResultID]:
-        hostname = result_id.hostname
-        item = result_id.item
-        # prompte "skipped_reason" to "msg" so that user can see
-        if status == "skipped" and "msg" not in result and "skipped_reason" in result:
-            result["msg"] = result["skipped_reason"]
-        result_stripped = {
-            k: v for k, v in result.items() if k not in ["exception", "warnings", "deprecations"]
-        }
-        anon_result_stripped = _anonymize_dict([str(hostname), str(item)], result_stripped)
-        result_stripped_dupes = self.result_stripped_grouper.add(
-            result_id, result_stripped, preprocessed_value=anon_result_stripped
-        )
+    def __process_result(self, result: TaskResult, status: str):
+        hostname = CallbackBase.host_label(result)
+        item = result._result.get("item", None)
+        item_label = str(self._get_item_label(result._result))
+        result_id = ResultID(hostname, item)
 
-        for i, warning in enumerate(result.get("warnings", [])):
+        # prompte "skipped_reason" to "msg" so that user can see
+        if (
+            status == "skipped"
+            and "msg" not in result._result
+            and "skipped_reason" in result._result
+        ):
+            result._result["msg"] = result._result["skipped_reason"]
+
+        gist = ResultGist(
+            status,
+            result._result.get("msg", None),
+            result._result.get("invocation", {}),
+            self._run_is_verbose(result),
+            result._task.get_path(),
+            result._task.action,
+        )
+        anon_gist = _anonymize_dict([hostname, str(item_label)], gist)
+        gist_dupes = self.result_gist_grouper.add(result_id, gist, preprocessed_value=anon_gist)
+
+        for i, warning in enumerate(result._result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
-            dupe_of = self.warning_grouper.add(warning_id, warning)
+            dupe_of = self.warning_grouper.add(warning_id, warning)  # TODO anonymize
             self.deduped_warning(warning, warning_id, dupe_of)
-        for i, deprecation in enumerate(result.get("deprecations", [])):
+        for i, deprecation in enumerate(result._result.get("deprecations", [])):
             deprecation_id = DeprecationID(hostname, item, i)
-            dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)
+            dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)  # TODO anonymize
             self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
-        if exception := result.get("exception", None):
+        if exception := result._result.get("exception", None):
             exception_id = ExceptionID(hostname, item)
-            dupe_of = self.exception_grouper.add(exception_id, exception)
+            dupe_of = self.exception_grouper.add(exception_id, exception)  # TODO anonymize
             self.deduped_exception(exception, exception_id, dupe_of)
 
-        if result.get("changed", False):
-            diff_or_diffs = result.get("diff", [])
+        if result._result.get("changed", False):
+            diff_or_diffs = result._result.get("diff", [])
             if not isinstance(diff_or_diffs, list):
                 diffs = [diff_or_diffs]
             else:
                 diffs = diff_or_diffs
             diffs = [x for x in diffs if x]
             # convert result message to a diff
-            # if msg := result.get("msg", None):
-            #     diffs.append({"prepared": msg.strip()})
+            if msg := result._result.get("msg", None):
+                diffs.append({"prepared": msg.strip()})
             if len(diffs) == 0:
                 diffs.append(SURROGATE_DIFF.copy())
             for i, diff in enumerate(diffs):
                 diff_no_headers = {
                     k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
                 }
-                anon_diff = _anonymize_dict([hostname, str(item)], diff_no_headers)
+                anon_diff = _anonymize_dict([hostname, item_label], diff_no_headers)
                 self.diff_grouper.add(DiffID(hostname, item, i), diff, preprocessed_value=anon_diff)
 
         if not self.task_is_loop:
@@ -372,22 +392,14 @@ class DedupeCallback(CallbackBase):
                 self._display.warning(
                     f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
                 )
-        self.__update_status_totals()
-
         self.result_id2status[result_id] = status
         self.status2result_ids[status].append(result_id)
-
-        return result_stripped_dupes
-
-    @beartype
-    def __runner_or_runner_item_end(self, result: TaskResult, status: str):
-        hostname = CallbackBase.host_label(result)
-        item = self._get_item_label(result._result)
-        result_id = ResultID(hostname, item)
-        result_stripped_dupes = self.__runner_or_runner_item_end_dict(
-            result._result, result_id, status
-        )
-        self.deduped_result(result, status, result_id, result_stripped_dupes)
+        stripped_result_dict = {
+            k: v
+            for k, v in result._result.items()
+            if k not in ["exception", "warnings", "deprecations"]
+        }
+        self.deduped_result(result_id, stripped_result_dict, gist, gist_dupes)
         self.__update_status_totals()
 
     @beartype
@@ -433,40 +445,40 @@ class DedupeCallback(CallbackBase):
 
     @beartype
     def v2_runner_on_unreachable(self, result: TaskResult) -> None:
-        self.__runner_or_runner_item_end(result, "unreachable")
+        self.__process_result(result, "unreachable")
 
     @beartype
     def v2_runner_on_skipped(self, result: TaskResult) -> None:
-        self.__runner_or_runner_item_end(result, "skipped")
+        self.__process_result(result, "skipped")
 
     @beartype
     def v2_runner_item_on_skipped(self, result: TaskResult) -> None:
-        self.__runner_or_runner_item_end(result, "skipped")
+        self.__process_result(result, "skipped")
 
     @beartype
     def v2_runner_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
-            self.__runner_or_runner_item_end(result, "changed")
+            self.__process_result(result, "changed")
         else:
-            self.__runner_or_runner_item_end(result, "ok")
+            self.__process_result(result, "ok")
 
     @beartype
     def v2_runner_item_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
-            self.__runner_or_runner_item_end(result, "changed")
+            self.__process_result(result, "changed")
         else:
-            self.__runner_or_runner_item_end(result, "ok")
+            self.__process_result(result, "ok")
 
     @beartype
     def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
         if ignore_errors:
-            self.__runner_or_runner_item_end(result, "ignored")
+            self.__process_result(result, "ignored")
         else:
-            self.__runner_or_runner_item_end(result, "failed")
+            self.__process_result(result, "failed")
 
     @beartype
     def v2_runner_item_on_failed(self, result: TaskResult) -> None:
-        self.__runner_or_runner_item_end(result, "failed")
+        self.__process_result(result, "failed")
 
     @beartype
     def v2_runner_retry(self, result: TaskResult) -> None:
@@ -475,7 +487,7 @@ class DedupeCallback(CallbackBase):
     @beartype
     def v2_on_file_diff(self, result) -> None:
         # I need to replace empty diffs with a "no diff" message, and this is not called
-        # for empty diffs. instead I handle diffs during __runner_or_runner_item_end
+        # for empty diffs. instead I handle diffs during __process_result
         pass
 
     @beartype
@@ -643,13 +655,22 @@ class DedupeCallback(CallbackBase):
 
     @beartype
     def deduped_result(
-        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
+        self,
+        result_id: ResultID,
+        stripped_result_dict: dict,
+        result_gist: ResultGist,
+        gist_dupes: list[ResultID],
     ) -> None:
         """
-        use this if you need to print results immediately rather than waiting until end of task
-        see dedupe_callback.VALID_STATUSES
-        hostnames, items, diffs, warnings, deprecations, and exceptions are all ignored
-        when checking for dupes.
+        this encompasses all the v2 functions for "runner" and "runner item" statuses
+        see ansible.plugins.callback.CallbackBase.v2_playbook_on_ok
+
+        stripped_result_dict: the normal result dict minus warnings, deprecations, and exception
+
+        result_gist: contains relevant information about the result which can't be derived from
+        the result dict
+
+        gist_dupes: a list of ResultIDs that have an identical gist
         """
 
     @beartype
@@ -689,21 +710,15 @@ class DedupeCallback(CallbackBase):
     @beartype
     def deduped_task_end(
         self,
-        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
-        results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
-        warnings_and_groupings: list[tuple[object, list[WarningID]]],
-        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
-        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ) -> None:
         """
-        status2msg2result_ids: dict from status to dict of message to list of hostnames.
-        see dedupe_callback.VALID_STATUSES
-
-        results_stripped_and_groupings: list of tuples where the first element of each tuple
+        results_stripped_info_and_groupings: list of tuples where the first element of each tuple
         is a stripped result dict. a stripped result dict is a result dict without diffs, warnings,
-        or exceptions. the second element in each tuple is a list of ResultIDs that produced
-        that result. hostnames and items are ignored when grouping ResultIDs.
+        or exceptions. the second element in each tuple is a ResultInfo. the third element in each
+        tuple is a list of ResultIDs that produced that result. hostnames and items are ignored
+        when grouping ResultIDs.
 
         diffs_and_groupings: list of tuples where the first element of each tuple is a
         diff dict. the second element in each tuple is a list of ResultIDs that produced

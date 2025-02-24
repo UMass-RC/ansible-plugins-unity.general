@@ -11,11 +11,9 @@ class ModuleDocFragment(object):
           description: see default callback documentation
           default: true
         display_ok_hosts:
-          description: see default callback documentation
-          default: false
+          description: this option is ignored
         display_skipped_hosts:
-          description: see default callback documentation
-          default: false
+          description: this option is ignored
         wrap_text:
           description: |
             whether or not to hard-wrap text in callback output.
@@ -28,4 +26,8 @@ class ModuleDocFragment(object):
               key: wrap_text
           env:
             - name: ANSIBLE_WRAP_TEXT
+        display_messages:
+          description: whether to print result messages at end of task
+          type: bool
+          default: true
     """

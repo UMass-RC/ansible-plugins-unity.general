@@ -7,6 +7,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.color import decolor
 from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     VALID_STATUSES,
+    ResultGist,
     ResultID,
     DiffID,
     WarningID,
@@ -134,37 +135,43 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         return self._plugin_options
 
     def deduped_result(
-        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
+        self,
+        result_id: ResultID,
+        stripped_result_dict: dict,
+        result_gist: ResultGist,
+        gist_dupes: list[ResultID],
     ) -> None:
         if self.get_option("redact_bitwarden"):
-            result._result = bitwarden_redact(result._result, self.get_options())
-        return super().deduped_result(result, status, result_id, dupe_of_stripped)
+            stripped_result_dict = bitwarden_redact(stripped_result_dict, self.get_options())
+            result_gist = ResultGist(**bitwarden_redact(result_gist, self.get_options()))
+        return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
+
+    def deduped_warning(self, *args, **kwargs):
+        if self.get_option("warning_enable_print"):
+            self._do_print = True
+        super().deduped_warning(*args, **kwargs)
+
+    def deduped_exception(self, *args, **kwargs):
+        if self.get_option("exception_enable_print"):
+            self._do_print = True
+        super().deduped_exception(*args, **kwargs)
+
+    def deduped_deprecation(self, *args, **kwargs):
+        if self.get_option("deprecation_enable_print"):
+            self._do_print = True
+        super().deduped_deprecation(*args, **kwargs)
 
     def deduped_task_end(
         self,
-        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
-        results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
-        warnings_and_groupings: list[tuple[object, list[WarningID]]],
-        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
-        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ) -> None:
-        if (
-            (len(warnings_and_groupings) > 0 and self.get_option("warning_enable_print"))
-            or (len(exceptions_and_groupings) > 0 and self.get_option("exception_enable_print"))
-            or (len(deprecations_and_groupings) > 0 and self.get_option("deprecation_enable_print"))
-            or any(
-                x in self.get_option("statuses_enable_print") for x in status2msg2result_ids.keys()
-            )
-        ):
+        statuses = {gist["status"] for gist, _ in result_gists_and_groupings}
+        if any(x in self.get_option("statuses_enable_print") for x in statuses):
             self._do_print = True
         return super().deduped_task_end(
-            status2msg2result_ids,
-            results_stripped_and_groupings,
+            result_gists_and_groupings,
             diffs_and_groupings,
-            warnings_and_groupings,
-            exceptions_and_groupings,
-            deprecations_and_groupings,
         )
 
     def deduped_playbook_on_stats(self, *args, **kwargs):

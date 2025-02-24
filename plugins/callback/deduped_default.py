@@ -11,6 +11,7 @@ from ansible.playbook import Playbook
 from ansible.playbook.task import Task
 from ansible.playbook.play import Play
 from ansible.inventory.host import Host
+from ansible.utils.color import stringc
 from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
@@ -26,6 +27,8 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
     WarningID,
     ExceptionID,
     DeprecationID,
+    ResultGist,
+    VALID_STATUSES,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
@@ -65,8 +68,7 @@ DOCUMENTATION = r"""
     * if a task is skipped and its result has a "skipped_reason" and its result doesn't have
       a "msg", then the skipped reason becomes the msg.
     * if a task is changed and its result has a "msg", then a new diff is added to the result
-      containing that message. This means that at the end of task, you can safely skip over
-      all changed results from `status2msg2result_ids`.
+      containing that message.
     * if you find that loop items are taking up too much space on screen, that means that you should
       be setting the label with `loop_control`
   requirements:
@@ -110,6 +112,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.textwrapper = textwrap.TextWrapper(replace_whitespace=False)
+        self.task_start_time = None  # defined in __task_start
 
     @beartype
     def __task_start(self, task):
@@ -249,42 +252,43 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def deduped_update_status_totals(self, status_totals: dict[str, str]):
         pass
 
+    def _is_result_printed_immediately(self, gist: ResultGist) -> bool:
+        if gist["status"] in STATUSES_PRINT_IMMEDIATELY:
+            return True
+        if gist["is_verbose"]:
+            return True
+        return False
+
     @beartype
     def deduped_result(
-        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
+        self,
+        result_id: ResultID,
+        stripped_result_dict: dict,
+        result_gist: ResultGist,
+        gist_dupes: list[ResultID],
     ) -> None:
-        if not (
-            self._run_is_verbose(result)  # ansible.builtin.debug sets verbose
-            or (status in STATUSES_PRINT_IMMEDIATELY)
-            or (status == "ok" and self.get_option("display_ok_hosts"))
-            or (status == "skipped" and self.get_option("display_skipped_hosts"))
-        ):
+        if not self._is_result_printed_immediately(result_gist):
             return
-        my_result_dict = copy.deepcopy(result._result)
-        self._clean_results(my_result_dict, result._task.action)
-        # warnings, exceptions, deprecations have been moved to their own functions
-        my_result_dict = {
-            k: v
-            for k, v in my_result_dict.items()
-            if k not in ["warnings", "exceptions", "deprecations"]
-        }
-        if "results" in my_result_dict and not self._run_is_verbose(result):
-            del my_result_dict["results"]
+        self._clean_results(stripped_result_dict, result_gist["task_action"])
+        if "results" in stripped_result_dict and not result_gist["is_verbose"]:
+            del stripped_result_dict["results"]
+        status = result_gist["status"]
+        color = _STATUS_COLORS[status]
         if status == "failed" and self.get_option("show_task_path_on_failure"):
-            self._print_task_path(result._task)
-        if len(dupe_of_stripped) > 0:
-            msg = f"same result (not including diff) as {dupe_of_stripped[0]}"
-            output = self.format_status_result_ids_msg(status, [result_id], msg=msg)
+            self._display.display(f"task path: {result_gist["task_path"]}", color=color)
+        if len(gist_dupes) > 0:
+            msg = f"same result (not including diff) as {gist_dupes[0]}"
+            output = self.format_status_result_ids_msg(status, [result_gist["result_id"]], msg=msg)
         else:
             output = self.format_status_result_ids_msg(
                 status,
                 [result_id],
-                msg=self._dump_results(my_result_dict, indent=2),
+                msg=self._dump_results(stripped_result_dict, indent=2),
                 do_format_msg=False,  # _dump_results already has leading newline, indentation
             )
         self._display.display(
             output,
-            color=_STATUS_COLORS[status],
+            color=color,
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
 
@@ -322,12 +326,8 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     @beartype
     def deduped_task_end(
         self,
-        status2msg2result_ids: dict[str, dict[(str | None), list[ResultID]]],
-        results_stripped_and_groupings: list[tuple[dict, list[ResultID]]],
+        result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
-        warnings_and_groupings: list[tuple[object, list[WarningID]]],
-        exceptions_and_groupings: list[tuple[object, list[ExceptionID]]],
-        deprecations_and_groupings: list[tuple[object, list[DeprecationID]]],
     ):
         # Largest groupings last
         sorted_diffs_and_groupings = sorted(diffs_and_groupings, key=lambda x: len(x[1]))
@@ -339,17 +339,28 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
                 self.format_status_result_ids_msg("changed", result_ids),
                 color=C.COLOR_CHANGED,
             )
-        for status, msg2result_ids in status2msg2result_ids.items():
-            if len(msg2result_ids) == 0:  # nothing to do
+
+        # sort by status, then by grouping size, then by first resultID in grouping
+        sorted_gists_and_groupings = sorted(
+            result_gists_and_groupings, key=lambda x: [x[0]["status"], len(x[1]), str(x[1][0])]
+        )
+        for result_gist, result_ids in sorted_gists_and_groupings:
+            # diffs already printed, and result messages are copied into diffs
+            if result_gist["status"] == "changed":
                 continue
-            if status == "changed":
-                continue
+            status = result_gist["status"]
             color = _STATUS_COLORS[status]
-            for msg, result_ids in msg2result_ids.items():
-                self._display.display(
-                    self.format_status_result_ids_msg(status, result_ids, msg=msg),
-                    color=color,
-                )
+            already_printed = self._is_result_printed_immediately(result_gist)
+            if already_printed:
+                self._display.debug("result already printed above, not printing message again...")
+            if self.get_option("display_messages") and (not already_printed):
+                msg = result_gist["message"]
+            else:
+                msg = None
+            self._display.display(
+                self.format_status_result_ids_msg(status, result_ids, msg), color=color
+            )
+
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
         self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")

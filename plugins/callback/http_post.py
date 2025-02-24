@@ -21,6 +21,7 @@ from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact imp
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
     ResultID,
+    ResultGist,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
     BufferedCallback,
@@ -158,11 +159,16 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         return self._plugin_options
 
     def deduped_result(
-        self, result: TaskResult, status: str, result_id: ResultID, dupe_of_stripped: list[ResultID]
+        self,
+        result_id: ResultID,
+        stripped_result_dict: dict,
+        result_gist: ResultGist,
+        gist_dupes: list[ResultID],
     ) -> None:
         if self.get_option("redact_bitwarden"):
-            result._result = bitwarden_redact(result._result, self.get_options())
-        return super().deduped_result(result, status, result_id, dupe_of_stripped)
+            stripped_result_dict = bitwarden_redact(stripped_result_dict, self.get_options())
+            result_gist = ResultGist(**bitwarden_redact(result_gist, self.get_options()))
+        return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
 
     def deduped_playbook_on_stats(self, stats):
         super(CallbackModule, self).deduped_playbook_on_stats(stats)
