@@ -36,34 +36,89 @@ SURROGATE_DIFF = {
     "prepared": stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
 }
 
-_ACTION_APT = add_internal_fqcns(["apt"])
 _DELEGATION_HOST_LABEL = re.compile(r"^(\S+) -> \S+$")
 
 display = Display()
 
+_DIFF_FILTERS = {}
+_NOT_UPGRADED_REGEX = re.compile(r"and \d+ not upgraded")
+
+
+def _apt_redact_not_upgraded(diff: dict[str, object]) -> None:
+    if "prepared" in diff:
+        other_lines, last_line = diff["prepared"].rsplit("\n", 1)
+        diff["prepared"] = (
+            other_lines
+            + "\n"
+            + re.sub(_NOT_UPGRADED_REGEX, "and <redacted> not upgraded", last_line)
+        )
+
+
+def _apt_redact_autoremove(diff: dict[str, object]) -> None:
+    if "prepared" in diff:
+        begin_strip = [
+            "The following packages were automatically installed and are no longer required:",
+            "The following package was automatically installed and is no longer required:",
+        ]
+        end_strip = ["Use 'apt autoremove' to remove it.", "Use 'apt autoremove' to remove them."]
+        output = []
+        strip_this_line = False
+        for line in diff["prepared"].splitlines():
+            if line in begin_strip:
+                strip_this_line = True
+                output.append("<redacted autoremove reminder>")
+                continue
+            if line in end_strip:
+                strip_this_line = False
+                continue
+            if not strip_this_line:
+                output.append(line)
+        diff["prepared"] = "\n".join(output)
+
+
+for action_name in add_internal_fqcns(["apt"]):
+    _DIFF_FILTERS[action_name] = [_apt_redact_not_upgraded, _apt_redact_autoremove]
+
+
+def _template_redact_tmpfile(diff: dict[str, object]) -> None:
+    if "after_header" in diff:
+        diff["after_header"] = "<redacted tmpfile path>"
+
+
+for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_diff.template"]:
+    _DIFF_FILTERS[action_name] = [_template_redact_tmpfile]
+
 
 @beartype
-def _anonymize_dict(
-    ids_literal: list[str], _input: dict, ids_regex: list[str] | None = None
-) -> dict:
+def _anonymize_dict(hostname: str, item: object, item_label: object, _input: dict) -> dict:
     """
-    ids_literal: strings that should be removed
-    ids_regex: regexes that should be removed
-    replace all identifiers (ids) with "ANONYMOUS" in string leaf nodes of dict tree
+    in all string leaf nodes, replace hostname with "<redacted hostname>"
+    if item is string, item will be replaced with "<redacted item>"
+    if item label is string, item label will be replaced with "<redacted item label>"
     """
-    ids = [re.escape(x) for x in ids_literal] + (ids_regex if ids_regex is not None else [])
-    replace_me = re.compile("(" + "|".join(ids) + ")", flags=re.IGNORECASE)
 
-    def anonymize_or_recurse_or_nothing(x):
-        if isinstance(x, str):
-            return re.sub(replace_me, "ANONYMOUS", x)
-        if isinstance(x, list):
-            return [anonymize_or_recurse_or_nothing(e) for e in x]
-        if isinstance(x, dict):
-            return {k: anonymize_or_recurse_or_nothing(v) for k, v in x.items()}
-        return x
+    def _filter_string_leaf_nodes(node, filters):
+        if isinstance(node, str):
+            output = node
+            if filters:
+                for _filter in filters:
+                    output = _filter(output)
+            return output
+        if isinstance(node, list):
+            return [_filter_string_leaf_nodes(e, filters) for e in node]
+        if isinstance(node, dict):
+            return {k: _filter_string_leaf_nodes(v, filters) for k, v in node.items()}
+        return node
 
-    return anonymize_or_recurse_or_nothing(_input)
+    hostname_regex = re.compile(re.escape(hostname), flags=re.IGNORECASE)
+    filters = [lambda x: re.sub(hostname_regex, "<redacted hostname>", x)]
+    if isinstance(item, str):
+        item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
+        filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
+    if isinstance(item_label, str):
+        item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
+        filters.append(lambda x: re.sub(item_label_regex, "<redacted item label>", x))
+    return _filter_string_leaf_nodes(_input, filters)
 
 
 class ResultID:
@@ -142,22 +197,18 @@ class Grouper:
     @beartype
     def __init__(self, id_type):
         self._id_type = id_type
-        self._preprocessed_values = []
         self.values_1st_match = []
         self.ids = []
 
     @beartype
-    def add(self, _id, value, preprocessed_value=None) -> list[object]:
+    def add(self, _id, value) -> list[object]:
         "returns list of dupes"
         assert isinstance(_id, self._id_type), f"expected {self._id_type}, got {type(_id)}"
-        if preprocessed_value is None:
-            preprocessed_value = value
-        for i, group_preprocessed_value in enumerate(self._preprocessed_values):
-            if preprocessed_value == group_preprocessed_value:
+        for i, group_value in enumerate(self.values_1st_match):
+            if value == group_value:
                 dupes = self.ids[i].copy()
                 self.ids[i].append(_id)
                 return dupes
-        self._preprocessed_values.append(preprocessed_value)
         self.values_1st_match.append(value)
         self.ids.append([_id])
         return []
@@ -355,8 +406,8 @@ class DedupeCallback(CallbackBase):
             result._task.get_path(),
             result._task.action,
         )
-        anon_gist = _anonymize_dict([hostname, str(item_label)], gist)
-        gist_dupes = self.result_gist_grouper.add(result_id, gist, preprocessed_value=anon_gist)
+        gist = ResultGist(**_anonymize_dict(hostname, item, item_label, gist))
+        gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
         for i, warning in enumerate(result._result.get("warnings", [])):
             warning_id = WarningID(hostname, item, i)
@@ -384,16 +435,11 @@ class DedupeCallback(CallbackBase):
             if len(diffs) == 0:
                 diffs.append(SURROGATE_DIFF.copy())
             for i, diff in enumerate(diffs):
-                diff_no_headers = {
-                    k: v for k, v in diff.items() if k not in ["before_header", "after_header"]
-                }
-                ids_literal = [hostname, item_label]
-                ids_regex = None
-                # diffs from the apt module include this irrelevant info which breaks up groupings
-                if gist["task_action"] in _ACTION_APT:
-                    ids_regex = [r"and \d+ not upgraded"]
-                anon_diff = _anonymize_dict(ids_literal, diff_no_headers, ids_regex=ids_regex)
-                self.diff_grouper.add(DiffID(hostname, item, i), diff, preprocessed_value=anon_diff)
+                if filters := _DIFF_FILTERS.get(gist["task_action"], None):
+                    for _filter in filters:
+                        _filter(diff)
+                diff = _anonymize_dict(hostname, item, item_label, diff)
+                self.diff_grouper.add(DiffID(hostname, item, i), diff)
 
         if not self.task_is_loop:
             try:
