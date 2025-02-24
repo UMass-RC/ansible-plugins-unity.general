@@ -139,7 +139,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         return "\n".join(output_chunks)
 
     @beartype
-    def result_ids2str(
+    def _result_ids2str(
         self,
         result_ids: list[ResultID],
         multiline: bool | None = None,
@@ -220,7 +220,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         if len(result_ids) == 1:
             result_ids_str = str(result_ids[0])
         else:
-            result_ids_str = self.result_ids2str(
+            result_ids_str = self._result_ids2str(
                 result_ids, multiline=multiline, preferred_max_width=preferred_max_width
             )
         if msg:
