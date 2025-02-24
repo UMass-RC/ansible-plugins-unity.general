@@ -348,15 +348,16 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             # diffs already printed, and result messages are copied into diffs
             if result_gist["status"] == "changed":
                 continue
-            status = result_gist["status"]
-            color = _STATUS_COLORS[status]
             already_printed = self._is_result_printed_immediately(result_gist)
             if already_printed:
                 self._display.debug("result already printed above, not printing message again...")
-            if self.get_option("display_messages") and (not already_printed):
+                continue
+            elif self.get_option("display_messages") and (not already_printed):
                 msg = result_gist["message"]
             else:
                 msg = None
+            status = result_gist["status"]
+            color = _STATUS_COLORS[status]
             self._display.display(
                 self.format_status_result_ids_msg(status, result_ids, msg), color=color
             )
