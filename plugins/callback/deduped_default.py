@@ -364,7 +364,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
 
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
-        self._display.display(f"elapsed: {elapsed.total_seconds()} seconds")
+        self._display.display(f"elapsed: {elapsed.total_seconds():.1f} seconds")
 
     @beartype
     def deduped_playbook_on_play_start(self, play: Play):
