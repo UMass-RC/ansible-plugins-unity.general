@@ -328,6 +328,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        interrupted: list[ResultID],
     ):
         # Largest groupings last
         sorted_diffs_and_groupings = sorted(diffs_and_groupings, key=lambda x: len(x[1]))
@@ -362,6 +363,12 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             color = _STATUS_COLORS[status]
             self._display.display(
                 self.format_status_result_ids_msg(status, result_ids, msg), color=color
+            )
+
+        if len(interrupted) > 0:
+            self._display.display(
+                self.format_status_result_ids_msg("interrupted", interrupted),
+                color=C.COLOR_ERROR,
             )
 
         elapsed = datetime.datetime.now() - self.task_start_time

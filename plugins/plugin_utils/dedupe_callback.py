@@ -329,6 +329,7 @@ class DedupeCallback(CallbackBase):
         self.deduped_task_end(
             self.result_gist_grouper.export(),
             self.diff_grouper.export(),
+            self.status2result_ids["interrupted"],
         )
         self.__update_status_totals(final=True)
 
@@ -721,6 +722,7 @@ class DedupeCallback(CallbackBase):
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        interrupted: list[ResultID],
     ) -> None:
         """
         results_stripped_info_and_groupings: list of tuples where the first element of each tuple
