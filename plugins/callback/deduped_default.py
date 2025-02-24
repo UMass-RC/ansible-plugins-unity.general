@@ -278,7 +278,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             self._display.display(f"task path: {result_gist["task_path"]}", color=color)
         if len(gist_dupes) > 0:
             msg = f"same result (not including diff) as {gist_dupes[0]}"
-            output = self.format_status_result_ids_msg(status, [result_gist["result_id"]], msg=msg)
+            output = self.format_status_result_ids_msg(status, [result_id], msg=msg)
         else:
             output = self.format_status_result_ids_msg(
                 status,
