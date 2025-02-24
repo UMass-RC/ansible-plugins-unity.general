@@ -22,12 +22,17 @@ class ModuleDocFragment(object):
           type: bool
           default: true
           ini:
-            - section: defaults
+            - section: callback
               key: wrap_text
           env:
-            - name: ANSIBLE_WRAP_TEXT
+            - name: ANSIBLE_CALLBACK_WRAP_TEXT
         display_messages:
           description: whether to print result messages at end of task
           type: bool
           default: true
+          ini:
+            - section: callback
+              key: display_messages
+          env:
+            - name: ANSIBLE_CALLBACK_DISPLAY_MESSAGES
     """
