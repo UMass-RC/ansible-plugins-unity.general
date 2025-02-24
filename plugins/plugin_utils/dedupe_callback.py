@@ -37,6 +37,7 @@ SURROGATE_DIFF = {
 }
 
 _ACTION_APT = add_internal_fqcns(["apt"])
+_DELEGATION_HOST_LABEL = re.compile(r"^(\S+) -> \S+$")
 
 display = Display()
 
@@ -305,7 +306,6 @@ class DedupeCallback(CallbackBase):
     def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
         if not task.loop:
-            # TODO when deletgated, this should be "delegator -> delegatee"
             self.running_hosts.add(hostname)
         self.__update_status_totals()
 
@@ -399,9 +399,13 @@ class DedupeCallback(CallbackBase):
             try:
                 self.running_hosts.remove(hostname)
             except KeyError:
-                self._display.warning(
-                    f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
-                )
+                # when task is delegated, hostname is "foo -> bar", but we need just "foo"
+                if match := re.match(_DELEGATION_HOST_LABEL, hostname):
+                    self.running_hosts.remove(match.groups(1))
+                else:
+                    self._display.warning(
+                        f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
+                    )
         self.result_id2status[result_id] = status
         self.status2result_ids[status].append(result_id)
         stripped_result_dict = {
