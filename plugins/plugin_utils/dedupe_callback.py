@@ -323,7 +323,7 @@ class DedupeCallback(CallbackBase):
             self.result_gist_grouper.export(),
             self.diff_grouper.export(),
         )
-        self.__update_status_totals()
+        self.__update_status_totals(final=True)
 
     @beartype
     def __process_result(self, result: TaskResult, status: str):
@@ -400,7 +400,7 @@ class DedupeCallback(CallbackBase):
         self.__update_status_totals()
 
     @beartype
-    def __update_status_totals(self):
+    def __update_status_totals(self, final=False):
         status_totals = {
             status: str(len(result_ids)) for status, result_ids in self.status2result_ids.items()
         }
@@ -413,7 +413,7 @@ class DedupeCallback(CallbackBase):
             status_totals["running"] = "?"
         else:
             status_totals["running"] = str(len(self.running_hosts))
-        self.deduped_update_status_totals(status_totals)
+        self.deduped_update_status_totals(status_totals, final=final)
 
     @beartype
     def __play_start(self, play: Play):
@@ -643,7 +643,7 @@ class DedupeCallback(CallbackBase):
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
 
     @beartype
-    def deduped_update_status_totals(self, status_totals: dict[str, str]) -> None:
+    def deduped_update_status_totals(self, status_totals: dict[str, str], final=False) -> None:
         """
         status_totals: dictionary from status to a string representing the total number of runners
         or runner items that have that status. the total is usually digits, but it will have

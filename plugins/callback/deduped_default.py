@@ -249,7 +249,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
     @beartype
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_update_status_totals(self, status_totals: dict[str, str], final=False):
         pass
 
     def _is_result_printed_immediately(self, gist: ResultGist) -> bool:

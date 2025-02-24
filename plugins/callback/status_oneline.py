@@ -85,7 +85,7 @@ class CallbackModule(DedupedDefaultCallback):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
 
     @beartype
-    def deduped_update_status_totals(self, status_totals: dict[str, str]):
+    def deduped_update_status_totals(self, status_totals: dict[str, str], final=False):
         components = []
         for status, total in status_totals.items():
             color = _STATUS_COLORS[status]
@@ -121,7 +121,7 @@ class CallbackModule(DedupedDefaultCallback):
         # add an arrow with white background to indicate that content was removed (`less -S`)
         if at_least_one_component_stripped:
             output = output[:-1] + "\033[30;47m>\033[0m"
-        output += "\r"
+        output += "\n" if final else "\r"
         self._display.display(output, newline=False)
 
     @beartype
@@ -141,5 +141,5 @@ class CallbackModule(DedupedDefaultCallback):
 
     @beartype
     def deduped_task_end(self, *args, **kwargs):
-        self._display.display("\n")  # preserve last status line
+        self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_task_end(self, *args, **kwargs)
