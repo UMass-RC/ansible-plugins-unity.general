@@ -401,7 +401,7 @@ class DedupeCallback(CallbackBase):
             except KeyError:
                 # when task is delegated, hostname is "foo -> bar", but we need just "foo"
                 if match := re.match(_DELEGATION_HOST_LABEL, hostname):
-                    self.running_hosts.remove(match.groups(1))
+                    self.running_hosts.remove(match.groups(1)[0])
                 else:
                     self._display.warning(
                         f"a runner has completed for host '{hostname}' but this host is not known to have any running runners!"
