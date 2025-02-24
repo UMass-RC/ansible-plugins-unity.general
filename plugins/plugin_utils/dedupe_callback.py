@@ -118,7 +118,6 @@ class ResultGist(dict):
         self,
         status: str,
         message: str | None,
-        invocation: dict,
         is_verbose: bool,
         task_path: str,
         task_action: str,
@@ -126,7 +125,6 @@ class ResultGist(dict):
         super().__init__()
         self["status"] = status
         self["message"] = message
-        self["invocation"] = invocation
         self["is_verbose"] = is_verbose
         self["task_path"] = task_path
         self["task_action"] = task_action
@@ -345,7 +343,6 @@ class DedupeCallback(CallbackBase):
         gist = ResultGist(
             status,
             result._result.get("msg", None),
-            result._result.get("invocation", {}),
             self._run_is_verbose(result),
             result._task.get_path(),
             result._task.action,
