@@ -112,10 +112,10 @@ def _anonymize_dict(hostname: str, item: object, item_label: object, _input: dic
 
     hostname_regex = re.compile(re.escape(hostname), flags=re.IGNORECASE)
     filters = [lambda x: re.sub(hostname_regex, "<redacted hostname>", x)]
-    if isinstance(item, str):
+    if isinstance(item, str) and item:
         item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
         filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
-    if isinstance(item_label, str):
+    if isinstance(item_label, str) and item_label:
         item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
         filters.append(lambda x: re.sub(item_label_regex, "<redacted item label>", x))
     return _filter_string_leaf_nodes(_input, filters)
