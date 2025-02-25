@@ -76,7 +76,7 @@ def _apt_redact_autoremove(diff: dict[str, object]) -> None:
         diff["prepared"] = "\n".join(output)
 
 
-for action_name in add_internal_fqcns(["apt"]):
+for action_name in add_internal_fqcns(["apt", "package"]):
     _DIFF_FILTERS[action_name] = [_apt_redact_not_upgraded, _apt_redact_autoremove]
 
 
