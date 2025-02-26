@@ -84,7 +84,7 @@ DOCUMENTATION = r"""
 _STATUS_COLORS = {
     "changed": C.COLOR_CHANGED,
     "failed": C.COLOR_ERROR,
-    "ignored": C.COLOR_WARN,
+    "ignored": C.COLOR_ERROR,
     "interrupted": C.COLOR_ERROR,
     "ok": C.COLOR_OK,
     "running": "normal",
