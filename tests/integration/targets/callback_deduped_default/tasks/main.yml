@@ -193,7 +193,7 @@
               PLAY RECAP *********************************************************************
               localhost                  : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
-          - name: dedupe diff 
+          - name: dedupe diff
             environment:
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
