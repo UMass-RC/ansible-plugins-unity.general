@@ -90,7 +90,7 @@ for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_dif
 
 
 @beartype
-def _anonymize_dict(hostname: str, item: object, item_label: object, _input: dict) -> dict:
+def _anonymize(hostname: str, item: object, item_label: object, _input: object) -> object:
     """
     in all string leaf nodes, replace hostname with "<redacted hostname>"
     if item is string, item will be replaced with "<redacted item>"
@@ -112,12 +112,20 @@ def _anonymize_dict(hostname: str, item: object, item_label: object, _input: dic
 
     hostname_regex = re.compile(re.escape(hostname), flags=re.IGNORECASE)
     filters = [lambda x: re.sub(hostname_regex, "<redacted hostname>", x)]
-    if isinstance(item, str) and item:
-        item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
-        filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
-    if isinstance(item_label, str) and item_label:
-        item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
-        filters.append(lambda x: re.sub(item_label_regex, "<redacted item label>", x))
+    if isinstance(item, str):
+        if len(item) < 5:
+            display.debug(f"dedupe_callback: not anonymizing item because length {len(item)} < 5")
+        else:
+            item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
+            filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
+    if isinstance(item_label, str):
+        if len(item_label) < 5:
+            display.debug(
+                f"dedupe_callback: not anonymizing item label because length {len(item_label)} < 5"
+            )
+        else:
+            item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
+            filters.append(lambda x: re.sub(item_label_regex, "<redacted item label>", x))
     return _filter_string_leaf_nodes(_input, filters)
 
 
@@ -398,15 +406,14 @@ class DedupeCallback(CallbackBase):
             and "skipped_reason" in result._result
         ):
             result._result["msg"] = result._result["skipped_reason"]
-
+        msg = _anonymize(hostname, item, item_label, result._result.get("msg", None))
         gist = ResultGist(
             status,
-            result._result.get("msg", None),
+            msg,
             self._run_is_verbose(result),
             result._task.get_path(),
             result._task.action,
         )
-        gist = ResultGist(**_anonymize_dict(hostname, item, item_label, gist))
         gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
         for i, warning in enumerate(result._result.get("warnings", [])):
