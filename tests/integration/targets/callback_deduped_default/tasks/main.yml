@@ -999,6 +999,39 @@
               testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+ 
+          - name: delegate_to
+            environment:
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              ANSIBLE_DEPRECATION_WARNINGS: "true"
+            playbook: |
+              - hosts: dedupegroup
+                gather_facts: false
+                tasks:
+                  - name: foo
+                    debug:
+                      msg: foo
+                    delegate_to: localhost
+            expected_output: |+
+
+              PLAY [dedupegroup] *************************************************************
+
+              TASK [foo] *********************************************************************
+              ok: dedupe1 -> localhost => 
+                msg: foo
+              ok: dedupe2 -> localhost => same result (not including diff) as dedupe1 -> localhost
+              ok: dedupe3 -> localhost => same result (not including diff) as dedupe1 -> localhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
   always:
     - name: delete tempfile
       file:
