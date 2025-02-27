@@ -167,7 +167,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             # I do sha1 because dedupe removes the item from the result and counts them as duplicates
             # I do `!unsafe` because ansible wants to expand j2 templating when the `callback` role iterates over
@@ -209,7 +208,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             # I do sha1 because dedupe removes the item from the result and counts them as duplicates
             # I do `!unsafe` because ansible wants to expand j2 templating when the `callback` role iterates over
@@ -255,7 +253,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             playbook: |
               - hosts: dedupegroup
@@ -317,7 +314,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             playbook: !unsafe |
               - hosts: testhost
@@ -369,7 +365,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             playbook: |
               - hosts: testhost
@@ -549,7 +544,6 @@
                       cmd: "sleep {{ sleep_seconds }}"
                     changed_when: false
             timeout: 4
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: |
@@ -568,7 +562,6 @@
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_non_empty_stderr: true
             allow_nonzero_exit_code: true
             playbook: |
               - hosts: nonexistent
@@ -586,7 +579,6 @@
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
             extra_args: --start-at-task=nonexistent
-            allow_non_empty_stderr: true
             playbook: |
               - hosts: testhost
                 gather_facts: false

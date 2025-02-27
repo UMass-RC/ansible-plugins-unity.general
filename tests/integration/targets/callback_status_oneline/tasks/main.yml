@@ -80,7 +80,6 @@
                       my_command: "{{ hostname2cmd[inventory_hostname] }}"
             timeout: 5
             allow_nonzero_exit_code: true
-            allow_non_empty_stderr: true
             regex_replacements:
               - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
               - ['delta: .[\d:\.]+.', "delta: <omitted>"]
