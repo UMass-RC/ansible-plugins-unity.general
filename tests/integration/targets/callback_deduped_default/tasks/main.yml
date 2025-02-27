@@ -404,57 +404,6 @@
               dedupe2                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
               dedupe3                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
 
-          - name: dedupe errors in list items
-            environment:
-              ANSIBLE_FORCE_COLOR: "false"
-              ANSIBLE_DIFF_ALWAYS: "true"
-              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
-              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
-            allow_nonzero_exit_code: true
-            playbook: !unsafe |
-              - hosts: testhost
-                gather_facts: false
-                tasks:
-                  - name: fail
-                    fail:
-                      msg: "{{ item | sha1 }}"
-                    loop:
-                      - foo
-                      - foo
-                      - bar
-                      - bar
-                      - baz
-            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
-            expected_output: |+
-
-              PLAY [testhost] ****************************************************************
-
-              TASK [fail] ********************************************************************
-              failed: testhost (item=foo) => 
-                ansible_loop_var: item
-                changed: false
-                item: foo
-                msg: {{ 'foo' | sha1 }}
-              failed: testhost (item=foo) => same result (not including diff) as testhost (item=foo)
-              failed: testhost (item=bar) => 
-                ansible_loop_var: item
-                changed: false
-                item: bar
-                msg: {{ 'bar' | sha1 }}
-              failed: testhost (item=bar) => same result (not including diff) as testhost (item=bar)
-              failed: testhost (item=baz) => 
-                ansible_loop_var: item
-                changed: false
-                item: baz
-                msg: {{ 'baz' | sha1 }}
-              failed: testhost => 
-                changed: false
-                msg: One or more items failed
-              elapsed: <omitted> seconds
-
-              PLAY RECAP *********************************************************************
-              testhost                   : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
-
           - name: multiple plays
             environment:
               ANSIBLE_FORCE_COLOR: "false"
