@@ -115,6 +115,84 @@
               PLAY RECAP *********************************************************************
               testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
+          - name: diff formatter not found
+            environment:
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              DIFF_FORMATTER: asdlkjasdlkjs
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: create file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+
+                  - name: overwrite file
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+                        Bar baz bam!
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+            expected_output: |+
+
+              PLAY [testhost] ****************************************************************
+
+              TASK [create file] *************************************************************
+              [WARNING]: diff formatter "asdlkjasdlkjs" not found
+              --- before: {{ tempfile.path }}
+              +++ after: {{ tempfile.path }}
+              @@ -1,2 +1 @@
+               Foo bar
+              -Bar baz bam!
+
+              changed: testhost
+              elapsed: <omitted> seconds
+
+              TASK [overwrite file] **********************************************************
+              --- before: {{ tempfile.path }}
+              +++ after: {{ tempfile.path }}
+              @@ -1 +1,2 @@
+               Foo bar
+              +Bar baz bam!
+
+              changed: testhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+          - name: empty diff
+            environment:
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+            playbook: |
+              - hosts: localhost
+                gather_facts: false
+                tasks:
+                  - name: changed true
+                    unity.general.return_args:
+                      changed: true
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+            expected_output: |+
+
+              PLAY [localhost] ***************************************************************
+
+              TASK [changed true] ************************************************************
+              task reports changed=true but does not report any diff.
+              changed: localhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              localhost                  : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
           - name: dedupe diff 
             environment:
               ANSIBLE_FORCE_COLOR: "false"
