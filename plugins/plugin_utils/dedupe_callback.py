@@ -116,7 +116,7 @@ def _anonymize(hostname: str, item: object, item_label: object, _input: object) 
         if len(item) < 5:
             display.debug(f"dedupe_callback: not anonymizing item because length {len(item)} < 5")
         else:
-            item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
+            item_regex = re.compile(re.escape(item), flags=re.IGNORECASE)
             filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
     if isinstance(item_label, str):
         if len(item_label) < 5:
