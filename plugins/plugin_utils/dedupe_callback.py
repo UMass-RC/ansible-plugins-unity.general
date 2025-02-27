@@ -406,10 +406,12 @@ class DedupeCallback(CallbackBase):
             and "skipped_reason" in result._result
         ):
             result._result["msg"] = result._result["skipped_reason"]
-        msg = _anonymize(hostname, item, item_label, result._result.get("msg", None))
+
+        if "msg" in result._result:
+            result._result["msg"] = _anonymize(hostname, item, item_label, result._result["msg"])
         gist = ResultGist(
             status,
-            msg,
+            result._result.get("msg", None),
             self._run_is_verbose(result),
             result._task.get_path(),
             result._task.action,
