@@ -174,8 +174,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             diffs_and_groupings,
         )
 
-    def deduped_playbook_on_stats(self, *args, **kwargs):
-        super().deduped_playbook_on_stats(*args, **kwargs)
+    def deduped_playbook_end(self):
         if not self._do_print:
             return
         if not self._display.buffer:
