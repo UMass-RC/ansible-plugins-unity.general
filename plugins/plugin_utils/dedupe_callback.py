@@ -442,10 +442,11 @@ class DedupeCallback(CallbackBase):
                 diffs = [diff_or_diffs]
             else:
                 diffs = diff_or_diffs
-            diffs = [x for x in diffs if x]
-            # convert result message to a diff
-            if msg := result._result.get("msg", None):
-                diffs.append({"prepared": msg.strip()})
+            # filter out diffs which are printed as nothing
+            diffs = [x for x in diffs if CallbackBase._get_diff(self, x).strip()]
+            # convert result message to a diff unless it is printed as nothing
+            if msg := result._result.get("msg", "").strip():
+                diffs.append({"prepared": msg})
             if len(diffs) == 0:
                 diffs.append(SURROGATE_DIFF.copy())
             for i, diff in enumerate(diffs):
