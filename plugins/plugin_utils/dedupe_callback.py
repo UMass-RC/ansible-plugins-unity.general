@@ -33,9 +33,7 @@ VALID_STATUSES = [
     "running",
 ]
 
-SURROGATE_DIFF = {
-    "prepared": stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
-}
+SURROGATE_DIFF = stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
 
 _DELEGATION_HOST_LABEL = re.compile(r"^(\S+) -> \S+$")
 
@@ -442,19 +440,22 @@ class DedupeCallback(CallbackBase):
                 diffs = [diff_or_diffs]
             else:
                 diffs = diff_or_diffs
-            # filter out diffs which are printed as nothing
-            diffs = [x for x in diffs if CallbackBase._get_diff(self, x).strip()]
-            # convert result message to a diff unless it is printed as nothing
-            if msg := result._result.get("msg", "").strip():
-                diffs.append({"prepared": msg})
-            if len(diffs) == 0:
-                diffs.append(SURROGATE_DIFF.copy())
-            for i, diff in enumerate(diffs):
+            formatted_diffs = []
+            for diff in diffs:
                 if filters := _DIFF_FILTERS.get(gist["task_action"], None):
                     for _filter in filters:
                         _filter(diff)
                 diff = _anonymize(hostname, item, item_label, diff)
-                self.diff_grouper.add(DiffID(hostname, item, i), diff)
+                formatted_diff = self._get_diff(diff).strip()
+                if formatted_diff:
+                    formatted_diffs.append(formatted_diff)
+            # convert result message to a diff unless it is printed as nothing
+            if msg := result._result.get("msg", "").strip():
+                formatted_diffs.append(msg)
+            if len(formatted_diffs) == 0:
+                formatted_diffs.append(SURROGATE_DIFF)
+            for i, formatted_diff in enumerate(formatted_diffs):
+                self.diff_grouper.add(DiffID(hostname, item, i), formatted_diff)
 
         if not self.task_is_loop:
             try:
@@ -787,7 +788,7 @@ class DedupeCallback(CallbackBase):
     def deduped_task_end(
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
-        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        diffs_and_groupings: list[tuple[str, list[DiffID]]],
         interrupted: list[ResultID],
     ) -> None:
         """
@@ -798,7 +799,7 @@ class DedupeCallback(CallbackBase):
         when grouping ResultIDs.
 
         diffs_and_groupings: list of tuples where the first element of each tuple is a
-        diff dict. the second element in each tuple is a list of ResultIDs that produced
+        diff string. the second element in each tuple is a list of ResultIDs that produced
         that result. hostnames and items are ignored when grouping ResultIDs. these are only
         the diffs from results where changed==True.
 

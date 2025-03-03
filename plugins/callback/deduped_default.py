@@ -334,7 +334,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def deduped_task_end(
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
-        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        diffs_and_groupings: list[tuple[str, list[DiffID]]],
         interrupted: list[ResultID],
     ):
         # Largest groupings last
@@ -342,7 +342,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         for diff, diff_ids in sorted_diffs_and_groupings:
             # convert DiffID to ResultID, discarding index
             result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
-            self._display.display(self._get_diff(diff))
+            self._display.display(diff)
             self._display.display(
                 self.format_status_result_ids_msg("changed", result_ids),
                 color=C.COLOR_CHANGED,
