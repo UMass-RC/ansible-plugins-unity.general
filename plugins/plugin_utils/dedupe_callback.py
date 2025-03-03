@@ -47,7 +47,10 @@ _NOT_UPGRADED_REGEX = re.compile(r"and \d+ not upgraded")
 
 def _apt_redact_not_upgraded(diff: dict[str, object]) -> None:
     if "prepared" in diff:
-        other_lines, last_line = diff["prepared"].rsplit("\n", 1)
+        try:
+            other_lines, last_line = diff["prepared"].rsplit("\n", 1)
+        except ValueError:
+            return
         diff["prepared"] = (
             other_lines
             + "\n"
