@@ -61,8 +61,6 @@ _STATUS_COLORS = {
     "unreachable": C.COLOR_UNREACHABLE,
 }
 
-STATUSES_PRINT_IMMEDIATELY = ["failed", "unreachable"]
-
 
 @beartype
 def _tty_width() -> int:
@@ -87,7 +85,14 @@ class CallbackModule(DedupedDefaultCallback):
     @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str], final=False):
         components = []
+        statuses_to_ignore = []
+        if not self.get_option("display_ok_hosts"):
+            statuses_to_ignore.append("ok")
+        if not self.get_option("display_skipped_hosts"):
+            statuses_to_ignore.append("skipped")
         for status, total in status_totals.items():
+            if status in statuses_to_ignore:
+                continue
             color = _STATUS_COLORS[status]
             if total == "0":
                 continue

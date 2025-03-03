@@ -269,6 +269,10 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     ) -> None:
         if not self._is_result_printed_immediately(result_gist):
             return
+        if result_gist["status"] == "ok" and not self.get_option("display_ok_hosts"):
+            return
+        if result_gist["status"] == "skipped" and not self.get_option("display_skipped_hosts"):
+            return
         self._clean_results(stripped_result_dict, result_gist["task_action"])
         if "results" in stripped_result_dict and not result_gist["is_verbose"]:
             del stripped_result_dict["results"]
@@ -353,6 +357,10 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         for result_gist, result_ids in sorted_gists_and_groupings:
             # diffs already printed, and result messages are copied into diffs
             if result_gist["status"] == "changed":
+                continue
+            if result_gist["status"] == "ok" and not self.get_option("display_ok_hosts"):
+                continue
+            if result_gist["status"] == "skipped" and not self.get_option("display_skipped_hosts"):
                 continue
             already_printed = self._is_result_printed_immediately(result_gist)
             if already_printed:

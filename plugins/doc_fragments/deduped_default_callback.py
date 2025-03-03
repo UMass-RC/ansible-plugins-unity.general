@@ -11,9 +11,9 @@ class ModuleDocFragment(object):
           description: see default callback documentation
           default: true
         display_ok_hosts:
-          description: this option is ignored
+          description: see default callback documentation
         display_skipped_hosts:
-          description: this option is ignored
+          description: see default callback documentation
         wrap_text:
           description: |
             whether or not to hard-wrap text in callback output.
