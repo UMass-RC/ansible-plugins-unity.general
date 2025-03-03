@@ -1,5 +1,6 @@
 import re
 import os
+import json
 import signal
 import hashlib
 import threading
@@ -399,13 +400,13 @@ class DedupeCallback(CallbackBase):
         item_label = str(self._get_item_label(result._result))
         result_id = ResultID(hostname, item)
 
-        # prompte "skipped_reason" to "msg" so that user can see
-        if (
-            status == "skipped"
-            and "msg" not in result._result
-            and "skipped_reason" in result._result
-        ):
-            result._result["msg"] = result._result["skipped_reason"]
+        if status == "skipped" and "msg" not in result._result:
+            skipped_info = {
+                k: v
+                for k, v in result._result.items()
+                if k in ["skip_reason", "skipped_reason", "true_condition", "false_condition"]
+            }
+            result._result["msg"] = json.dumps(skipped_info)
 
         if "msg" in result._result:
             result._result["msg"] = _anonymize(hostname, item, item_label, result._result["msg"])
