@@ -6,7 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr
 
 
 def capture(func, *args, **kwargs):
-    "redirect stdout and stderr to a named pipe and return the contents of that pipe as a string"
+    "redirect stdout and stderr to a StringIO and return the contents of that pipe as a string"
     if isinstance(sys.stdout, StringIO):
         # if it's already captured, don't redirect
         func(*args, **kwargs)
