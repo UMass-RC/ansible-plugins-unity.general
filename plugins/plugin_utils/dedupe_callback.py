@@ -96,7 +96,7 @@ def _anonymize(hostname: str, item: object, item_label: object, _input: object) 
     """
     in all string leaf nodes, replace hostname with "<redacted hostname>"
     if item is string, item will be replaced with "<redacted item>"
-    if item label is string, item label will be replaced with "<redacted item label>"
+    if item label is string, item label will be replaced with "<redacted item>"
     """
 
     def _filter_string_leaf_nodes(node, filters):
@@ -127,7 +127,7 @@ def _anonymize(hostname: str, item: object, item_label: object, _input: object) 
             )
         else:
             item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
-            filters.append(lambda x: re.sub(item_label_regex, "<redacted item label>", x))
+            filters.append(lambda x: re.sub(item_label_regex, "<redacted item>", x))
     return _filter_string_leaf_nodes(_input, filters)
 
 
