@@ -1,6 +1,7 @@
 import re
 import shutil
 import subprocess
+import tempfile
 import shlex
 
 from ansible.utils.display import Display
@@ -24,24 +25,31 @@ class FormatDiffCallback(CallbackBase):
         if shutil.which(formatter_argv_0) is None:
             display.warning(f'diff formatter "{formatter}" not found')
             return normal_diff
-        else:
-            formatter_proc = subprocess.Popen(
-                formatter,
-                shell=True,
-                text=True,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
-            monochrome_diff = re.sub(ANSI_REGEX, "", normal_diff)
-            try:
-                output, _ = formatter_proc.communicate(input=monochrome_diff)
-            except subprocess.CalledProcessError as e:
-                display.warning(f'diff formatter "{formatter}" failed! {e}')
-                return normal_diff
-            if formatter_proc.returncode != 0:
-                display.warning(
-                    f'diff formatter "{formatter}" returned nonzero exit code {formatter_proc.returncode}.\n{output}'
-                )
-                return normal_diff
-            return output.strip()
+
+        monochrome_diff = re.sub(ANSI_REGEX, "", normal_diff)
+        # Popen.communicate() and subprocess.run() were having deadlock issues
+        with tempfile.TemporaryFile(mode="w+") as tmp_in:
+            with tempfile.TemporaryFile(mode="w+") as tmp_out:
+                tmp_in.write(monochrome_diff)
+                tmp_in.seek(0)
+                with subprocess.Popen(
+                    formatter,
+                    shell=True,
+                    text=True,
+                    stdin=tmp_in,
+                    stdout=tmp_out,
+                    stderr=subprocess.STDOUT,
+                ) as formatter_proc:
+                    try:
+                        formatter_proc.wait()
+                        tmp_out.seek(0)
+                        output = tmp_out.read()
+                    except subprocess.CalledProcessError as e:
+                        display.warning(f'diff formatter "{formatter}" failed! {e}')
+                        return normal_diff
+                    if formatter_proc.returncode != 0:
+                        display.warning(
+                            f'diff formatter "{formatter}" returned nonzero exit code {formatter_proc.returncode}.\n{output}'
+                        )
+                        return normal_diff
+                    return output.strip()
