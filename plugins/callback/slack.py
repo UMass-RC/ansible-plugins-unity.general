@@ -57,7 +57,7 @@ class CallbackModule(CallbackBase):
     def get_options(self):
         return self._plugin_options
 
-    def deduped_playbook_end(self) -> None:
+    def v2_plabook_on_stats(self) -> None:
         report_lines = slack_report_cache.get_lines(self.get_options())
         slack_report_cache.flush(self.get_options())
         if not report_lines:
