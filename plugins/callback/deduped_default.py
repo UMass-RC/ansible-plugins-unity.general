@@ -301,7 +301,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
         if len(dupe_of) > 0:
-            warning = f"same warning as {dupe_of[0]}"
+            warning = f"{warning_id}: same warning as {dupe_of[0]}"
         else:
             warning = f"{warning_id}: {warning}"
         self._handle_warnings({"warnings": [warning]})
