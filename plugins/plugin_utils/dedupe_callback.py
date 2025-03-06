@@ -400,7 +400,7 @@ class DedupeCallback(CallbackBase):
         hostname = CallbackBase.host_label(result)
         item = result._result.get("item", None)
         item_label = str(self._get_item_label(result._result))
-        result_id = ResultID(hostname, item)
+        result_id = ResultID(hostname, item_label)
 
         if status == "skipped" and "msg" not in result._result:
             skipped_info = {
@@ -422,15 +422,15 @@ class DedupeCallback(CallbackBase):
         gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
         for i, warning in enumerate(result._result.get("warnings", [])):
-            warning_id = WarningID(hostname, item, i)
+            warning_id = WarningID(hostname, item_label, i)
             dupe_of = self.warning_grouper.add(warning_id, warning)  # TODO anonymize
             self.deduped_warning(warning, warning_id, dupe_of)
         for i, deprecation in enumerate(result._result.get("deprecations", [])):
-            deprecation_id = DeprecationID(hostname, item, i)
+            deprecation_id = DeprecationID(hostname, item_label, i)
             dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)  # TODO anonymize
             self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
         if exception := result._result.get("exception", None):
-            exception_id = ExceptionID(hostname, item)
+            exception_id = ExceptionID(hostname, item_label)
             dupe_of = self.exception_grouper.add(exception_id, exception)  # TODO anonymize
             self.deduped_exception(exception, exception_id, dupe_of)
 
@@ -455,7 +455,7 @@ class DedupeCallback(CallbackBase):
             if len(formatted_diffs) == 0:
                 formatted_diffs.append(SURROGATE_DIFF)
             for i, formatted_diff in enumerate(formatted_diffs):
-                self.diff_grouper.add(DiffID(hostname, item, i), formatted_diff)
+                self.diff_grouper.add(DiffID(hostname, item_label, i), formatted_diff)
 
         if not self.task_is_loop:
             try:
