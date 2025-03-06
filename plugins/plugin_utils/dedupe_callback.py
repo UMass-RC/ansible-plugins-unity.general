@@ -92,7 +92,7 @@ for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_dif
 
 
 @beartype
-def _anonymize(hostname: str, item: object, item_label: object, _input: object) -> object:
+def _anonymize(hostname: str, item: object, _input: object) -> object:
     """
     in all string leaf nodes, replace hostname with "<redacted hostname>"
     if item is string, item will be replaced with "<redacted item>"
@@ -120,14 +120,6 @@ def _anonymize(hostname: str, item: object, item_label: object, _input: object) 
         else:
             item_regex = re.compile(re.escape(item), flags=re.IGNORECASE)
             filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
-    if isinstance(item_label, str):
-        if len(item_label) < 5:
-            display.debug(
-                f"dedupe_callback: not anonymizing item label because length {len(item_label)} < 5"
-            )
-        else:
-            item_label_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
-            filters.append(lambda x: re.sub(item_label_regex, "<redacted item>", x))
     return _filter_string_leaf_nodes(_input, filters)
 
 
@@ -398,9 +390,8 @@ class DedupeCallback(CallbackBase):
     @beartype
     def __process_result(self, result: TaskResult, status: str):
         hostname = CallbackBase.host_label(result)
-        item = result._result.get("item", None)
-        item_label = str(self._get_item_label(result._result))
-        result_id = ResultID(hostname, item_label)
+        item = self._get_item_label(result._result)
+        result_id = ResultID(hostname, item)
 
         if status == "skipped" and "msg" not in result._result:
             skipped_info = {
@@ -411,7 +402,7 @@ class DedupeCallback(CallbackBase):
             result._result["msg"] = json.dumps(skipped_info)
 
         if "msg" in result._result:
-            result._result["msg"] = _anonymize(hostname, item, item_label, result._result["msg"])
+            result._result["msg"] = _anonymize(hostname, item, result._result["msg"])
         gist = ResultGist(
             status,
             result._result.get("msg", None),
@@ -422,15 +413,15 @@ class DedupeCallback(CallbackBase):
         gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
         for i, warning in enumerate(result._result.get("warnings", [])):
-            warning_id = WarningID(hostname, item_label, i)
+            warning_id = WarningID(hostname, item, i)
             dupe_of = self.warning_grouper.add(warning_id, warning)  # TODO anonymize
             self.deduped_warning(warning, warning_id, dupe_of)
         for i, deprecation in enumerate(result._result.get("deprecations", [])):
-            deprecation_id = DeprecationID(hostname, item_label, i)
+            deprecation_id = DeprecationID(hostname, item, i)
             dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)  # TODO anonymize
             self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
         if exception := result._result.get("exception", None):
-            exception_id = ExceptionID(hostname, item_label)
+            exception_id = ExceptionID(hostname, item)
             dupe_of = self.exception_grouper.add(exception_id, exception)  # TODO anonymize
             self.deduped_exception(exception, exception_id, dupe_of)
 
@@ -445,7 +436,7 @@ class DedupeCallback(CallbackBase):
                 if filters := _DIFF_FILTERS.get(gist["task_action"], None):
                     for _filter in filters:
                         _filter(diff)
-                diff = _anonymize(hostname, item, item_label, diff)
+                diff = _anonymize(hostname, item, diff)
                 formatted_diff = self._get_diff(diff).strip()
                 if formatted_diff:
                     formatted_diffs.append(formatted_diff)
@@ -455,7 +446,7 @@ class DedupeCallback(CallbackBase):
             if len(formatted_diffs) == 0:
                 formatted_diffs.append(SURROGATE_DIFF)
             for i, formatted_diff in enumerate(formatted_diffs):
-                self.diff_grouper.add(DiffID(hostname, item_label, i), formatted_diff)
+                self.diff_grouper.add(DiffID(hostname, item, i), formatted_diff)
 
         if not self.task_is_loop:
             try:
