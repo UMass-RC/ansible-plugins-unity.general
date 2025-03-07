@@ -1,5 +1,7 @@
 todos:
+  image: alpine
   script:
+    - apk add ripgrep
     - fixme_count="$(rg -c TODO)"
     - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
   artifacts:
@@ -7,7 +9,9 @@ todos:
       - badge.svg
     expire_in: 1 week
 fixmes:
+  image: alpine
   script:
+    - apk add ripgrep
     - fixme_count="$(rg -c FIXME)"
     - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
   artifacts:
