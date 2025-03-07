@@ -2,9 +2,11 @@ todos_fixmes:
   image: alpine
   script:
     - apk add ripgrep curl
+    - set +e
     - todo_count="$(rg FIXME | wc -l)"
-    - curl "https://shields.io/badge/TODOs-$todo_count-blue" > todos.svg
     - fixme_count="$(rg FIXME | wc -l)"
+    - set -e
+    - curl "https://shields.io/badge/TODOs-$todo_count-blue" > todos.svg
     - curl "https://shields.io/badge/FIXMEs-$fixme_count-red" > todos.svg
   artifacts:
     paths:
