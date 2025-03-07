@@ -12,7 +12,6 @@ todos:
     expire_in: 1 week
 fixmes:
   image: alpine
-  pages: true
   script:
     - apk add ripgrep curl
     - set +e    
