@@ -5,10 +5,10 @@ todos:
     - set +e
     - todo_count="$(rg TODO | wc -l)"
     - set -e
-    - curl "https://shields.io/badge/TODOs-$todo_count-red" > badge.svg
+    - curl "https://shields.io/badge/TODOs-$todo_count" > public/todos.svg
   artifacts:
     paths:
-      - badge.svg
+      - public/todos.svg
     expire_in: 1 week
 fixmes:
   image: alpine
@@ -17,8 +17,8 @@ fixmes:
     - set +e    
     - fixme_count="$(rg FIXME | wc -l)"
     - set -e
-    - curl "https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
+    - curl "https://shields.io/badge/FIXMEs-$fixme_count" > public/fixmes.svg
   artifacts:
     paths:
-      - badge.svg
+      - public/fixmes.svg
     expire_in: 1 week
