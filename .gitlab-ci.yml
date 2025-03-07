@@ -5,6 +5,7 @@ todos:
     - set +e
     - todo_count="$(rg TODO | wc -l)"
     - set -e
+    - mkdir public
     - curl "https://shields.io/badge/TODOs-$todo_count" > public/todos.svg
   artifacts:
     paths:
@@ -17,6 +18,7 @@ fixmes:
     - set +e    
     - fixme_count="$(rg FIXME | wc -l)"
     - set -e
+    - mkdir public
     - curl "https://shields.io/badge/FIXMEs-$fixme_count" > public/fixmes.svg
   artifacts:
     paths:
