@@ -5,8 +5,8 @@ todos_fixmes:
     - set +e
     - ls
     - tree
-    - rg TODO
-    - rg FIXME
+    - rg --no-ignore TODO
+    - rg --no-ignore FIXME
     - rg TODO | wc -l
     - rg FIXME | wc -l
     - todo_count="$(rg TODO | wc -l)"
