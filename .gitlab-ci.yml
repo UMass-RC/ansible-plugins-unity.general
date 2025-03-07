@@ -9,6 +9,10 @@ todos_fixmes:
     - rg FIXME
     - grep -r TODO
     - grep -r FIXME
+    - rg TODO .
+    - rg FIXME .
+    - grep -r TODO .
+    - grep -r FIXME .
     - find . -type f | xargs grep TODO
     - find . -type f | xargs grep FIXME
     - cat plugins/callback/http_post.py
