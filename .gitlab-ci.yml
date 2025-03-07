@@ -1,8 +1,10 @@
 todos_fixmes:
   image: alpine
   script:
-    - apk add ripgrep curl
+    - apk add ripgrep curl tree
     - set +e
+    - ls
+    - tree
     - rg TODO
     - rg FIXME
     - rg TODO | wc -l
