@@ -2,6 +2,7 @@ todos:
   image: alpine
   script:
     - apk add ripgrep
+    - rg TODO | wc -l
     - fixme_count="$(rg TODO | wc -l)"
     - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
   artifacts:
@@ -12,6 +13,7 @@ fixmes:
   image: alpine
   script:
     - apk add ripgrep
+    - rg FIXME | wc -l
     - fixme_count="$(rg FIXME | wc -l)"
     - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
   artifacts:
