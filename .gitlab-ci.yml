@@ -7,6 +7,8 @@ todos_fixmes:
     - tree
     - grep -r TODO
     - grep -r FIXME
+    - cat plugins/callback/http_post.py
+    - grep TODO plugins/callback/http_post.py
     - rg TODO | wc -l
     - rg FIXME | wc -l
     - todo_count="$(rg TODO | wc -l)"
