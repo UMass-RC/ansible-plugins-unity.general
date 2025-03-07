@@ -3,6 +3,7 @@ todos:
   script:
     - apk add ripgrep
     - todo_count="$(rg TODO | wc -l)"
+    - set -x
     - curl "https://shields.io/badge/TODOs-$todo_count-red" > badge.svg
   artifacts:
     paths:
@@ -13,6 +14,7 @@ fixmes:
   script:
     - apk add ripgrep
     - fixme_count="$(rg FIXME | wc -l)"
+    - set -x
     - curl "https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
   artifacts:
     paths:
