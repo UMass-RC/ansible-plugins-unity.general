@@ -5,6 +5,8 @@ todos_fixmes:
     - set +e
     - ls
     - tree
+    - rg TODO
+    - rg FIXME
     - grep -r TODO
     - grep -r FIXME
     - find . -type f | xargs grep TODO
