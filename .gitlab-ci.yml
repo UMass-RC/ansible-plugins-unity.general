@@ -1,18 +1,13 @@
-todos:
+todos_fixmes:
   image: alpine
   script:
     - apk add ripgrep curl
-    - curl "https://shields.io/badge/TODOs-$(rg TODO | wc -l)" > todos.svg
+    - todo_count="$(rg FIXME | wc -l)"
+    - curl "https://shields.io/badge/TODOs-$todo_count-blue" > todos.svg
+    - fixme_count="$(rg FIXME | wc -l)"
+    - curl "https://shields.io/badge/FIXMEs-$fixme_count-red" > todos.svg
   artifacts:
     paths:
       - todos.svg
-    expire_in: 1 week
-fixmes:
-  image: alpine
-  script:
-    - apk add ripgrep curl
-    - curl "https://shields.io/badge/TODOs-$(rg FIXME | wc -l)" > todos.svg
-  artifacts:
-    paths:
       - fixmes.svg
     expire_in: 1 week
