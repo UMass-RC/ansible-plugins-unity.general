@@ -1,0 +1,16 @@
+todos:
+  script:
+    - fixme_count="$(rg -c TODO)"
+    - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
+  artifacts:
+    paths:
+      - badge.svg
+    expire_in: 1 week
+fixmes:
+  script:
+    - fixme_count="$(rg -c FIXME)"
+    - curl https://shields.io/badge/FIXMEs-$fixme_count-red" > badge.svg
+  artifacts:
+    paths:
+      - badge.svg
+    expire_in: 1 week
