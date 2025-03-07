@@ -7,6 +7,8 @@ todos_fixmes:
     - tree
     - grep -r TODO
     - grep -r FIXME
+    - find . -type f | xargs grep TODO
+    - find . -type f | xargs grep FIXME
     - cat plugins/callback/http_post.py
     - grep TODO plugins/callback/http_post.py
     - rg TODO | wc -l
