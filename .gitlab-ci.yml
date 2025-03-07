@@ -3,9 +3,15 @@ todos_fixmes:
   script:
     - apk add ripgrep curl
     - set +e
+    - rg TODO
+    - rg FIXME
+    - rg TODO | wc -l
+    - rg FIXME | wc -l
     - todo_count="$(rg TODO | wc -l)"
     - fixme_count="$(rg FIXME | wc -l)"
     - set -e
+    - 'echo "todo count: $todo_count"'
+    - 'echo "fixme count: $fixme_count"'
     - curl "https://shields.io/badge/TODOs-$todo_count-blue" > todos.svg
     - curl "https://shields.io/badge/FIXMEs-$fixme_count-red" > fixmes.svg
   artifacts:
