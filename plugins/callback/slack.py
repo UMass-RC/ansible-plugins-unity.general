@@ -1,3 +1,5 @@
+import traceback
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -56,15 +58,29 @@ class CallbackModule(CallbackBase):
     def get_options(self):
         return self._plugin_options
 
-    def v2_playbook_on_stats(self, _):
+    def _get_report(self) -> str:
         report_lines = slack_report_cache.get_lines(self.get_options())
         slack_report_cache.flush(self.get_options())
-        if not report_lines:
-            display.warning("slack: no report lines found!")
-            return
-        report = "\n".join(report_lines)
+        return "\n".join(report_lines)
+
+    def _send_report(self, report: str) -> None:
         try:
             web_client = WebClient(token=self.get_option("bot_user_oauth_token"))
             web_client.chat_postMessage(channel=self.get_option("channel_id"), text=report)
         except SlackApiError as e:
-            display.warning(f"failed to send report to slack! {to_text(e)}\n")
+            display.vvv(traceback.format_exc())
+            display.warning(f"slack: failed to send report! {to_text(e)}\n")
+
+    def v2_playbook_on_start(self, _):
+        # this can happen when last playbook was interrupted
+        old_report = self._get_report()
+        if old_report:
+            display.warning("slack: found old unsent report in cache. sending now...")
+        self._send_report(old_report)
+
+    def v2_playbook_on_stats(self, _):
+        report = self._get_report()
+        if not report:
+            display.warning("slack: no report lines found!")
+            return
+        self._send_report(report)
