@@ -77,7 +77,7 @@ class CallbackModule(DedupeCallback):
         old_report = self._get_report()
         if old_report:
             display.warning("slack: found old unsent report in cache. sending now...")
-        self._send_report(old_report)
+            self._send_report(old_report)
 
     def deduped_playbook_on_end(self, _):
         report = self._get_report()
