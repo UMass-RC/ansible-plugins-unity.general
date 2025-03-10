@@ -40,8 +40,8 @@ diff:
     type: dict
     returned: always
     sample:
-      before_header: /path/to/directory: 24 total files, 2 total subdirectories
-      after_header: /path/to/directory: 5 total files, 1 total subdirectories
+      before_header: '/path/to/directory: 24 total files, 2 total subdirectories'
+      after_header: '/path/to/directory: 5 total files, 1 total subdirectories'
       before: |
         file1.txt
         subdir1/
