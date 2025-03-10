@@ -165,13 +165,13 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
         diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        interrupted: list[ResultID],
     ) -> None:
         statuses = {gist["status"] for gist, _ in result_gists_and_groupings}
         if any(x in self.get_option("statuses_enable_print") for x in statuses):
             self._do_print = True
         return super().deduped_task_end(
-            result_gists_and_groupings,
-            diffs_and_groupings,
+            result_gists_and_groupings, diffs_and_groupings, interrupted
         )
 
     def deduped_playbook_end(self):
