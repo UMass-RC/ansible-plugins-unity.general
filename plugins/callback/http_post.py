@@ -170,7 +170,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             result_gist = ResultGist(**bitwarden_redact(result_gist, self.get_options()))
         return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
 
-    def deduped_playbook_end(self):
+    def deduped_playbook_on_end(self):
         if not self._display.buffer:
             self._real_display.warning(
                 "http_post: log not uploaded because there is nothing to upload."

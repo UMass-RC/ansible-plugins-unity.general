@@ -174,7 +174,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             result_gists_and_groupings, diffs_and_groupings, interrupted
         )
 
-    def deduped_playbook_end(self):
+    def deduped_playbook_on_end(self):
         if not self._do_print:
             return
         if not self._display.buffer:

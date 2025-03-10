@@ -289,7 +289,7 @@ class DedupeCallback(CallbackBase):
             del self.running_hosts
             self.running_hosts = set()
             self.__maybe_task_end()
-            self.deduped_playbook_end()
+            self.deduped_playbook_on_end()
         finally:
             display.v(f"[{_id_hash}] releasing sigint handler lock...")
             self.__sigint_handler_lock.release()
@@ -626,7 +626,7 @@ class DedupeCallback(CallbackBase):
     def v2_playbook_on_stats(self, stats: AggregateStats) -> None:
         self.__maybe_task_end()  # normally done at task_start(), but there will be no next task
         self.deduped_playbook_on_stats(stats)
-        self.deduped_playbook_end()
+        self.deduped_playbook_on_end()
 
     # I'm too lazy to test these and I don't use async so I'm just going to cut support
     def v2_runner_on_async_poll(self, *args, **kwargs) -> None:
@@ -697,6 +697,10 @@ class DedupeCallback(CallbackBase):
     @beartype
     def deduped_playbook_on_no_hosts_remaining(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
+
+    @beartype
+    def deduped_playbook_on_end(self) -> None:
+        """comes right after playbook_on_stats, or after SIGINT"""
 
     @beartype
     def deduped_playbook_on_vars_prompt(
@@ -796,7 +800,3 @@ class DedupeCallback(CallbackBase):
 
         hostnames and items are ignored for finding dupes/groupings.
         """
-
-    @beartype
-    def deduped_playbook_end(self) -> None:
-        """comes right after playbook_on_stats, or after SIGINT"""

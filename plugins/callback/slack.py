@@ -7,6 +7,7 @@ from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
 from ansible.module_utils.common.text.converters import to_text
 
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
 from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
 
 
@@ -44,7 +45,7 @@ DOCUMENTATION = r"""
 """
 
 
-class CallbackModule(CallbackBase):
+class CallbackModule(DedupeCallback):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.slack"
@@ -71,14 +72,14 @@ class CallbackModule(CallbackBase):
             display.vvv(traceback.format_exc())
             display.warning(f"slack: failed to send report! {to_text(e)}\n")
 
-    def v2_playbook_on_start(self, _):
+    def deduped_playbook_on_start(self, _):
         # this can happen when last playbook was interrupted
         old_report = self._get_report()
         if old_report:
             display.warning("slack: found old unsent report in cache. sending now...")
         self._send_report(old_report)
 
-    def v2_playbook_on_stats(self, _):
+    def deduped_playbook_on_end(self, _):
         report = self._get_report()
         if not report:
             display.warning("slack: no report lines found!")
