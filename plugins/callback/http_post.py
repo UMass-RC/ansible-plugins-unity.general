@@ -3,6 +3,7 @@ import re
 import sys
 import socket
 import shutil
+import traceback
 import subprocess
 from io import BytesIO
 from datetime import datetime, timezone
@@ -60,6 +61,7 @@ DOCUMENTATION = r"""
     - whitelist in configuration
     - L(aha,https://github.com/theZiz/aha)
     - L(requests,https://pypi.org/project/requests/)
+    - L(slack-sdk,https://pypi.org/project/slack-sdk/) (optional)
     - HTTPS web server that allows file upload
   options:
     upload_url:
@@ -126,6 +128,20 @@ DOCUMENTATION = r"""
           key: slack_message
       env:
         - name: CALLBACK_HTTP_POST_SLACK_MESSAGE
+    slack_bot_user_oauth_token:
+      description: bot user oauth token
+      env:
+        - name: CALLBACK_HTTP_POST_SLACK_BOT_USER_OAUTH_TOKEN
+      ini:
+        - section: callback_http_post
+          key: slack_bot_user_oauth_token
+    slack_channel_id:
+      description: 'slack channel ID. example: "702HMQCE5NQ"'
+      env:
+        - name: CALLBACK_HTTP_POST_SLACK_CHANNEL_ID
+      ini:
+        - section: callback_http_post
+          key: slack_channel_id
     result_format:
       default: yaml
     pretty_results:
@@ -148,6 +164,27 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     CALLBACK_TYPE = "notification"
     CALLBACK_NAME = "unity.general.http_post"
     CALLBACK_NEEDS_WHITELIST = True
+
+    def _send_slack_message(self, msg: str) -> None:
+        from slack_sdk import WebClient
+        from slack_sdk.errors import SlackApiError
+
+        token = self.get_option("slack_bot_user_oauth_token")
+        channel_id = self.get_option("slack_channel_id")
+        assert (
+            token is not None
+        ), "slack_bot_user_oauth_token option is required when slack_message option is defined"
+        assert (
+            channel_id is not None
+        ), "slack_channel_id option is required when slack_message option is defined"
+        try:
+            web_client = WebClient(token=token)
+            web_client.chat_postMessage(channel=channel_id, text=msg)
+        except SlackApiError as e:
+            self._real_display.vvv(traceback.format_exc())
+            self._real_display.warning(
+                f"slack: failed to send message!\nerror: {e}\nmessage: {msg}"
+            )
 
     def __init__(self):
         super(CallbackModule, self).__init__()
@@ -229,7 +266,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             self._real_display.display(f'http_post: download_url: "{download_url}".')
         if slack_message := self.get_option("slack_message"):
             msg = slack_message.format(download_url=download_url)
-            slack_report_cache.add_line(msg, self.get_options())
+            self._send_slack_message(msg)
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         super(CallbackModule, self).deduped_playbook_on_start(playbook)
