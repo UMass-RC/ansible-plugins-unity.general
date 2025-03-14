@@ -76,7 +76,12 @@ import re
 import copy
 import json
 import hashlib
+import itertools
 from ClusterShell.NodeSet import NodeSet
+
+from ansible.utils.display import Display
+
+display = Display()
 
 NODE_SPEC_ORDER = [
     "NodeName",
@@ -280,6 +285,59 @@ def unpack(node_specs: list[dict] | list[list[dict]]) -> dict[str, dict]:
     return _do_removals(output)
 
 
+def _cluster(sorted_nums_ids: list[tuple[int, str]], max_reduction: int) -> list[tuple[int, str]]:
+    "cluster integers by reducing them by no more than max_reduction"
+    # if the entire range can be reduced to equal the lowest number without violating max_reduction
+    if sorted_nums_ids[-1][0] - sorted_nums_ids[0][0] <= max_reduction:
+        new_num = sorted_nums_ids[0][0]
+        output = []
+        for num, _id in sorted_nums_ids:
+            reduction = num - new_num
+            if reduction:
+                other_ids = [x[1] for x in sorted_nums_ids if x[1] != _id]
+                other_ids_folded = _fold_node_set(other_ids)
+                display.warning(
+                    f"{_id} RealMemory reduced by {reduction} bytes to match {other_ids_folded}"
+                )
+            output.append((new_num, _id))
+        return output
+    # divide and conquer. split the range at the biggest gap
+    # for each element, the corresponding gap is the distance between it and the previous element
+    gaps = []
+    for i, (num, _) in enumerate(sorted_nums_ids):
+        if i == 0:
+            gaps.append(-1)
+        else:
+            gaps.append(num - sorted_nums_ids[i - 1][0])
+    # https://stackoverflow.com/a/11825864/18696276
+    biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
+    # https://stackoverflow.com/a/1724975/18696276
+    return itertools.chain(
+        _cluster(sorted_nums_ids[:biggest_gap_index], max_reduction),
+        _cluster(sorted_nums_ids[biggest_gap_index:], max_reduction),
+    )
+
+
+def cluster_mem(
+    _: object,
+    node_specs_mem: dict[str, dict] = None,
+    node_specs_nomem: dict[str, dict] = None,
+    max_reduction_MB=1000,
+):
+    output = node_specs_mem.copy()
+    for grouping in pack(node_specs_nomem):
+        mems_hostnames = sorted(
+            [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
+        )
+        for mem, hostname in _cluster(mems_hostnames, max_reduction_MB * 1000 * 1000):
+            output[hostname]["RealMemory"] = mem
+    return output
+
+
 class FilterModule:
     def filters(self):
-        return dict(slurm_node_specs_pack=pack, slurm_node_specs_unpack=unpack)
+        return dict(
+            slurm_node_specs_pack=pack,
+            slurm_node_specs_unpack=unpack,
+            slurm_node_specs_cluster_realmemory=cluster_mem,
+        )
