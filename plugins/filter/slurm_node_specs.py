@@ -297,7 +297,7 @@ def _cluster(sorted_nums_ids: list[tuple[int, str]], max_reduction: int) -> list
                 other_ids = [x[1] for x in sorted_nums_ids if x[1] != _id]
                 other_ids_folded = _fold_node_set(other_ids)
                 display.warning(
-                    f"{_id} RealMemory reduced by {reduction} bytes to match {other_ids_folded}"
+                    f"{_id} RealMemory reduced by {reduction} MB to match {other_ids_folded}"
                 )
             output.append((new_num, _id))
         return output
