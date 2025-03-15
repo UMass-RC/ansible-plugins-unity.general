@@ -74,13 +74,6 @@ FEATURE_INCLUDE_WHEN = {
 # this takes precedence over FEATURE_INCLUDE_WHEN
 FEATURE_EXCLUDE_WHEN = {}
 FEATURE_EXCLUDE_REGEXES = []
-# features that are added based on CPU micro-architecture (uarch)
-# for example, an icelake node's uarch list looks like this:
-# icelake, cascadelake, cannonlake, skylake_avx512, skylake, x86_64_v4, broadwell, haswell,
-# ivybridge, x86_64_v3, sandybridge, westmere, nehalem, core2, x86_64_v2, nocona, x86_64
-# icelake is just cascadelake plus a few more extra flags/features/capabilities listed in `lscpu`
-# a machine with ppc64le CPUs doesn't seem to list any flags
-FEATURE_UARCH_ALIASES = {}
 
 
 def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
