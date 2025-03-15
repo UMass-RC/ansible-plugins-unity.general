@@ -303,12 +303,9 @@ def _cluster(sorted_nums_ids: list[tuple[int, str]], max_reduction: int) -> list
         return output
     # divide and conquer. split the range at the biggest gap
     # for each element, the corresponding gap is the distance between it and the previous element
-    gaps = []
-    for i, (num, _) in enumerate(sorted_nums_ids):
-        if i == 0:
-            gaps.append(-1)
-        else:
-            gaps.append(num - sorted_nums_ids[i - 1][0])
+    gaps = [-1]
+    for i, (num, _) in enumerate(sorted_nums_ids, start=1):
+        gaps.append(num - sorted_nums_ids[i - 1][0])
     # https://stackoverflow.com/a/11825864/18696276
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
     # https://stackoverflow.com/a/1724975/18696276
