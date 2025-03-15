@@ -55,6 +55,13 @@ FEATURE_INCLUDE_WHEN = {
         "all_of": ["a100", "vram40"],
         "none_of": ["vram80"],
     },
+    "v100-32g": {
+        "all_of": ["v100", "vram32"],
+    },
+    "v100-16g": {
+        "all_of": ["v100", "vram16"],
+        "none_of": ["vram32"],
+    },
     "fp64": {"any_of": ["gh200", "h100", "a100", "v100"]},
     "bf16": {"any_of": ["gh200", "h100", "a100", "l40s", "a40", "l4"]},
     "gracehopper": {"all_of": ["gh200"]},
