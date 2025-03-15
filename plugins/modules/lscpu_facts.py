@@ -14,6 +14,9 @@ lscpu:
     type: dict
     returned: always
     sample: {}
+_host_facts_cached:
+    description: this is variable is set to make it known that host facts can be expected to exist
+    type: bool
 """
 
 import re
@@ -31,7 +34,7 @@ def main():
             lscpu[k] = v
         except AttributeError:
             module.fail_json(msg="failed to parse output from lscpu")
-    module.exit_json(ansible_facts={"lscpu": lscpu})
+    module.exit_json(ansible_facts={"lscpu": lscpu, "_host_facts_cached": True})
 
 
 if __name__ == "__main__":
