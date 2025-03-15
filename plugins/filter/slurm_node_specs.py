@@ -329,7 +329,7 @@ def cluster_mem(
         mems_hostnames = sorted(
             [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
         )
-        for mem, hostname in _cluster(mems_hostnames, max_reduction_MB * 1000 * 1000):
+        for mem, hostname in _cluster(mems_hostnames, max_reduction_MB):
             output[hostname]["RealMemory"] = mem
     return output
 
