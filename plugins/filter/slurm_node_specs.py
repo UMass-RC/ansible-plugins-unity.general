@@ -285,33 +285,35 @@ def unpack(node_specs: list[dict] | list[list[dict]]) -> dict[str, dict]:
     return _do_removals(output)
 
 
-def _cluster(sorted_nums_ids: list[tuple[int, str]], max_reduction: int) -> list[tuple[int, str]]:
+def _cluster_memory(
+    sorted_memoryMB_hostname: list[tuple[int, str]], max_reduction: int
+) -> list[tuple[int, str]]:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
-    if sorted_nums_ids[-1][0] - sorted_nums_ids[0][0] <= max_reduction:
-        new_num = sorted_nums_ids[0][0]
+    if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
+        new_memoryMB = sorted_memoryMB_hostname[0][0]
         output = []
-        for num, _id in sorted_nums_ids:
-            reduction = num - new_num
+        for memoryMB, hostname in sorted_memoryMB_hostname:
+            reduction = memoryMB - new_memoryMB
             if reduction:
-                other_ids = [x[1] for x in sorted_nums_ids if x[1] != _id]
-                other_ids_folded = _fold_node_set(other_ids)
+                other_hostnames = [x[1] for x in sorted_memoryMB_hostname if x[1] != hostname]
+                other_hostnames_folded = _fold_node_set(other_hostnames)
                 display.warning(
-                    f"{_id} RealMemory reduced by {reduction} MB to match {other_ids_folded}"
+                    f"{hostname} RealMemory reduced by {reduction} MB to match {other_hostnames_folded}"
                 )
-            output.append((new_num, _id))
+            output.append((new_memoryMB, hostname))
         return output
     # divide and conquer. split the range at the biggest gap
     # for each element, the corresponding gap is the distance between it and the previous element
     gaps = [-1]
-    for i, (num, _) in enumerate(sorted_nums_ids, start=1):
-        gaps.append(num - sorted_nums_ids[i - 1][0])
+    for i, (memoryMB, _) in enumerate(sorted_memoryMB_hostname, start=1):
+        gaps.append(memoryMB - sorted_memoryMB_hostname[i - 1][0])
     # https://stackoverflow.com/a/11825864/18696276
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
     # https://stackoverflow.com/a/1724975/18696276
     return itertools.chain(
-        _cluster(sorted_nums_ids[:biggest_gap_index], max_reduction),
-        _cluster(sorted_nums_ids[biggest_gap_index:], max_reduction),
+        _cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
+        _cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
     )
 
 
@@ -323,10 +325,10 @@ def cluster_mem(
 ):
     output = node_specs_mem.copy()
     for grouping in pack(node_specs_nomem):
-        mems_hostnames = sorted(
+        sorted_memoryMB_hostname = sorted(
             [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
         )
-        for mem, hostname in _cluster(mems_hostnames, max_reduction_MB):
+        for mem, hostname in _cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
             output[hostname]["RealMemory"] = mem
     return output
 
