@@ -242,7 +242,7 @@ def main():
         get_gpu_model_names,
         get_cuda_compute_capability_features,
         get_vram_features,
-        get_nvlink_features,
+        # get_nvlink_features,
     ]
 
     # run each feature collector and combine their results
