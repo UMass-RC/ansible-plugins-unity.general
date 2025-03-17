@@ -39,6 +39,7 @@ _host_facts_cached:
 import re
 import sys
 import shutil
+import signal
 import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
@@ -245,9 +246,18 @@ def main():
         # get_nvlink_features,
     ]
 
+    # without nvidia-persistenced, this module takes too long. this background process is
+    # a poor man's persistenced
+    nvidia_smi_probe_proc = subprocess.Popen(["nvidia-smi", "--loop-ms=1"], stdout=subprocess.PIPE)
+    nvidia_smi_probe_proc.stdout.readline()  # wait until 1st line of output comes back
+
     # run each feature collector and combine their results
     for collector in feature_collectors:
         features.update(collector())
+
+    nvidia_smi_probe_proc.send_signal(signal.SIGINT)
+    nvidia_smi_probe_proc.wait()
+
     # add feature aliases
     features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))
     # exclude excluded features
