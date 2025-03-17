@@ -79,7 +79,7 @@ import hashlib
 import itertools
 from ClusterShell.NodeSet import NodeSet
 
-from ansible.vars.hostvars import HostVars
+from ansible.vars.hostvars import HostVars, HostVarsVars
 from ansible.utils.display import Display
 from ansible.errors import AnsibleFilterError
 from ansible.parsing.yaml.objects import AnsibleUnicode
@@ -363,7 +363,7 @@ def cluster_mem(
 
 
 @beartype
-def _dict_get(_dict: dict, key: str, name="dict") -> object:
+def _dict_get(_dict: dict | HostVars | HostVarsVars, key: str, name="dict") -> object:
     try:
         return _dict[key]
     except KeyError as e:
@@ -371,7 +371,7 @@ def _dict_get(_dict: dict, key: str, name="dict") -> object:
 
 
 @beartype
-def _dict_get_deep(_dict: dict, keys: list[str], name="dict") -> object:
+def _dict_get_deep(_dict: dict | HostVars | HostVarsVars, keys: list[str], name="dict") -> object:
     cursor = _dict
     for key in keys:
         name += f'["{key}"]'
