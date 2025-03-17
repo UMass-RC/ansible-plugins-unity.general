@@ -79,7 +79,17 @@ import hashlib
 import itertools
 from ClusterShell.NodeSet import NodeSet
 
+from ansible.vars.hostvars import HostVars
 from ansible.utils.display import Display
+from ansible.errors import AnsibleFilterError
+from ansible.parsing.yaml.objects import AnsibleUnicode
+
+from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
+
+type _str = (str | AnsibleUnicode)
+type _spec_value = (_str | int | list[_str])
+type NodeSpecsPacked = list[dict[_str, _spec_value]]
+type NodeSpecsUnpacked = dict[_str, dict[_str, _spec_value]]
 
 display = Display()
 
@@ -93,6 +103,7 @@ NODE_SPEC_ORDER = [
 ]
 
 
+@beartype
 def _fold_node_set(hostnames: list[str]) -> str:
     """
     ["cpu001", "cpu002", "cpu003", "cpu006"] -> ["cpu[001-003,006]"]
@@ -101,12 +112,14 @@ def _fold_node_set(hostnames: list[str]) -> str:
     return str(NodeSet.fromlist(hostnames))
 
 
+@beartype
 def _get_dict_hash(x) -> str:
     sorted_json_bytes = json.dumps(x, sort_keys=True).encode()
     return hashlib.md5(sorted_json_bytes).hexdigest()
 
 
-def _group_nodes_equal_specs(node_specs: dict[str, dict]) -> dict[str, dict]:
+@beartype
+def _group_nodes_equal_specs(node_specs: NodeSpecsUnpacked) -> dict[str, dict]:
     confhash2conf = {}
     confhash2hostnames = {}
     hostnames2conf = {}
@@ -120,6 +133,7 @@ def _group_nodes_equal_specs(node_specs: dict[str, dict]) -> dict[str, dict]:
     return hostnames2conf
 
 
+@beartype
 def _make_string_sortable_numerically(string: str) -> list[tuple[int, int]]:
     """
     each character becomes a tuple of two ints. The first int is either 0,1, or 2
@@ -151,6 +165,7 @@ def _make_string_sortable_numerically(string: str) -> list[tuple[int, int]]:
     return output
 
 
+@beartype
 def _sort_with_priority(_list: list, _priority_elements: list):
     """
     move priority elements to the front, in the given order
@@ -167,15 +182,17 @@ def _sort_with_priority(_list: list, _priority_elements: list):
     return sorted(_list, key=sort_key)
 
 
+@beartype
 def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
-    sorted_keys = _sort_with_priority(_dict.keys(), _priority_keys)
+    sorted_keys = _sort_with_priority(list(_dict.keys()), _priority_keys)
     output = dict()
     for key in sorted_keys:
         output[key] = _dict[key]
     return output
 
 
-def pack(node_specs: dict[str, dict]) -> list[dict]:
+@beartype
+def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
     for hostname, specs in node_specs.items():
@@ -206,6 +223,7 @@ def pack(node_specs: dict[str, dict]) -> list[dict]:
     )
 
 
+@beartype
 def _unfold_node_set(hostnames: str) -> list[str]:
     """
     "cpu[001-003,006]" -> ["cpu001", "cpu002", "cpu003", "cpu006"]
@@ -214,6 +232,7 @@ def _unfold_node_set(hostnames: str) -> list[str]:
     return list(NodeSet(hostnames))
 
 
+@beartype
 def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
     # track the current path during recursion for a good error message
     if path is None:
@@ -244,7 +263,8 @@ def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
     return merged
 
 
-def _unpack(node_specs: dict[str, dict]):
+@beartype
+def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
     output = {}
     for specs in node_specs:
         folded_node_set = specs["NodeName"]
@@ -258,7 +278,8 @@ def _unpack(node_specs: dict[str, dict]):
     return output
 
 
-def _do_removals(node_specs: dict[str, dict]):
+@beartype
+def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
     output = {}
     for hostname, specs in node_specs.items():
         if "RemoveFeatures" in specs:
@@ -275,7 +296,8 @@ def _do_removals(node_specs: dict[str, dict]):
     return output
 
 
-def unpack(node_specs: list[dict] | list[list[dict]]) -> dict[str, dict]:
+@beartype
+def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
     if isinstance(node_specs[0], dict):
         output = _unpack(node_specs)
     else:
@@ -285,9 +307,11 @@ def unpack(node_specs: list[dict] | list[list[dict]]) -> dict[str, dict]:
     return _do_removals(output)
 
 
-def _cluster_memory(
-    sorted_memoryMB_hostname: list[tuple[int, str]], max_reduction: int
-) -> list[tuple[int, str]]:
+type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
+
+
+@beartype
+def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
     if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
@@ -317,12 +341,17 @@ def _cluster_memory(
     )
 
 
+@beartype
 def cluster_mem(
     _: object,
-    node_specs_mem: dict[str, dict] = None,
-    node_specs_nomem: dict[str, dict] = None,
+    node_specs_mem: NodeSpecsUnpacked = None,
+    node_specs_nomem: NodeSpecsUnpacked = None,
     max_reduction_MB=1000,
 ):
+    if node_specs_mem is None:
+        raise AnsibleFilterError("keyword argument required: node_specs_mem")
+    if node_specs_nomem is None:
+        raise AnsibleFilterError("keyword argument required: node_specs_nomem")
     output = node_specs_mem.copy()
     for grouping in pack(node_specs_nomem):
         sorted_memoryMB_hostname = sorted(
@@ -333,10 +362,101 @@ def cluster_mem(
     return output
 
 
+@beartype
+def _dict_get(_dict: dict, key: str, name="dict") -> object:
+    try:
+        return _dict[key]
+    except KeyError as e:
+        raise AnsibleFilterError(f'key "{key}" not found in "{name}"') from e
+
+
+@beartype
+def _dict_get_deep(_dict: dict, keys: list[str], name="dict") -> object:
+    cursor = _dict
+    for key in keys:
+        name += f'["{key}"]'
+        try:
+            cursor = cursor[key]
+        except KeyError as e:
+            raise AnsibleFilterError(f'key "{key}" not found in "{name}"') from e
+    return cursor
+
+
+@beartype
+def slurm_node_specs_slim_from_hostvars(
+    _, hostvars: HostVars = None, hosts: list[str] = None
+) -> dict[str, dict]:
+    "assemble slurm node specs (no RealMemory, no GPU) from hostvars"
+    if hostvars is None:
+        raise AnsibleFilterError("keyword argument required: hostvars")
+    if hosts is None:
+        raise AnsibleFilterError("keyword argument required: hosts")
+    output = {}
+    for hostname in hosts:
+        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+            lscpu = _dict_get(hostvars[hostname], "lscpu", name=f'hostvars["{hostname}"]')
+            lscpu_name = 'hostvars["{hostname}"]["lscpu"]'
+            output[hostname] = {
+                "Boards": 1,
+                "SocketsPerBoard": int(_dict_get(lscpu, "Socket(s)", name=lscpu_name)),
+                "CoresPerSocket": int(_dict_get(lscpu, "Core(s) per socket", name=lscpu_name)),
+                "ThreadsPerCore": int(_dict_get(lscpu, "Thread(s) per core", name=lscpu_name)),
+                "Features": _dict_get(hostvars[hostname], "slurm_features", name=lscpu_name),
+            }
+    return output
+
+
+@beartype
+def slurm_node_specs_mem_from_hostvars(
+    _, hostvars: HostVars = None, hosts: list[str] = None
+) -> dict[str, dict]:
+    "assemble slurm node specs (RealMemory only) from hostvars"
+    if hostvars is None:
+        raise AnsibleFilterError("keyword argument required: hostvars")
+    if hosts is None:
+        raise AnsibleFilterError("keyword argument required: hosts")
+    output = {}
+    for hostname in hosts:
+        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+            output[hostname] = {
+                "RealMemory": _dict_get_deep(
+                    hostvars[hostname],
+                    ["ansible_memory_mb", "real", "total"],
+                    name=f'hostvars["{hostname}"]',
+                )
+            }
+    return output
+
+
+@beartype
+def slurm_node_specs_gpu_from_hostvars(
+    _, hostvars: HostVars = None, hosts: list[str] = None
+) -> dict[str, dict]:
+    "assemble slurm node specs (gres, GPU features only) from hostvars"
+    if hostvars is None:
+        raise AnsibleFilterError("keyword argument required: hostvars")
+    if hosts is None:
+        raise AnsibleFilterError("keyword argument required: hosts")
+    output = {}
+    for hostname in hosts:
+        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+            output.setdefault(hostname, {"Features": []})
+            output[hostname]["Gres"] = _dict_get(
+                hostvars[hostname], "slurm_gres", name=f'hostvars["{hostname}"]'
+            )
+            output[hostname]["Features"].extend(
+                _dict_get(hostvars[hostname], "slurm_gpu_features", name=f'hostvars["{hostname}"]')
+            )
+    return output
+
+
 class FilterModule:
     def filters(self):
         return dict(
             slurm_node_specs_pack=pack,
             slurm_node_specs_unpack=unpack,
             slurm_node_specs_cluster_realmemory=cluster_mem,
+            slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
+            slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
+            slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
         )
