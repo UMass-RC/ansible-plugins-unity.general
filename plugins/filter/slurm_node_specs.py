@@ -330,7 +330,7 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
     # divide and conquer. split the range at the biggest gap
     # for each element, the corresponding gap is the distance between it and the previous element
     gaps = [-1]
-    for i, (memoryMB, _) in enumerate(sorted_memoryMB_hostname, start=1):
+    for i, (memoryMB, _) in enumerate(sorted_memoryMB_hostname[1:], start=1):
         gaps.append(memoryMB - sorted_memoryMB_hostname[i - 1][0])
     # https://stackoverflow.com/a/11825864/18696276
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
