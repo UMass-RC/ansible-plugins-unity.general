@@ -193,21 +193,22 @@ def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
 
 @beartype
 def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
+    _node_specs = copy.deepcopy(node_specs)
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
-    for hostname, specs in node_specs.items():
+    for hostname, specs in _node_specs.items():
         for spec_name, spec_value in specs.items():
             if isinstance(spec_value, list):
                 if all(isinstance(x, str) for x in spec_value):
-                    node_specs[hostname][spec_name] = sorted(
-                        node_specs[hostname][spec_name],
+                    _node_specs[hostname][spec_name] = sorted(
+                        _node_specs[hostname][spec_name],
                         key=_make_string_sortable_numerically,
                     )
                 else:
-                    node_specs[hostname][spec_name] = sorted(node_specs[hostname][spec_name])
+                    _node_specs[hostname][spec_name] = sorted(_node_specs[hostname][spec_name])
     # "pack" the specs
     node_specs_packed = []
-    for name_list_str, specs in _group_nodes_equal_specs(node_specs).items():
+    for name_list_str, specs in _group_nodes_equal_specs(_node_specs).items():
         specs["NodeName"] = name_list_str
         node_specs_packed.append(specs)
     # sort spec keys
@@ -347,7 +348,7 @@ def cluster_mem(
     node_specs_mem: NodeSpecsUnpacked = None,
     node_specs_nomem: NodeSpecsUnpacked = None,
     max_reduction_MB=1000,
-):
+) -> NodeSpecsUnpacked:
     if node_specs_mem is None:
         raise AnsibleFilterError("keyword argument required: node_specs_mem")
     if node_specs_nomem is None:
