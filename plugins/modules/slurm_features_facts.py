@@ -21,9 +21,6 @@ slurm_features:
       - x86_64
       - skylake
       - 10gbps
-_host_facts_cached:
-    description: this is variable is set to make it known that host facts can be expected to exist
-    type: bool
 """
 
 import re
@@ -262,9 +259,7 @@ def main():
     features.difference_update(features_to_remove)
 
     module = AnsibleModule(argument_spec={})
-    module.exit_json(
-        ansible_facts={"slurm_features": sorted(list(features)), "_host_facts_cached": True}
-    )
+    module.exit_json(ansible_facts={"slurm_features": sorted(list(features))})
 
 
 if __name__ == "__main__":

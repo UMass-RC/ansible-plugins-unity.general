@@ -31,9 +31,6 @@ slurm_gpu_features:
     - vram16
     - vram24
     - vram40
-_host_facts_cached:
-    description: this is variable is set to make it known that host facts can be expected to exist
-    type: bool
 """
 
 import re
@@ -274,7 +271,6 @@ def main():
         ansible_facts={
             "slurm_gres": gres,
             "slurm_gpu_features": sorted(list(features)),
-            "_host_facts_cached": True,
         }
     )
 
