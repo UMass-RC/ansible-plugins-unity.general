@@ -2439,6 +2439,116 @@ CnVcoA==
     <EmailAddress>mailto:sysadmins@hampshire.edu</EmailAddress>
   </ContactPerson>
 </EntityDescriptor>
+<EntityDescriptor entityID="https://idp01.broadinstitute.org/idp/shibboleth">
+  <Extensions>
+    <mdrpi:RegistrationInfo registrationAuthority="https://incommon.org" />
+    <mdattr:EntityAttributes>
+      <saml:Attribute Name="urn:oasis:names:tc:SAML:attribute:assurance-certification" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri">
+        <saml:AttributeValue>https://refeds.org/sirtfi</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="http://macedir.org/entity-category-support" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri">
+        <saml:AttributeValue>http://refeds.org/category/research-and-scholarship</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="http://macedir.org/entity-category" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri">
+        <saml:AttributeValue>http://id.incommon.org/category/registered-by-incommon</saml:AttributeValue>
+      </saml:Attribute>
+    </mdattr:EntityAttributes>
+  </Extensions>
+  <IDPSSODescriptor errorURL="https://broad.service-now.com/sp" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <Extensions>
+      <shibmd:Scope regexp="false">broadinstitute.org</shibmd:Scope>
+      <mdui:UIInfo>
+        <mdui:DisplayName xml:lang="en">Broad Institute of MIT and Harvard</mdui:DisplayName>
+        <mdui:Description xml:lang="en">Authenticates employees and associates of the Broad Institute.</mdui:Description>
+        <mdui:InformationURL xml:lang="en">https://www.broadinstitute.org/about-us</mdui:InformationURL>
+        <mdui:PrivacyStatementURL xml:lang="en">https://www.broadinstitute.org/contact-us/privacy-policy-broad-institute-website</mdui:PrivacyStatementURL>
+        <mdui:Logo height="52" width="205" xml:lang="en">https://www.broadinstitute.org/sites/all/themes/custom/at_broad/logo.png</mdui:Logo>
+      </mdui:UIInfo>
+    </Extensions>
+    <KeyDescriptor use="signing">
+      <ds:KeyInfo>
+        <ds:X509Data>
+          
+          <ds:X509Certificate>
+MIIDtTCCAp0CFAkSsfvpfVJwVwG4al0Y/eKB6rwwMA0GCSqGSIb3DQEBCwUAMIGW
+MQswCQYDVQQGEwJVUzELMAkGA1UECAwCTUExEjAQBgNVBAcMCUNhbWJyaWRnZTEY
+MBYGA1UECgwPQnJvYWQgSW5zdGl0dXRlMSEwHwYDVQQDDBhpZHAwMS5icm9hZGlu
+c3RpdHV0ZS5vcmcxKTAnBgkqhkiG9w0BCQEWGm5ldHdvcmtAYnJvYWRpbnN0aXR1
+dGUub3JnMB4XDTIxMDUwNjE0MDIyMFoXDTIyMDUwNjE0MDIyMFowgZYxCzAJBgNV
+BAYTAlVTMQswCQYDVQQIDAJNQTESMBAGA1UEBwwJQ2FtYnJpZGdlMRgwFgYDVQQK
+DA9Ccm9hZCBJbnN0aXR1dGUxITAfBgNVBAMMGGlkcDAxLmJyb2FkaW5zdGl0dXRl
+Lm9yZzEpMCcGCSqGSIb3DQEJARYabmV0d29ya0Bicm9hZGluc3RpdHV0ZS5vcmcw
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDtW10fM4ylhQvWcuJo1LMP
+iu2VA5rtHs1DZE7L/S+eo0WmNBFgEJesB5aQVU2ViadWQN9ssTcq7X7T28wZKxQd
+EEwAcBdXDlXQBVCHKHfRfomreU1QzpF5ZCS7P1wtIaXkodJqQRCPdagB65Yq3QIf
+vRVe3MyCu5yo7KMdP3/KhEWt5zCfutA4IU9pgmJmEMqwkkNUDaQkTIbJhHCIXiGP
+TX58Hoa4HAFzMas7wdQ/F0rDzv4uATn7vn2gqYaFo9Scz2p9SyTNfzkzb1l32Ahb
+5rEcNHLzSAzfG/ZCwoU/098EbG1zCV2dUkWee2GRCLuALNs6RNZ6RmFK+kYw9vXL
+AgMBAAEwDQYJKoZIhvcNAQELBQADggEBAGnjnl3CioVbCSRV6CXjx2sZ81TBxtc0
+CKFCvZ7jMzbjhHEXjJLVu4Q755gmOSkM+TuIJZoFscfu7RlGePC5FuDOUADR9bVV
+uuBMacZ5BGg7zMz16u2HjkEVP92JQGzg9UpDY9w77iVJXlQyKHpezkkEFsW81y3s
+W8bdGddMffHXXfnVcmuTo45FtMH8AE8QoBhX+TQwvtd8uw7HH+8AteB4sY8TPXUa
+oDVYFy0664qSioFQvAmI+Ht7a8/XWL2YASlZyBmDtoFT/qDd9CZcIjNmDQ+ak+Ru
+MVgp5/7XsbFIngOasDFA8C6UB9ivvDmK80iSdYbylsw1K7cCU+UDjzA=
+          </ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </KeyDescriptor>
+    <KeyDescriptor use="encryption">
+      <ds:KeyInfo>
+        <ds:X509Data>
+          
+          <ds:X509Certificate>
+MIIDtTCCAp0CFEJH5NwaHL4PfYiHyCq4UrAIQpX0MA0GCSqGSIb3DQEBCwUAMIGW
+MQswCQYDVQQGEwJVUzELMAkGA1UECAwCTUExEjAQBgNVBAcMCUNhbWJyaWRnZTEY
+MBYGA1UECgwPQnJvYWQgSW5zdGl0dXRlMSEwHwYDVQQDDBhpZHAwMS5icm9hZGlu
+c3RpdHV0ZS5vcmcxKTAnBgkqhkiG9w0BCQEWGm5ldHdvcmtAYnJvYWRpbnN0aXR1
+dGUub3JnMB4XDTIxMDUwNjE0MDIyMVoXDTIyMDUwNjE0MDIyMVowgZYxCzAJBgNV
+BAYTAlVTMQswCQYDVQQIDAJNQTESMBAGA1UEBwwJQ2FtYnJpZGdlMRgwFgYDVQQK
+DA9Ccm9hZCBJbnN0aXR1dGUxITAfBgNVBAMMGGlkcDAxLmJyb2FkaW5zdGl0dXRl
+Lm9yZzEpMCcGCSqGSIb3DQEJARYabmV0d29ya0Bicm9hZGluc3RpdHV0ZS5vcmcw
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDSy42iGjb0anF92zUE9y07
+KUzZs1A8L8CuQDDosaH6wfct2+NRszyszKyQxrhzjoNmviC+8vqq8rasrOb2FI5Q
+QRTxmsclH20IxStxOzRjVMM2mGrZAtnqUuFyrQ4VOsTk7Dyw2ZrU9nHhuZNNY1wX
+HRQU2U1RGvhVX1a/rYR//y1+JPDwWxAk0Yvy27CWL93TuDczbGWi/9lahGQ0KZsY
++mdWa28zgC2jHvveMkWmG+53aaaoJ8vF5Hk5/SV6/tCXNSI1ayOSTUCkrXWwBC/B
+Jx7WObqpaetTcgiiHN/8n5KeAvbp05EFX6KZmvpjv24ZgwwMnE+0t38cbr8iReWZ
+AgMBAAEwDQYJKoZIhvcNAQELBQADggEBACoM9CFzEbPusKELCQkSGfZolOSKWnSw
+2kSiszF0W8Mkw59jBCv/X6qarGqmLWArqagXulEha0HIVD0vh2+n24HQBaUch68a
+onVB5pHIa/NhGvorBNGwV8ShGiqdlgQeQoIsBtxXRpGamrYOOsGgOPqJpj1FRAI6
+th4hjCWNV9vdDgxyvZ9Q8jGUQUluiyWBpsTV273COjuSBRhJA4eBEw0BNkWci3+0
+I1t1LtQdRlhrCef53td7DCZqeUk17ahF2qtYTfi9IQ70P7MK7gMJ7iqObiLGRXnq
+kqRwUbyRJY+yYnBs0AUZTyvOxtlRRdKVvBYeHaMQ6XrKeyBsSiWURaU=
+          </ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </KeyDescriptor>
+    <ArtifactResolutionService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/SOAP/ArtifactResolution" index="1" />
+    <SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/Redirect/SLO" />
+    <SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/POST/SLO" />
+    <SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/SOAP/SLO" />
+    <SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/POST/SSO" />
+    <SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/Redirect/SSO" />
+    <SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" Location="https://idp01.broadinstitute.org/idp/profile/SAML2/POST-SimpleSign/SSO" />
+  </IDPSSODescriptor>
+  <Organization>
+    <OrganizationName xml:lang="en">The Broad Institute of MIT and Harvard</OrganizationName>
+    <OrganizationDisplayName xml:lang="en">The Broad Institute of MIT and Harvard</OrganizationDisplayName>
+    <OrganizationURL xml:lang="en">https://www.broadinstitute.org/</OrganizationURL>
+  </Organization>
+  <ContactPerson contactType="technical">
+    <GivenName>Broad Institute Helpdesk</GivenName>
+    <EmailAddress>mailto:help@broadinstitute.org</EmailAddress>
+  </ContactPerson>
+  <ContactPerson contactType="other" remd:contactType="http://refeds.org/metadata/contactType/security">
+    <GivenName>Broad Institute Information Security</GivenName>
+    <EmailAddress>mailto:infosec@broadinstitute.org</EmailAddress>
+  </ContactPerson>
+  <ContactPerson contactType="administrative">
+    <GivenName>Broad Institute InCommon Admins</GivenName>
+    <EmailAddress>mailto:incommon@broadinstitute.org</EmailAddress>
+  </ContactPerson>
+</EntityDescriptor>
 <EntityDescriptor entityID="https://sso.uri.edu/idp">
   <Extensions>
     <mdrpi:RegistrationInfo registrationAuthority="https://incommon.org" />
