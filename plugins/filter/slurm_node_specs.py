@@ -394,7 +394,7 @@ def slurm_node_specs_slim_from_hostvars(
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+        if hostname in hostvars:
             lscpu = _dict_get(hostvars[hostname], "lscpu", name=f'hostvars["{hostname}"]')
             lscpu_name = 'hostvars["{hostname}"]["lscpu"]'
             output[hostname] = {
@@ -418,7 +418,7 @@ def slurm_node_specs_mem_from_hostvars(
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+        if hostname in hostvars:
             output[hostname] = {
                 "RealMemory": _dict_get_deep(
                     hostvars[hostname],
@@ -440,7 +440,7 @@ def slurm_node_specs_gpu_from_hostvars(
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars and "_host_facts_cached" in hostvars[hostname]:
+        if hostname in hostvars:
             output.setdefault(hostname, {"Features": []})
             output[hostname]["Gres"] = _dict_get(
                 hostvars[hostname], "slurm_gres", name=f'hostvars["{hostname}"]'
