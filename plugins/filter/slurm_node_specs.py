@@ -402,7 +402,7 @@ def slurm_node_specs_slim_from_hostvars(
                 "SocketsPerBoard": int(_dict_get(lscpu, "Socket(s)", name=lscpu_name)),
                 "CoresPerSocket": int(_dict_get(lscpu, "Core(s) per socket", name=lscpu_name)),
                 "ThreadsPerCore": int(_dict_get(lscpu, "Thread(s) per core", name=lscpu_name)),
-                "Features": _dict_get(hostvars[hostname], "slurm_features", name=lscpu_name),
+                "Features": _dict_get(hostvars[hostname], "slurm_features", name=f'hostvars["{hostname}"]'),
             }
     return output
 
