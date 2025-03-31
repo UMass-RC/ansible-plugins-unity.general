@@ -115,14 +115,18 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         self.task_start_time = None  # defined in __task_start
 
     @beartype
-    def __task_start(self, task):
+    def __task_start(self, task: Task):
         self.task_start_time = datetime.datetime.now()
-        # DefaultCallback.v2_playbook_on_task_start won't print the banner if this condition is met
-        # I want the banner to always print at task start, so I just print it when I know that
-        # DefaultCallback.v2_playbook_on_task_start won't print it
-        # this must come after or else it will break self._last_task_name
-        if not all([self.get_option("display_skipped_hosts"), self.get_option("display_ok_hosts")]):
-            self._print_task_banner(task)
+        self._task = task
+
+    def _is_this_task_banner_printed(self):
+        return self._last_task_banner == self._task._uuid
+
+    def _ensure_banner_printed(self):
+        # thanks to display_ok_hosts/display_skipped_hosts, there are times when the
+        # task banner should never be printed
+        if not self._is_this_task_banner_printed():
+            self._print_task_banner(self._task)
 
     @beartype
     def _indent_and_maybe_wrap(self, x: str, width: int = None, indent="  "):
@@ -273,6 +277,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             return
         if result_gist["status"] == "skipped" and not self.get_option("display_skipped_hosts"):
             return
+        self._ensure_banner_printed()
         self._clean_results(stripped_result_dict, result_gist["task_action"])
         if "results" in stripped_result_dict and not result_gist["is_verbose"]:
             del stripped_result_dict["results"]
@@ -300,6 +305,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def deduped_warning(
         self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
     ) -> None:
+        self._ensure_banner_printed()
         if len(dupe_of) > 0:
             warning = f"{warning_id}: same warning as {dupe_of[0]}"
         else:
@@ -310,6 +316,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def deduped_exception(
         self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
     ) -> None:
+        self._ensure_banner_printed()
         if len(dupe_of) > 0:
             exception = f"{exception_id}: same exception as {dupe_of[0]}"
         else:
@@ -320,6 +327,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     def deduped_deprecation(
         self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
     ) -> None:
+        self._ensure_banner_printed()
         if len(dupe_of) > 0:
             self._display.display(
                 f"[DEPRECATION WARNING]: {deprecation_id}: same deprecation as {dupe_of[0]}",
@@ -342,6 +350,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         for diff, diff_ids in sorted_diffs_and_groupings:
             # convert DiffID to ResultID, discarding index
             result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
+            self._ensure_banner_printed()
             self._display.display(diff)
             self._display.display(
                 self.format_status_result_ids_msg("changed", result_ids),
@@ -372,6 +381,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
                 msg = None
             status = result_gist["status"]
             color = _STATUS_COLORS[status]
+            self._ensure_banner_printed()
             self._display.display(
                 self.format_status_result_ids_msg(status, result_ids, msg), color=color
             )
@@ -384,7 +394,9 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
 
         elapsed = datetime.datetime.now() - self.task_start_time
         self.task_start_time = None
-        self._display.display(f"elapsed: {elapsed.total_seconds():.1f} seconds")
+        # don't print elapsed time if nothing else has been printed for this task
+        if self._is_this_task_banner_printed():
+            self._display.display(f"elapsed: {elapsed.total_seconds():.1f} seconds")
 
     @beartype
     def deduped_playbook_on_play_start(self, play: Play):
