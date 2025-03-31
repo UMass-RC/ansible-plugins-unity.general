@@ -116,7 +116,7 @@ DOCUMENTATION = r"""
 
 class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     CALLBACK_VERSION = 4.0
-    CALLBACK_TYPE = "notification"
+    CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.cron"
     CALLBACK_NEEDS_WHITELIST = True
 
