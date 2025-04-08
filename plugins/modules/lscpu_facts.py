@@ -27,7 +27,7 @@ def main():
     lscpu_out = subprocess.check_output("lscpu", text=True)
     for line in lscpu_out.splitlines():
         try:
-            k, v = re.fullmatch(r"(.*):\s+(.*?)", line).group(1, 2)
+            k, v = re.fullmatch(r"(.*?):\s+(.*)", line).group(1, 2)
             lscpu[k] = v
         except AttributeError:
             module.fail_json(msg="failed to parse output from lscpu")
