@@ -4,7 +4,7 @@
       - git
 
 - name: make sure install prefix is a directory
-  ansible.builtin.file:
+  unity.file_multi_diff.file:
     path: "{{ discovery_service_install_prefix }}"
     state: directory
 
