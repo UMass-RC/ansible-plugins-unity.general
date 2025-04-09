@@ -312,13 +312,11 @@ type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
 
 
 @beartype
-def _cluster_memory(
-    sorted_memoryMB_hostname: _mem_iter, min_reduction: int, max_reduction: int
-) -> _mem_iter:
+def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
     if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
-        new_memoryMB = sorted_memoryMB_hostname[0][0] - min_reduction
+        new_memoryMB = sorted_memoryMB_hostname[0][0]
         output = []
         for memoryMB, hostname in sorted_memoryMB_hostname:
             reduction = memoryMB - new_memoryMB
@@ -339,8 +337,8 @@ def _cluster_memory(
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
     # https://stackoverflow.com/a/1724975/18696276
     return itertools.chain(
-        _cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], min_reduction, max_reduction),
-        _cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], min_reduction, max_reduction),
+        _cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
+        _cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
     )
 
 
@@ -361,9 +359,12 @@ def cluster_mem(
         sorted_memoryMB_hostname = sorted(
             [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
         )
-        for mem, hostname in _cluster_memory(
-            sorted_memoryMB_hostname, min_reduction_MB, max_reduction_MB
-        ):
+        # do reduction now rather than inside _cluster_memory so that it doesn't produce extra
+        # warning messages for reducing each node memory by exactly min_reduction_MB
+        sorted_memoryMB_hostname = [
+            (x[0] - min_reduction_MB, x[1]) for x in sorted_memoryMB_hostname
+        ]
+        for mem, hostname in _cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
             output[hostname]["RealMemory"] = mem
     return output
 
