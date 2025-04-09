@@ -11,7 +11,7 @@
     enabled: true
 
 - name: setup supervisor for shibboleth
-  ansible.builtin.copy:
+  unity.copy_multi_diff.copy:
     src: etc/supervisor/conf.d/shibboleth.conf
     dest: /etc/supervisor/conf.d/shibboleth.conf
     owner: root

@@ -1,5 +1,5 @@
 - name: delete /etc/shibboleth.broken.d if it exists
-  ansible.builtin.file:
+  unity.file_multi_diff.file:
     path: /etc/shibboleth.broken.d
     state: absent
 

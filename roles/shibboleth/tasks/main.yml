@@ -28,7 +28,7 @@
 # ideally I could set permissions when creating a new directory but not override permissions
 # on an existing directory, but that's not a thing
 - name: template directory exists # noqa: risky-file-permissions
-  ansible.builtin.file:
+  unity.file_multi_diff.file:
     path: "{{ item }}"
     state: directory
   loop: "{{ shib_templates | map(attribute='dest') | map('dirname') | unique | reject('equalto', '') }}"
@@ -55,7 +55,7 @@
   when: not ansible_check_mode and "error" in sanity_check1.stdout
 
 - name: delete backup
-  ansible.builtin.file:
+  unity.file_multi_diff.file:
     path: /etc/shibboleth.bak.d
     state: absent
   changed_when: false
