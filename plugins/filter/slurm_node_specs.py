@@ -299,6 +299,8 @@ def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
 
 @beartype
 def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
+    if not node_specs:
+        return {}
     if isinstance(node_specs[0], dict):
         output = _unpack(node_specs)
     else:
