@@ -320,15 +320,17 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
     if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
         new_memoryMB = sorted_memoryMB_hostname[0][0]
         output = []
+        reduction2hostnames = {}
         for memoryMB, hostname in sorted_memoryMB_hostname:
-            reduction = memoryMB - new_memoryMB
-            if reduction:
-                other_hostnames = [x[1] for x in sorted_memoryMB_hostname if x[1] != hostname]
-                other_hostnames_folded = _fold_node_set(other_hostnames)
-                display.warning(
-                    f"{hostname} RealMemory reduced by {reduction} MB to match {other_hostnames_folded}"
-                )
             output.append((new_memoryMB, hostname))
+            reduction = memoryMB - new_memoryMB
+            if reduction != 0:
+                reduction2hostnames.setdefault(reduction, []).append(hostname)
+        for reduction, hostnames in reduction2hostnames.items():
+            reduced_hostnames_folded = _fold_node_set(hostnames)
+            display.warning(
+                f"{reduced_hostnames_folded} RealMemory reduced by {reduction} MB to match {sorted_memoryMB_hostname[0][1]}"
+            )
         return output
     # divide and conquer. split the range at the biggest gap
     # for each element, the corresponding gap is the distance between it and the previous element
