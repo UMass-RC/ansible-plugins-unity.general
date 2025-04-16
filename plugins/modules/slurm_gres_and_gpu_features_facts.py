@@ -211,6 +211,7 @@ def get_nvlink_features() -> set[str]:
 def get_gres() -> str:
     gpu_model_names = get_gpu_model_names()
     gpu_model_name_counts = {}
+    gres = ""
     for gpu_model_name in gpu_model_names:
         if gpu_model_name not in gpu_model_name_counts:
             gpu_model_name_counts[gpu_model_name] = 0
