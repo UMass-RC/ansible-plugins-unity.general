@@ -141,10 +141,8 @@ def get_gpu_model_names() -> list[str]:
         Tesla V100-SXM2-32GB
         NVIDIA H100 80GB HBM3
     """
-    features = []
-    if not shutil.which("nvidia-smi"):
-        return features
     nv_smi_out = _check_output(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"])
+    features = []
     for model_name in nv_smi_out.splitlines():
         model_name = model_name.lower()
         model_name = model_name.replace("nvidia", "")
@@ -160,15 +158,11 @@ def get_gpu_model_names() -> list[str]:
         model_name = re.sub(r"sxm\d+", "", model_name)
         model_name = model_name.strip("_- ")
         model_name = re.sub(r"\s+", "_", model_name)
-
         features.append(model_name)
     return features
 
 
 def get_cuda_compute_capability_features() -> set[str]:
-    features = set()
-    if not shutil.which("nvidia-smi"):
-        return features
     nv_smi_out = _check_output(
         ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "--id=0"]
     )
@@ -182,6 +176,7 @@ def get_cuda_compute_capability_features() -> set[str]:
             file=sys.stderr,
         )
         ccs.append(cc)
+    features = set()
     for cc in ccs:
         # 5.2 -> "sm_52"
         features.add(f"sm_{str(cc).replace('.', '')}")
@@ -189,8 +184,6 @@ def get_cuda_compute_capability_features() -> set[str]:
 
 
 def get_vram_features() -> set[str]:
-    if not shutil.which("nvidia-smi"):
-        return set()
     nv_smi_out = _check_output(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader"])
     found_vram_sizes_MiB = []
     for line in [x.strip() for x in nv_smi_out.splitlines()]:
@@ -203,8 +196,6 @@ def get_vram_features() -> set[str]:
 
 
 def get_nvlink_features() -> set[str]:
-    if not shutil.which("nvidia-smi"):
-        return set()
     nv_smi_out = _check_output(["nvidia-smi", "nvlink", "--status"])
     for line in nv_smi_out.splitlines():
         if re.match(r"^GPU \d+: ", line):
@@ -219,20 +210,21 @@ def get_nvlink_features() -> set[str]:
 
 def get_gres() -> str:
     gpu_model_names = get_gpu_model_names()
-    if len(gpu_model_names) > 0:
-        gpu_model_name_counts = {}
-        for gpu_model_name in gpu_model_names:
-            if gpu_model_name not in gpu_model_name_counts:
-                gpu_model_name_counts[gpu_model_name] = 0
-            gpu_model_name_counts[gpu_model_name] += 1
-        gres = ""
-        for model_name, count in gpu_model_name_counts.items():
-            gres += f"gpu:{model_name}:{count},"
-        gres = gres.strip(",")
-    return gres
+    gpu_model_name_counts = {}
+    for gpu_model_name in gpu_model_names:
+        if gpu_model_name not in gpu_model_name_counts:
+            gpu_model_name_counts[gpu_model_name] = 0
+        gpu_model_name_counts[gpu_model_name] += 1
+    for model_name, count in gpu_model_name_counts.items():
+        gres += f"gpu:{model_name}:{count},"
+    return gres.strip(",")
 
 
 def main():
+    module = AnsibleModule(argument_spec={})
+    if not shutil.which("nvidia-smi"):
+        module.fail_json(msg="nvidia-smi: command not found")
+
     gres = get_gres()
 
     features = set()
@@ -266,7 +258,6 @@ def main():
     features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
     features.difference_update(features_to_remove)
 
-    module = AnsibleModule(argument_spec={})
     module.exit_json(
         ansible_facts={
             "slurm_gres": gres,
