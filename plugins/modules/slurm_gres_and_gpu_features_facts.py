@@ -239,8 +239,7 @@ def main():
     features.update(get_cuda_compute_capability_features(cc, _module))
     features.update(get_vram_features(vram_MiB, _module))
     # features.update(get_nvlink_features(_module))
-    features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))  # add feature aliases
-
+    features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))
     _module.exit_json(
         ansible_facts={
             "slurm_gres": gres,
