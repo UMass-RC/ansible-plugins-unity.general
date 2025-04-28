@@ -34,7 +34,6 @@ slurm_gpu_features:
 """
 
 import re
-import sys
 import shutil
 import signal
 import subprocess
@@ -46,7 +45,7 @@ VRAM_FEATURES = [8, 11, 12, 16, 23, 32, 40, 48, 80, 102]
 # this should include all of the nvidia compute capability versions present in the cluster
 # a node with sm_90 should inherit sm_89, sm_87, ...
 INCLUDE_NV_CC = [5.2, 6.1, 7.0, 7.5, 8.0, 8.6, 8.7, 8.9, 9.0]
-BLOCKING_TIMEOUT_SEC = 10
+SUBPROC_TIMEOUT_SEC = 10
 # features based on other features
 FEATURE_INCLUDE_WHEN = {
     "a100-80g": {
@@ -115,11 +114,12 @@ def all_elements_equal(x: list) -> bool:
     return True
 
 
-def _check_output(argv: list[str]) -> str:
-    return subprocess.check_output(argv, text=True, timeout=BLOCKING_TIMEOUT_SEC)
+def _check_output(argv: list[str], _module: AnsibleModule, timeout_sec=SUBPROC_TIMEOUT_SEC) -> str:
+    _, stdout, _ = _module.run_command(["timeout", "-v", str(timeout_sec)] + argv, check_rc=True)
+    return stdout
 
 
-def get_gpu_model_names() -> list[str]:
+def get_gpu_model_names(_module: AnsibleModule) -> list[str]:
     """
     includes duplicates
 
@@ -141,7 +141,7 @@ def get_gpu_model_names() -> list[str]:
         Tesla V100-SXM2-32GB
         NVIDIA H100 80GB HBM3
     """
-    nv_smi_out = _check_output(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"])
+    nv_smi_out = _check_output(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], _module)
     features = []
     for model_name in nv_smi_out.splitlines():
         model_name = model_name.lower()
@@ -162,18 +162,17 @@ def get_gpu_model_names() -> list[str]:
     return features
 
 
-def get_cuda_compute_capability_features() -> set[str]:
+def get_cuda_compute_capability_features(_module: AnsibleModule) -> set[str]:
     nv_smi_out = _check_output(
-        ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "--id=0"]
+        ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader", "--id=0"], _module
     )
     cc = float(nv_smi_out)
     # include older CCs
     ccs = [x for x in INCLUDE_NV_CC if x <= cc]
     if cc not in INCLUDE_NV_CC:
-        print(
+        _module.warn(
             "WARNING: `INCLUDE_NV_CC` is supposed to contain a list of all the nvidia compute "
-            + f"capability versions present in the cluster, but my version {cc} is not present!",
-            file=sys.stderr,
+            + f"capability versions present in the cluster, but my version {cc} is not present!"
         )
         ccs.append(cc)
     features = set()
@@ -183,20 +182,30 @@ def get_cuda_compute_capability_features() -> set[str]:
     return features
 
 
-def get_vram_features() -> set[str]:
-    nv_smi_out = _check_output(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader"])
+def get_vram_features(_module: AnsibleModule, vram_wasted_warning_threshold_GB=2) -> set[str]:
+    nv_smi_out = _check_output(
+        ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader"], _module
+    )
     found_vram_sizes_MiB = []
     for line in [x.strip() for x in nv_smi_out.splitlines()]:
         found_size = int(re.match(r"(\d+) MiB", line).group(1))
         found_vram_sizes_MiB.append(found_size)
-    assert all_elements_equal(found_vram_sizes_MiB)
+    if not all_elements_equal(found_vram_sizes_MiB):
+        _module.fail_json(
+            msg=f"VRAM size must be identical for all GPUs. found: {found_vram_sizes_MiB}"
+        )
     vram_size_GB = found_vram_sizes_MiB[0] * 1024 * 1024 / 1000000000
     qualified_vram_features = {x for x in VRAM_FEATURES if x <= vram_size_GB}
+    if (wasted := vram_size_GB - max(qualified_vram_features)) > vram_wasted_warning_threshold_GB:
+        _module.warn(
+            "largest VRAM feature %.2f is %.2f GB smaller than actual VRAM size %.2f"
+            % (max(qualified_vram_features), wasted, vram_size_GB)
+        )
     return {f"vram{x}" for x in qualified_vram_features}
 
 
-def get_nvlink_features() -> set[str]:
-    nv_smi_out = _check_output(["nvidia-smi", "nvlink", "--status"])
+def get_nvlink_features(_module: AnsibleModule) -> set[str]:
+    nv_smi_out = _check_output(["nvidia-smi", "nvlink", "--status"], _module)
     for line in nv_smi_out.splitlines():
         if re.match(r"^GPU \d+: ", line):
             continue
@@ -204,12 +213,12 @@ def get_nvlink_features() -> set[str]:
             continue
         if re.fullmatch(r"Link \d+: [\d\.]+ GB/s", line.strip()):
             return {"nvlink"}
-        print(f'unexpected output from "nvidia-smi nvlink --status": "{line}"', file=sys.stderr)
+        _module.warn(f'unexpected output from "nvidia-smi nvlink --status": "{line}"')
     return set()
 
 
-def get_gres() -> str:
-    gpu_model_names = get_gpu_model_names()
+def get_gres(_module: AnsibleModule) -> str:
+    gpu_model_names = get_gpu_model_names(_module)
     gpu_model_name_counts = {}
     gres = ""
     for gpu_model_name in gpu_model_names:
@@ -222,11 +231,11 @@ def get_gres() -> str:
 
 
 def main():
-    module = AnsibleModule(argument_spec={})
+    _module = AnsibleModule(argument_spec={})
     if not shutil.which("nvidia-smi"):
-        module.fail_json(msg="nvidia-smi: command not found")
+        _module.fail_json(msg="nvidia-smi: command not found")
 
-    gres = get_gres()
+    gres = get_gres(_module)
 
     features = set()
     feature_collectors = [
@@ -243,7 +252,7 @@ def main():
     try:
         # run each feature collector and combine their results
         for collector in feature_collectors:
-            features.update(collector())
+            features.update(collector(_module))
     finally:
         nvidia_smi_probe_proc.send_signal(signal.SIGINT)
         nvidia_smi_probe_proc.wait()
@@ -259,7 +268,7 @@ def main():
     features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
     features.difference_update(features_to_remove)
 
-    module.exit_json(
+    _module.exit_json(
         ansible_facts={
             "slurm_gres": gres,
             "slurm_gpu_features": sorted(list(features)),
