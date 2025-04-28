@@ -71,9 +71,6 @@ FEATURE_INCLUDE_WHEN = {
     "1080ti": {"all_of": ["1080_ti"]},
     "rtx8000": {"all_of": ["rtx_8000"]},
 }
-# this takes precedence over FEATURE_INCLUDE_WHEN
-FEATURE_EXCLUDE_WHEN = {}
-FEATURE_EXCLUDE_REGEXES = []
 
 
 def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
@@ -243,14 +240,6 @@ def main():
     features.update(get_vram_features(vram_MiB, _module))
     # features.update(get_nvlink_features(_module))
     features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))  # add feature aliases
-    # exclude excluded features
-    features_to_remove = set()
-    for feature in features:
-        for exclude_regex in FEATURE_EXCLUDE_REGEXES:
-            if re.match(exclude_regex, feature):
-                features_to_remove.add(feature)
-    features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
-    features.difference_update(features_to_remove)
 
     _module.exit_json(
         ansible_facts={
