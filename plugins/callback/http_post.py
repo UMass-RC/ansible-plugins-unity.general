@@ -64,6 +64,12 @@ DOCUMENTATION = r"""
     - L(slack-sdk,https://pypi.org/project/slack-sdk/) (optional)
     - HTTPS web server that allows file upload
   options:
+    enable:
+      description:
+      type: bool
+      default: true
+      env:
+        - name: DO_POST
     upload_url:
       description: URL to upload the log to
       type: str
@@ -208,6 +214,8 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
 
     def deduped_playbook_on_end(self):
+        if not self.get_option("enable"):
+            return
         if not self._display.buffer:
             self._real_display.warning(
                 "http_post: log not uploaded because there is nothing to upload."
