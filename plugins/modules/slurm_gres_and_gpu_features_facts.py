@@ -202,7 +202,7 @@ def get_nvlink_features(_module: AnsibleModule) -> set[str]:
     return set()
 
 
-def get_gpu_table(_module: AnsibleModule) -> list[list]:
+def get_gpu_table(_module: AnsibleModule) -> list[list[str, int, float]]:
     nv_smi_out = _check_output(
         [
             "nvidia-smi",
@@ -233,7 +233,9 @@ def main():
     for row in gpu_table[1:]:
         for i, row in enumerate(gpu_table, start=1):
             if row != gpu_table[0]:
-                _module.fail_json(msg=f"GPU {i} is different from GPU 0! all GPUs must be the same")
+                _module.fail_json(
+                    msg=f"GPU {i} is different from GPU 0! all GPUs must be the same.\n{gpu_table}"
+                )
     model_name, vram_MiB, cc = gpu_table[0]
     gres = f"gpu:{model_name}:{len(gpu_table)}"
     features = {model_name}
