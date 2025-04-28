@@ -220,7 +220,7 @@ def get_gpu_table(_module: AnsibleModule) -> list[list]:
         output.append(
             [
                 translate_model_name(model_name.strip()),
-                int(re.sub(r"\s+MiB$", "", vram_MiB.strip())),
+                int(re.sub(r"\s+MiB$", "", vram_MiB)),
                 float(cc),
             ]
         )
