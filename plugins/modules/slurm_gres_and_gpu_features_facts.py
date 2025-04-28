@@ -202,8 +202,7 @@ def get_nvlink_features(_module: AnsibleModule) -> set[str]:
     return set()
 
 
-def main():
-    _module = AnsibleModule(argument_spec={})
+def get_gpu_table(_module: AnsibleModule) -> list[list]:
     nv_smi_out = _check_output(
         [
             "nvidia-smi",
@@ -214,14 +213,28 @@ def main():
         timeout_sec=NV_SMI_TIMEOUT_SEC,
     )
     gpu_table = [line.split(",") for line in nv_smi_out.splitlines()]
-    gpu_table = [[x.strip() for x in row] for row in gpu_table]
+    if not all(len(row) == 3 for row in gpu_table):
+        _module.fail_json(f"unexpected nvidia-smi output: {nv_smi_out}")
+    output = []
+    for model_name, vram_MiB, cc in gpu_table:
+        output.append(
+            [
+                translate_model_name(model_name.strip()),
+                int(re.sub(r"\s+MiB$", "", vram_MiB.strip())),
+                float(cc),
+            ]
+        )
+    return output
+
+
+def main():
+    _module = AnsibleModule(argument_spec={})
+    gpu_table = get_gpu_table(_module)
     for row in gpu_table[1:]:
         for i, row in enumerate(gpu_table, start=1):
             if row != gpu_table[0]:
                 _module.fail_json(msg=f"GPU {i} is different from GPU 0! all GPUs must be the same")
-    model_name = translate_model_name(gpu_table[0][0])
-    vram_MiB = int(re.sub(r"\s+MiB$", "", gpu_table[0][1]))
-    cc = float(gpu_table[0][2])
+    model_name, vram_MiB, cc = gpu_table[0]
     gres = f"gpu:{model_name}:{len(gpu_table)}"
     features = {model_name}
     features.update(get_cuda_compute_capability_features(cc, _module))
