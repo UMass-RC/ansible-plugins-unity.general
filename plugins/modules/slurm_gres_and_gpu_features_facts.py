@@ -194,11 +194,11 @@ def get_vram_features(_module: AnsibleModule, vram_wasted_warning_threshold_GB=2
         _module.fail_json(
             msg=f"VRAM size must be identical for all GPUs. found: {found_vram_sizes_MiB}"
         )
-    vram_size_GB = found_vram_sizes_MiB[0] * 1024 * 1024 / 1000000000
+    vram_size_GB = round(found_vram_sizes_MiB[0] * 1024 * 1024 / 1000000000)
     qualified_vram_features = {x for x in VRAM_FEATURES if x <= vram_size_GB}
     if (wasted := vram_size_GB - max(qualified_vram_features)) > vram_wasted_warning_threshold_GB:
         _module.warn(
-            "largest VRAM feature %.2f is %.2f GB smaller than actual VRAM size %.2f"
+            "largest VRAM feature %s is %s GB smaller than actual VRAM size %s"
             % (max(qualified_vram_features), wasted, vram_size_GB)
         )
     return {f"vram{x}" for x in qualified_vram_features}
