@@ -34,9 +34,6 @@ slurm_gpu_features:
 """
 
 import re
-import shutil
-import signal
-import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 
