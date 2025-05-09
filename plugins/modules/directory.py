@@ -96,17 +96,19 @@ def main():
     result["diff"]["before_header"] = format_total_file_subdir_counts(path)
 
     if expected_not_found := set(expected_listing) - set(before_listing):
-        module.fail_json(
-            " ".join(
-                [
-                    f"the following items were expected but not found: {expected_not_found}.",
-                    f"directory: '{path}'"
-                    f"all items found: '{before_listing}'"
-                    "This module only deletes, it doesn't create.",
-                ]
-            ),
-            **result,
+        msg = " ".join(
+            [
+                f"the following items were expected but not found: {expected_not_found}.",
+                f"directory: '{path}'."
+                f"all items found: '{before_listing}'."
+                "this module only deletes, it doesn't create.",
+            ]
         )
+        if module.check_mode:
+            msg += " outside check mode this error is fatal."
+            module.warn(msg)
+        else:
+            module.fail_json(msg, **result)
 
     to_remove = set(before_listing) - set(expected_listing)
     result["changed"] = len(to_remove) > 0
