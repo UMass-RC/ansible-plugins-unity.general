@@ -97,11 +97,11 @@ def main():
 
     if expected_not_found := set(expected_listing) - set(before_listing):
         module.fail_json(
-            "\n".join(
+            " ".join(
                 [
                     f"the following items were expected but not found: {expected_not_found}.",
-                    f"directory: {path}"
-                    f"all items found: {before_listing}"
+                    f"directory: '{path}'"
+                    f"all items found: '{before_listing}'"
                     "This module only deletes, it doesn't create.",
                 ]
             ),
@@ -137,12 +137,12 @@ def main():
         # double check
         if set(after_listing) != set(expected_listing):
             module.fail_json(
-                "\n".join(
+                " ".join(
                     [
                         "directory listing after deletions does not match the expected listing!",
                         "was some other process also modifying this directory?",
-                        f"expected listing: {expected_listing}",
-                        f"current listing: {after_listing}",
+                        f"expected listing: '{expected_listing}'",
+                        f"current listing: '{after_listing}'",
                     ]
                 ),
                 **result,
