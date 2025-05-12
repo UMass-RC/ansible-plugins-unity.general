@@ -98,7 +98,7 @@ def main():
     if expected_not_found := set(expected_listing) - set(before_listing):
         msg = " ".join(
             [
-                f"the following items were expected but not found: {expected_not_found}.",
+                f"the following items were expected but not found: {sorted(list(expected_not_found))}.",
                 f"directory: '{path}'."
                 f"all items found: {sorted(list(before_listing))}."
                 "this module only deletes, it doesn't create.",
