@@ -91,8 +91,8 @@ def main():
     if not os.path.isdir(path):
         module.fail_json(f"Path {path} is not a directory", **result)
 
-    before_listing = listdir_classify_subdirs(path)
-    result["diff"]["before"] = "\n".join(sorted(before_listing))
+    before_listing = sorted(listdir_classify_subdirs(path))
+    result["diff"]["before"] = "\n".join(before_listing)
     result["diff"]["before_header"] = format_total_file_subdir_counts(path)
 
     if expected_not_found := set(expected_listing) - set(before_listing):
@@ -100,7 +100,7 @@ def main():
             [
                 f"the following items were expected but not found: {sorted(list(expected_not_found))}.",
                 f"directory: '{path}'."
-                f"all items found: {sorted(list(before_listing))}."
+                f"all items found: {before_listing}."
                 "this module only deletes, it doesn't create.",
             ]
         )
@@ -118,7 +118,7 @@ def main():
     else:
         # remove items one at a time from diff so that diff is accurate even if error occurs
         # during middle of loop
-        result["diff"]["after"] = "\n".join(sorted(before_listing))
+        result["diff"]["after"] = "\n".join(before_listing)
         for item in to_remove:
             full_path = os.path.join(path, item.rstrip("/"))
             try:
