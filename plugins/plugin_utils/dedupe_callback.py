@@ -79,7 +79,9 @@ def _apt_redact_autoremove(diff: dict[str, object]) -> None:
 
 
 for action_name in add_internal_fqcns(["apt", "package"]):
-    _DIFF_FILTERS[action_name] = [_apt_redact_not_upgraded, _apt_redact_autoremove]
+    _DIFF_FILTERS.setdefault(action_name, []).extend(
+        [_apt_redact_not_upgraded, _apt_redact_autoremove]
+    )
 
 
 def _template_redact_tmpfile(diff: dict[str, object]) -> None:
@@ -88,7 +90,22 @@ def _template_redact_tmpfile(diff: dict[str, object]) -> None:
 
 
 for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_diff.template"]:
-    _DIFF_FILTERS[action_name] = [_template_redact_tmpfile]
+    _DIFF_FILTERS.setdefault(action_name, []).append(_template_redact_tmpfile)
+
+
+def _delete_comments_and_then_delete_empty_lines(diff: dict[str, object]) -> None:
+    # AnsibleUnsafeText has splitlines()
+    for key in ["before", "after"]:
+        if hasattr(diff.get(key, None), "splitlines"):
+            diff[key] = "\n".join([x for x in diff[key].splitlines() if not re.match(r"^#", x)])
+            diff[key] = re.sub(r"\n{2,}", "\n", diff[key])
+
+
+for action_name in add_internal_fqcns(["copy", "template"]) + [
+    "unity.copy_multi_diff.copy",
+    "unity.template_multi_diff.template",
+]:
+    _DIFF_FILTERS.setdefault(action_name, []).append(_delete_comments_and_then_delete_empty_lines)
 
 
 @beartype
