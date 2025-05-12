@@ -100,7 +100,7 @@ def main():
             [
                 f"the following items were expected but not found: {expected_not_found}.",
                 f"directory: '{path}'."
-                f"all items found: '{before_listing}'."
+                f"all items found: {sorted(list(before_listing))}."
                 "this module only deletes, it doesn't create.",
             ]
         )
