@@ -143,8 +143,8 @@ def main():
                     [
                         "directory listing after deletions does not match the expected listing!",
                         "was some other process also modifying this directory?",
-                        f"expected listing: '{expected_listing}'",
-                        f"current listing: '{after_listing}'",
+                        f"expected listing: {expected_listing}",
+                        f"current listing: {after_listing}",
                     ]
                 ),
                 **result,
