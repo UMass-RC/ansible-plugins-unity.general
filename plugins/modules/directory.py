@@ -57,7 +57,7 @@ import traceback
 from ansible.module_utils.basic import AnsibleModule
 
 
-def listdir_classify_subdirs(path: str) -> list[str]:
+def listdir_classify_subdirs(path: str):
     "os.listdir but directories get a trailing '/'. see the `--classify` argument for `ls`"
     return [x + ("/" if os.path.isdir(os.path.join(path, x)) else "") for x in os.listdir(path)]
 
