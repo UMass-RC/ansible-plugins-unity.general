@@ -150,6 +150,8 @@ def main():
                 **result,
             )
 
+    if (not module._diff) or module.no_log:
+        del result["diff"]
     module.exit_json(**result)
 
 
