@@ -170,7 +170,7 @@ def get_cuda_compute_capability_features(cc: float, _module: AnsibleModule) -> s
 def get_vram_features(
     vram_size_MiB: int, _module: AnsibleModule, vram_wasted_warning_threshold_GB=2
 ) -> set[str]:
-    vram_size_GB = round(vram_size_MiB * 1024 * 1024 / 1000000000)
+    vram_size_GB = int(vram_size_MiB * 1024 * 1024 / 1000000000)
     qualified_vram_features = {x for x in VRAM_FEATURES if x <= vram_size_GB}
     if (wasted := vram_size_GB - max(qualified_vram_features)) > vram_wasted_warning_threshold_GB:
         _module.warn(
