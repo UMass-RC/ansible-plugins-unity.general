@@ -401,6 +401,14 @@ class DedupeCallback(CallbackBase):
             }
             result._result["msg"] = json.dumps(skipped_info)
 
+        # debug var=... is a special case
+        if (
+            result.task_name in add_internal_fqcns(["debug"])
+            and "msg" not in result._result
+            and "var" in result._task.args
+        ):
+            result._result["msg"] = str(result._result[result._task.args["var"]])
+
         if "msg" in result._result:
             result._result["msg"] = _anonymize(hostname, item, result._result["msg"])
         gist = ResultGist(
