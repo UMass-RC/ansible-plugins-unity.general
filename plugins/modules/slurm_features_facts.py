@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
+# archspec hardcoded instead because module dependencies are weird
+# requirements:
+#   - L(archspec,https://pypi.org/project/archspec/)
 DOCUMENTATION = r"""
 name: slurm_features_facts
 short_description: facts module that finds Slurm features for this machine
 description: ""
-requirements:
-  - L(archspec,https://pypi.org/project/archspec/)
 author: Simon Leary <simon.leary42@proton.me>
 version_added: 2.18.1
 """
