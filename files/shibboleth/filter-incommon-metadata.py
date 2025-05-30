@@ -9,6 +9,7 @@ import sys
 import json
 import urllib.error
 import urllib.request
+import urllib.parse
 from io import BytesIO
 import xml.etree.ElementTree as ET  # filtering logic doesn't work with lxml
 
@@ -16,8 +17,8 @@ from lxml import etree as lxml_etree  # xmlsec requires lxml
 import xmlsec
 
 ENTITIES_DESCRIPTOR_ELEMENT = "<EntitiesDescriptor></EntitiesDescriptor>\n"
-INCOMMON_METADATA_URL = "http://md.incommon.org/InCommon/InCommon-metadata.xml"
-INCOMMON_METADATA_CERT_URL = "https://ds.incommon.org/certs/inc-md-cert.pem"
+INCOMMON_METADATA_URL = "https://mdq.incommon.org/entities"
+INCOMMON_METADATA_CERT_URL = "https://mdq.incommon.org/certs/inc-md-cert-mdq.pem"
 
 
 def verify_incommon_metadata(metadata_file: BytesIO) -> None:
@@ -33,32 +34,34 @@ def verify_incommon_metadata(metadata_file: BytesIO) -> None:
         ctx.verify(signature_node)
 
 
-def filter_xml(xml_file_pointer: BytesIO, idp_entity_ids: list[str]):
+def build_xml(entities: list[BytesIO]):
     idp_records = []
     namespace_keys = []
-
-    for event, element in ET.iterparse(xml_file_pointer, events=("end", "start-ns")):
-        if event == "start-ns":
-            # Prevent weird clobbering issue
-            if element[0] not in namespace_keys:
-                namespace_keys.append(element[0])
-                ET.register_namespace(*element)
-        elif event == "end":
-            if "EntityDescriptor" in element.tag and element.attrib["entityID"] in idp_entity_ids:
-                idp_records.append(element)
-
+    for entity in entities:
+        for event, element in ET.iterparse(entity, events=("end", "start-ns")):
+            if event == "start-ns":
+                # Prevent weird clobbering issue
+                if element[0] not in namespace_keys:
+                    namespace_keys.append(element[0])
+                    ET.register_namespace(*element)
+            elif event == "end":
+                if "EntityDescriptor" in element.tag:
+                    idp_records.append(element)
     subtree = ET.ElementTree(element=ET.fromstring(ENTITIES_DESCRIPTOR_ELEMENT))
     subtree.getroot().extend(idp_records)
-
     return subtree
-
 
 if __name__ == "__main__":
     assert not sys.stdin.isatty()
     entity_includelist = json.load(sys.stdin)
-    with urllib.request.urlopen(INCOMMON_METADATA_URL) as inc_md_download:
-        inc_md_data_stream = BytesIO(inc_md_download.read())
-        verify_incommon_metadata(inc_md_data_stream)
-        inc_md_data_stream.seek(0)  # reset pointer to beginning of file so it can be parsed again
-        subtree = filter_xml(inc_md_data_stream, entity_includelist)
-        subtree.write(sys.stdout.buffer, encoding="UTF-8", xml_declaration=False, method="xml")
+
+    entity_docs = []
+    for entity in entity_includelist:
+        urlenc_entity = urllib.parse.quote(entity, safe='')
+        with urllib.request.urlopen(f"{INCOMMON_METADATA_URL}/{urlenc_entity}") as inc_md_download:
+            xml_doc = inc_md_download.read()
+            inc_md_data_stream = BytesIO(xml_doc)
+            verify_incommon_metadata(inc_md_data_stream)
+            entity_docs.append(inc_md_data_stream)
+    subtree = build_xml(entity_docs)
+    subtree.write(sys.stdout.buffer, encoding="UTF-8", xml_declaration=False, method="xml")
