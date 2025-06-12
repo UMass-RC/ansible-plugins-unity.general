@@ -57,7 +57,7 @@ import traceback
 from ansible.module_utils.basic import AnsibleModule
 
 
-def listdir_classify_subdirs(path: str) -> list[str]:
+def listdir_classify_subdirs(path: str):
     "os.listdir but directories get a trailing '/'. see the `--classify` argument for `ls`"
     return [x + ("/" if os.path.isdir(os.path.join(path, x)) else "") for x in os.listdir(path)]
 
@@ -91,22 +91,24 @@ def main():
     if not os.path.isdir(path):
         module.fail_json(f"Path {path} is not a directory", **result)
 
-    before_listing = listdir_classify_subdirs(path)
-    result["diff"]["before"] = "\n".join(sorted(before_listing))
+    before_listing = sorted(listdir_classify_subdirs(path))
+    result["diff"]["before"] = "\n".join(before_listing)
     result["diff"]["before_header"] = format_total_file_subdir_counts(path)
 
     if expected_not_found := set(expected_listing) - set(before_listing):
-        module.fail_json(
-            "\n".join(
-                [
-                    f"the following items were expected but not found: {expected_not_found}.",
-                    f"directory: {path}"
-                    f"all items found: {before_listing}"
-                    "This module only deletes, it doesn't create.",
-                ]
-            ),
-            **result,
+        msg = " ".join(
+            [
+                f"the following items were expected but not found: {sorted(list(expected_not_found))}.",
+                f"directory: '{path}'."
+                f"all items found: {before_listing}."
+                "this module only deletes, it doesn't create.",
+            ]
         )
+        if module.check_mode:
+            msg += " outside check mode this error is fatal."
+            module.warn(msg)
+        else:
+            module.fail_json(msg, **result)
 
     to_remove = set(before_listing) - set(expected_listing)
     result["changed"] = len(to_remove) > 0
@@ -116,7 +118,7 @@ def main():
     else:
         # remove items one at a time from diff so that diff is accurate even if error occurs
         # during middle of loop
-        result["diff"]["after"] = "\n".join(sorted(before_listing))
+        result["diff"]["after"] = "\n".join(before_listing)
         for item in to_remove:
             full_path = os.path.join(path, item.rstrip("/"))
             try:
@@ -137,7 +139,7 @@ def main():
         # double check
         if set(after_listing) != set(expected_listing):
             module.fail_json(
-                "\n".join(
+                " ".join(
                     [
                         "directory listing after deletions does not match the expected listing!",
                         "was some other process also modifying this directory?",
