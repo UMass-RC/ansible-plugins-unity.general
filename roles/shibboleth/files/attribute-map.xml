@@ -1,5 +1,4 @@
-{{ ansible_managed | comment('xml') }}
-{% raw %}
+<!-- this file is managed by ansible -->
 <Attributes xmlns="urn:mace:shibboleth:2.0:attribute-map" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Attribute name="urn:oasis:names:tc:SAML:attribute:subject-id" id="subject-id">
         <AttributeDecoder xsi:type="ScopedAttributeDecoder" caseSensitive="false"/>
@@ -34,5 +33,3 @@
     <Attribute name="urn:mace:dir:attribute-def:givenName" id="givenName"/>
     <Attribute name="urn:mace:dir:attribute-def:mail" id="mail"/>
 </Attributes>
-{% endraw %}
-{{'\n'}}

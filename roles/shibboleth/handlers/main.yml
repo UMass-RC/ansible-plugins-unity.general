@@ -1,34 +1,6 @@
-# the order here is the order that the handlers are executed
-# daemon-reload should come before reload/restart
-
-- name: systemctl daemon-reload
-  ansible.builtin.systemd:
-    daemon_reload: true
-
-- name: systemctl restart shibd allowed
-  ansible.builtin.systemd:
-    name: shibd
-    state: restarted
-  when: (shib_allow_restart | bool) is true and (shib_systemd_running | bool) is true
-  listen: systemctl restart shibd
-
-- name: systemctl restart shibd disallowed due to `shib_allow_restart` # noqa: ignore-errors
-  warning:
-    msg: |
-      #### ACTION REQUIRED ####
-      the shibd service needs to be restarted, but I am not allowed to do this.
-      you should wait to restart until your web server has little to no traffic.
-      in the future, you can allow me to restart with the `shib_allow_restart` parameter.
-  when: (shib_allow_restart | bool) is false
-  listen: systemctl restart shibd
-
-- name: systemctl restart shibd disallowed due to `shib_systemd_running` # noqa: ignore-errors
-  warning:
-    msg: |
-      #### WARNING ####
-      the shibd service needs to be restarted to apply changes, but shibd isn't supposed to be running.
-  when: (shib_systemd_running | bool) is false
-  listen: systemctl restart shibd
+- name: systemctl restart shibd
+  ansible.builtin.shell: shibd -t && systemctl restart shibd
+  changed_when: true
 
 - name: systemctl reload supervisor
   ansible.builtin.systemd:

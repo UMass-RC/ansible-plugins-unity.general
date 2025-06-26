@@ -1,0 +1,17 @@
+- name: install SP cert
+  unity.template_multi_diff.template:
+    src: sp-cert.pem.j2
+    dest: /srv/certs/shib/sp-cert.pem
+    owner: _shibd
+    group: root
+    mode: "0600"
+  notify: systemctl restart shibd
+
+- name: install SP key
+  unity.template_multi_diff.template:
+    src: sp-key.pem.j2
+    dest: /srv/certs/shib/sp-key.pem
+    owner: _shibd
+    group: root
+    mode: "0600"
+  notify: systemctl restart shibd
