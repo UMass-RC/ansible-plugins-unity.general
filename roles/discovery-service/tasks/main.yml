@@ -3,16 +3,78 @@
     name:
       - git
 
-- name: make sure install prefix is a directory
-  unity.file_multi_diff.file:
-    path: "{{ discovery_service_install_prefix }}"
-    state: directory
+- name: fail if install prefix ends in slash
+  fail:
+    msg: please remove trailing slashes from discovery_service_install_prefix
+  when: discovery_service_install_prefix is regex('/$')
 
-- name: git pull discovery service # noqa: latest[git]
-  ansible.builtin.git:
-    repo: https://github.com/UMass-RC/unity-discovery-service.git
-    dest: "{{ discovery_service_install_prefix }}"
-    depth: 1 # shallow clone
+- name: ensure directories exist
+  unity.file_multi_diff.file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ discovery_service_install_prefix }}/eds/res"
+    - "{{ discovery_service_install_prefix }}-{{ discovery_service_version }}.dist"
+
+- name: download and extract discovery service distribution (if 404, time to upgrade)
+  ansible.builtin.unarchive:
+    # using "latest" so that this will fail when it is no longer the latest and we will know to upgrade
+    # stable url: https://shibboleth.net/downloads/embedded-discovery-service/{{ discovery_service_version }}/shibboleth-embedded-ds-{{ discovery_service_version }}.tar.gz
+    src: https://shibboleth.net/downloads/embedded-discovery-service/latest/shibboleth-embedded-ds-{{ discovery_service_version }}.tar.gz
+    dest: "{{ discovery_service_install_prefix }}-{{ discovery_service_version }}.dist/"
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+    extra_opts: [--strip-components=1]
+  check_mode: false
+
+# FIXME no diff https://github.com/ansible/ansible/issues/84309
+- name: copy files from distribution to production
+  unity.copy_multi_diff.copy:
+    src: "{{ discovery_service_install_prefix }}-{{ discovery_service_version }}.dist/{{ item }}"
+    dest: "{{ discovery_service_install_prefix }}/eds/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+  loop:
+    - idpselect.css
+    - idpselect.js
+    - idpselect_config.js
+
+- name: copy logos
+  unity.copy_multi_diff.copy:
+    src: "files/img/logo/{{ item[0] }}"
+    dest: "{{ discovery_service_install_prefix }}/eds/res/{{ item[1] | default(item[0] | basename) }}"
+    owner: root
+    group: root
+    mode: "0644"
+  diff: false
+  loop:
+    - [wide/unity.png, logo.png]
+    - [wide/mtholyoke.svg]
+    - [wide/umass-amherst-M-2words.svg, umass.svg]
+    - [square/umassd.svg]
+    - [wide/umb.svg]
+    - [square/uml.svg]
+    - [wide/uri.svg]
+
+- name: install index.html
+  unity.template_multi_diff.template:
+    src: index.html.j2
+    dest: "{{ discovery_service_install_prefix }}/eds/index.html"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: install custom.css
+  unity.copy_multi_diff.copy:
+    src: custom.css
+    dest: "{{ discovery_service_install_prefix }}/eds/custom.css"
+    owner: root
+    group: root
+    mode: "0644"
 
 # before the noble upgrade, this wasn't necessary, and I don't know why. see proxmox VM ood-head-old-20.04
 - name: reminder to configure apache
