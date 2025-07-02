@@ -5,8 +5,8 @@
 <head>
   <title>Unity Single Sign-On</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-5" />
-  <link rel="stylesheet" type="text/css" href="idpselect.css" />
-  <link rel="stylesheet" type="text/css" href="custom.css" />
+  <link rel="stylesheet" type="text/css" href="idpselect.css?v={{ flush_browser_cache_increment_me }}" />
+  <link rel="stylesheet" type="text/css" href="custom.css?v={{ flush_browser_cache_increment_me }}" />
 </head>
 
 <body>
@@ -23,7 +23,7 @@
       document.getElementById("idpSelect").appendChild(selector_header);
     </script>
 
-    <script src="idpselect_config.js" type="text/javascript" language="javascript"></script>
+    <script src="idpselect_config.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
 
     <script>
       // idpselect.js gets its config by calling `new IdPSelectUIParms()`
@@ -89,7 +89,7 @@
       IdPSelectUIParms = function () { return my_ui_parms }
     </script>
 
-    <script src="idpselect.js" type="text/javascript" language="javascript"></script>
+    <script src="idpselect.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
 
     <script>
       document.querySelectorAll(".IdPSelectIdPImg").forEach(function (img) {
