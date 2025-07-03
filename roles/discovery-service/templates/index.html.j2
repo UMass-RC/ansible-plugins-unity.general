@@ -97,7 +97,7 @@
         img.removeAttribute("width");
         img.removeAttribute("height");
         // use hard coded images instead of fetching from metadata
-        if (img.src !== my_ui_parms.defaultLogo) {
+        if (img.alt !== my_ui_parms.langBundles.en.defaultLogoAlt) {
           // www.foo.bar.com -> res/bar.svg
           const src_domain_components = (new URL(img.src)).hostname.split(".");
           img.src = 'res/' + src_domain_components[src_domain_components.length - 2] + '.svg';
