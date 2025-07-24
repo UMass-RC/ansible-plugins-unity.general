@@ -212,7 +212,7 @@ def get_gpu_table(_module: AnsibleModule) -> list[list[str, int, float]]:
     for model_name, vram_MiB, cc in gpu_table:
         output.append(
             [
-                translate_model_name(model_name.strip()),
+                model_name.strip(),
                 int(re.sub(r"\s+MiB$", "", vram_MiB)),
                 float(cc),
             ]
@@ -229,7 +229,8 @@ def main():
                 _module.fail_json(
                     msg=f"GPU {i} is different from GPU 0! all GPUs must be the same.\n{gpu_table}"
                 )
-    model_name, vram_MiB, cc = gpu_table[0]
+    full_model_name, vram_MiB, cc = gpu_table[0]
+    model_name = translate_model_name(full_model_name)
     gres = f"gpu:{model_name}:{len(gpu_table)}"
     features = {model_name}
     features.update(get_cuda_compute_capability_features(cc, _module))
@@ -240,6 +241,7 @@ def main():
         ansible_facts={
             "slurm_gres": gres,
             "slurm_gpu_features": sorted(list(features)),
+            "gpu_translation": {full_model_name: model_name},
         }
     )
 
