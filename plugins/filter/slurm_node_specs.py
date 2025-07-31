@@ -297,6 +297,7 @@ def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
     return output
 
 
+# FIXME if node_specs is already unpacked, we get KeyError NodeName, beartype should catch that
 @beartype
 def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
     if not node_specs:
@@ -348,7 +349,6 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
 
 @beartype
 def cluster_mem(
-    _: object,
     node_specs_mem: NodeSpecsUnpacked = None,
     node_specs_nomem: NodeSpecsUnpacked = None,
     min_reduction_MB=100,
@@ -463,12 +463,32 @@ def slurm_node_specs_gpu_from_hostvars(
     return output
 
 
+@beartype
+def build_full_node_specs(
+    node_specs_packed_trio: list[NodeSpecsPacked],
+    min_memory_reduction_MB: int | None = None,
+    max_memory_reduction_MB: int | None = None,
+) -> NodeSpecsUnpacked:
+    "combine the mem, nomem, and hardcoded node specs, and adjust the mem for better groupings"
+    mem, nomem, hardcoded = node_specs_packed_trio
+    hardcoded_unpacked = unpack(hardcoded)
+    nomem_unpacked = unpack(nomem)
+    mem_unpacked = unpack(mem)
+    cluster_mem_kwargs = {}
+    if min_memory_reduction_MB is not None:
+        cluster_mem_kwargs["min_reduction_MB"] = min_memory_reduction_MB
+    if max_memory_reduction_MB is not None:
+        cluster_mem_kwargs["max_reduction_MB"] = max_memory_reduction_MB
+    mem_clustered_unpacked = cluster_mem(mem_unpacked, nomem_unpacked, **cluster_mem_kwargs)
+    return _merge(hardcoded_unpacked, _merge(mem_clustered_unpacked, nomem_unpacked))
+
+
 class FilterModule:
     def filters(self):
         return dict(
             slurm_node_specs_pack=pack,
             slurm_node_specs_unpack=unpack,
-            slurm_node_specs_cluster_realmemory=cluster_mem,
+            slurm_build_full_node_specs=build_full_node_specs,
             slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
