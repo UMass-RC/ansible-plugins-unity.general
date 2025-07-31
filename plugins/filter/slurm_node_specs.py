@@ -531,9 +531,10 @@ def slurm_partitions_group_by_arch(
     valid_arches: list[_str],
 ) -> dict[_str, list[_str]]:
     partition2nodes = _unfold_unalias_partition_nodes(partitions, aliases)
-    hostname2arch = {}
-    for hostname, node_specs in full_node_specs_unpacked.items():
-        hostname2arch[hostname] = _get_arch(node_specs, valid_arches)
+    hostname2arch = {
+        hostname: _get_arch(node_specs, valid_arches)
+        for hostname, node_specs in full_node_specs_unpacked.items()
+    }
     output = {}
     for partition, nodes in partition2nodes.items():
         for hostname in nodes:
