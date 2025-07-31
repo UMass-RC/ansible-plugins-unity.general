@@ -506,8 +506,8 @@ def build_full_node_specs(
 
 
 @beartype
-def _unfold_unalias_partition_nodes(
-    partitions: list[PartitionData], aliases: dict[_str, _str]
+def slurm_nodes_group_by_partition(
+    partitions: list[PartitionData], aliases: dict[_str, list[_str]]
 ) -> dict[_str, list[_str]]:
     "given partition data and a list of aliases, build a mapping from partition name to node list"
     output = {}
@@ -527,12 +527,10 @@ def _get_arch(node_specs: NodeSpecs, valid_arches):
 
 @beartype
 def slurm_partitions_group_by_arch(
-    partitions: list[PartitionData],
-    aliases: dict[_str, _str],
+    partition2nodes: dict[_str, list[_str]],
     full_node_specs_unpacked: NodeSpecsUnpacked,
     valid_arches: list[_str],
 ) -> dict[_str, list[_str]]:
-    partition2nodes = _unfold_unalias_partition_nodes(partitions, aliases)
     hostname2arch = {
         hostname: _get_arch(node_specs, valid_arches)
         for hostname, node_specs in full_node_specs_unpacked.items()
@@ -543,6 +541,24 @@ def slurm_partitions_group_by_arch(
             output.setdefault(hostname2arch[hostname], set()).add(partition)
     output = {k: sorted(list(v)) for k, v in output.items()}
     return output
+
+
+@beartype
+def slurm_partitions_where_all_nodes_have_gpus(
+    partition2nodes: dict[_str, list[_str]],
+    full_node_specs_unpacked: NodeSpecsUnpacked,
+) -> dict[_str, list[_str]]:
+    output = set(partition2nodes.keys())
+    gpu_gres_regex = re.compile(r"(gpu:\w+:[1-9]\d*)|(gpu:[1-9]\d*)")
+    for partition, nodes in partition2nodes.items():
+        for hostname in nodes:
+            for gres in full_node_specs_unpacked[hostname].get("Gres", "").split(","):
+                if not gpu_gres_regex.fullmatch(gres):
+                    output.remove(partition)
+                    break
+            if partition not in output:
+                break
+    return sorted(output)
 
 
 @beartype
@@ -579,6 +595,8 @@ class FilterModule:
             slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
+            slurm_nodes_group_by_partition=slurm_nodes_group_by_partition,
             slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
             slurm_mpi_constraints=slurm_mpi_constraints,
+            slurm_partitions_where_all_nodes_have_gpus=slurm_partitions_where_all_nodes_have_gpus,
         )
