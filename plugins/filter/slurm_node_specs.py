@@ -347,6 +347,8 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
             if reduction != 0:
                 reduction2hostnames.setdefault(reduction, []).append(hostname)
         for reduction, hostnames in reduction2hostnames.items():
+            if reduction <= 100:
+                continue
             reduced_hostnames_folded = _fold_node_set(hostnames)
             display.warning(
                 f"{reduced_hostnames_folded} RealMemory reduced by {reduction} MB to match {sorted_memoryMB_hostname[0][1]}"
