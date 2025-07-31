@@ -541,7 +541,7 @@ def slurm_partitions_group_by_arch(
     for partition, nodes in partition2nodes.items():
         for hostname in nodes:
             output.setdefault(hostname2arch[hostname], set()).add(partition)
-    output = {k: list(v) for k, v in output.items()}
+    output = {k: sorted(list(v)) for k, v in output.items()}
     return output
 
 
@@ -566,7 +566,7 @@ def slurm_mpi_constraints(
         for hostname in arch2hostnames[arch]:
             this_host_features = full_node_specs_unpacked[hostname]["Features"]
             features.update(set([x for x in this_host_features if feature_regex.match(x)]))
-        output[arch] = f"[{"|".join(features)}]"
+        output[arch] = f"[{"|".join(sorted(list(features)))}]"
     return output
 
 
