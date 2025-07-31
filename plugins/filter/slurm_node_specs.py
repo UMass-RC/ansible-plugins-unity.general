@@ -87,9 +87,10 @@ from ansible.parsing.yaml.objects import AnsibleUnicode
 from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
 type _str = (str | AnsibleUnicode)
-type _spec_value = (_str | int | list[_str])
-type NodeSpecsPacked = list[dict[_str, _spec_value]]
-type NodeSpecsUnpacked = dict[_str, dict[_str, _spec_value]]
+type NodeSpecs = dict[_str, (_str | int | list[_str])]
+type PartitionData = dict[_str, (_str | int | list[_str])]
+type NodeSpecsPacked = list[NodeSpecs]
+type NodeSpecsUnpacked = dict[_str, NodeSpecs]
 
 display = Display()
 
@@ -225,11 +226,29 @@ def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
 
 
 @beartype
-def _unfold_node_set(hostnames: str) -> list[str]:
+def _join_if_list(x: list | str) -> str:
+    return ",".join(x) if isinstance(x, list) else x
+
+
+@beartype
+def _expand_aliases(hostnames: str, aliases: dict) -> str:
+    output = list(NodeSet(_join_if_list(hostnames)))
+    for alias_name, alias_value in aliases.items():
+        for i, x in enumerate(output):
+            if x == alias_name:
+                output[i] = _join_if_list(alias_value)
+                break
+    return ",".join(output)
+
+
+@beartype
+def _unfold_node_set(hostnames: str, aliases: dict | None = None) -> list[str]:
     """
     "cpu[001-003,006]" -> ["cpu001", "cpu002", "cpu003", "cpu006"]
     "cpu[001-003],gpu[001-003]" -> ["cpu001", "cpu002", "cpu003", "gpu001", "gpu002", "gpu003"]
     """
+    if aliases is not None:
+        hostnames = _expand_aliases(hostnames, aliases)
     return list(NodeSet(hostnames))
 
 
@@ -483,6 +502,44 @@ def build_full_node_specs(
     return _merge(hardcoded_unpacked, _merge(mem_clustered_unpacked, nomem_unpacked))
 
 
+
+@beartype
+def _unfold_unalias_partition_nodes(
+    partitions: list[PartitionData], aliases: dict[_str, _str]
+) -> dict[_str, list[_str]]:
+    "given partition data and a list of aliases, build a mapping from partition name to node list"
+    output = {}
+    for partition in partitions:
+        output[partition["PartitionName"]] = _unfold_node_set(partition["Nodes"], aliases)
+    return output
+
+
+@beartype
+def _get_arch(node_specs: NodeSpecs, valid_arches):
+    arch_features = [x for x in node_specs["Features"] if x in valid_arches]
+    assert len(arch_features) == 1
+    return arch_features[0]
+
+
+@beartype
+def slurm_partitions_group_by_arch(
+    partitions: list[PartitionData],
+    aliases: dict[_str, _str],
+    full_node_specs_unpacked: NodeSpecsUnpacked,
+    valid_arches: list[_str],
+) -> dict[_str, list[_str]]:
+    partition2nodes = _unfold_unalias_partition_nodes(partitions, aliases)
+    hostname2arch = {}
+    for hostname, node_specs in full_node_specs_unpacked.items():
+        hostname2arch[hostname] = _get_arch(node_specs, valid_arches)
+    output = {}
+    for partition, nodes in partition2nodes.items():
+        for hostname in nodes:
+            output.setdefault(hostname2arch[hostname], set()).add(partition)
+    output = {k: list(v) for k, v in output.items()}
+    return output
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -492,4 +549,5 @@ class FilterModule:
             slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
+            slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
         )
