@@ -547,15 +547,20 @@ def slurm_partitions_group_by_arch(
 
 @beartype
 def slurm_mpi_constraints(
-    full_node_specs_unpacked: NodeSpecsUnpacked, arch2feature_regex: dict[_str, _str]
+    full_node_specs_unpacked: NodeSpecsUnpacked, arch2cpu_model_feature_regex: dict[_str, _str]
 ) -> dict[_str, _str]:
-    "returns a mapping from architecture to constraint"
-    valid_arches = list(arch2feature_regex.keys())
+    """
+    returns a mapping from architecture to constraint
+    an MPI job should require the same model CPU on all nodes
+    the square brackets make the constraint a "matching OR"
+    https://slurm.schedmd.com/sbatch.html#OPT_Matching-OR
+    """
+    valid_arches = list(arch2cpu_model_feature_regex.keys())
     arch2hostnames = {}
     for hostname, node_specs in full_node_specs_unpacked.items():
         arch2hostnames.setdefault(_get_arch(node_specs, valid_arches), []).append(hostname)
     output = {}
-    for arch, feature_regex_str in arch2feature_regex.items():
+    for arch, feature_regex_str in arch2cpu_model_feature_regex.items():
         features = set()
         feature_regex = re.compile(feature_regex_str)
         for hostname in arch2hostnames[arch]:
