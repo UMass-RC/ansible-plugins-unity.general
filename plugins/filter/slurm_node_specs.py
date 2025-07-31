@@ -540,6 +540,26 @@ def slurm_partitions_group_by_arch(
     return output
 
 
+@beartype
+def slurm_mpi_constraints(
+    full_node_specs_unpacked: NodeSpecsUnpacked, arch2feature_regex: dict[_str, _str]
+) -> dict[_str, _str]:
+    "returns a mapping from architecture to constraint"
+    valid_arches = list(arch2feature_regex.keys())
+    arch2hostnames = {}
+    for hostname, node_specs in full_node_specs_unpacked.items():
+        arch2hostnames.setdefault(_get_arch(node_specs, valid_arches), []).append(hostname)
+    output = {}
+    for arch, feature_regex_str in arch2feature_regex.items():
+        features = set()
+        feature_regex = re.compile(feature_regex_str)
+        for hostname in arch2hostnames[arch]:
+            this_host_features = full_node_specs_unpacked[hostname]["Features"]
+            features.update(set([x for x in this_host_features if feature_regex.match(x)]))
+        output[arch] = f"[{"|".join(features)}]"
+    return output
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -550,4 +570,5 @@ class FilterModule:
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
             slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
+            slurm_mpi_constraints=slurm_mpi_constraints,
         )
