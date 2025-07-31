@@ -517,7 +517,9 @@ def _unfold_unalias_partition_nodes(
 @beartype
 def _get_arch(node_specs: NodeSpecs, valid_arches):
     arch_features = [x for x in node_specs["Features"] if x in valid_arches]
-    assert len(arch_features) == 1
+    assert (
+        len(arch_features) == 1
+    ), f"exactly 1 architecture feature required. {node_specs["Features"]} -> {arch_features}"
     return arch_features[0]
 
 
