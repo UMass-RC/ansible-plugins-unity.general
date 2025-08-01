@@ -103,6 +103,8 @@ NODE_SPEC_ORDER = [
     "ThreadsPerCore",
 ]
 
+GPU_GRES_RE = re.compile(r"gpu:(\w+):\d+")
+
 
 @beartype
 def _fold_node_set(hostnames: list[str]) -> str:
@@ -504,7 +506,6 @@ def build_full_node_specs(
     return _merge(hardcoded_unpacked, _merge(mem_clustered_unpacked, nomem_unpacked))
 
 
-
 @beartype
 def slurm_nodes_group_by_partition(
     partitions: list[PartitionData], aliases: dict[_str, list[_str]]
@@ -544,21 +545,24 @@ def slurm_partitions_group_by_arch(
 
 
 @beartype
-def slurm_partitions_where_all_nodes_have_gpus(
+def slurm_partitions_group_by_gpu_presence(
     partition2nodes: dict[_str, list[_str]],
     full_node_specs_unpacked: NodeSpecsUnpacked,
 ) -> dict[_str, list[_str]]:
-    output = set(partition2nodes.keys())
-    gpu_gres_regex = re.compile(r"(gpu:\w+:[1-9]\d*)|(gpu:[1-9]\d*)")
+    output = {
+        "all_nodes": set(partition2nodes.keys()),
+        "no_nodes": set(partition2nodes.keys()),
+    }
     for partition, nodes in partition2nodes.items():
         for hostname in nodes:
-            for gres in full_node_specs_unpacked[hostname].get("Gres", "").split(","):
-                if not gpu_gres_regex.fullmatch(gres):
-                    output.remove(partition)
-                    break
-            if partition not in output:
-                break
-    return sorted(output)
+            gres_list = full_node_specs_unpacked[hostname].get("Gres", "").split(",")
+            if any(GPU_GRES_RE.fullmatch(gres) for gres in gres_list):
+                output["no_nodes"].discard(partition)
+            else:
+                output["all_nodes"].discard(partition)
+    output["some_nodes"] = set(partition2nodes.keys()) - output["all_nodes"] - output["no_nodes"]
+    output = {k: sorted(list(v)) for k, v in output.items()}
+    return output
 
 
 @beartype
@@ -586,6 +590,26 @@ def slurm_mpi_constraints(
     return output
 
 
+@beartype
+def slurm_gpus_and_vram_features(full_node_specs_unpacked: NodeSpecsUnpacked) -> list[int]:
+    output = set()
+    vram_feature_re = re.compile(r"vram(\d+)")
+    for node_specs in full_node_specs_unpacked.values():
+        gpu = None
+        for gres in node_specs.get("Gres", "").split(","):
+            if match := GPU_GRES_RE.fullmatch(gres):
+                gpu = match.group(1)
+                break
+        if not gpu:
+            continue
+        vram_features = []
+        for feature in node_specs.get("Features", []):
+            if match := vram_feature_re.fullmatch(feature):
+                vram_features.append(int(match.group(1)))
+        output.add((gpu, tuple(sorted(vram_features))))
+    return sorted(list(output))
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -597,6 +621,7 @@ class FilterModule:
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
             slurm_nodes_group_by_partition=slurm_nodes_group_by_partition,
             slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
+            slurm_partitions_group_by_gpu_presence=slurm_partitions_group_by_gpu_presence,
+            slurm_gpus_and_vram_features=slurm_gpus_and_vram_features,
             slurm_mpi_constraints=slurm_mpi_constraints,
-            slurm_partitions_where_all_nodes_have_gpus=slurm_partitions_where_all_nodes_have_gpus,
         )
