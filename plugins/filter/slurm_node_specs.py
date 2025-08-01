@@ -610,6 +610,21 @@ def slurm_gpus_and_vram_features(full_node_specs_unpacked: NodeSpecsUnpacked) ->
     return sorted(list(output))
 
 
+def slurm_gpus_group_by_partition(
+    full_node_specs_unpacked: NodeSpecsUnpacked,
+    partition2nodes: dict[_str, list[_str]],
+) -> dict[_str, list[_str]]:
+    output = {}
+    for partition, nodes in partition2nodes.items():
+        partition_gpus = set()
+        for hostname in nodes:
+            for gres in full_node_specs_unpacked[hostname].get("Gres", "").split(","):
+                if match := GPU_GRES_RE.fullmatch(gres):
+                    partition_gpus.add(match.group(1))
+        output[partition] = sorted(list(partition_gpus))
+    return output
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -623,5 +638,6 @@ class FilterModule:
             slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
             slurm_partitions_group_by_gpu_presence=slurm_partitions_group_by_gpu_presence,
             slurm_gpus_and_vram_features=slurm_gpus_and_vram_features,
+            slurm_gpus_group_by_partition=slurm_gpus_group_by_partition,
             slurm_mpi_constraints=slurm_mpi_constraints,
         )
