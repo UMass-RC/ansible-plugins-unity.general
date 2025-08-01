@@ -195,7 +195,7 @@ def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
 
 
 @beartype
-def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
+def slurm_node_specs_pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
     _node_specs = copy.deepcopy(node_specs)
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
@@ -320,7 +320,7 @@ def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
 
 # FIXME if node_specs is already unpacked, we get KeyError NodeName, beartype should catch that
 @beartype
-def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
+def slurm_node_specs_unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
     if not node_specs:
         return {}
     if isinstance(node_specs[0], dict):
@@ -336,7 +336,7 @@ type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
 
 
 @beartype
-def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
+def __cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
     if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
@@ -365,13 +365,13 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
     # https://stackoverflow.com/a/1724975/18696276
     return itertools.chain(
-        _cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
-        _cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
+        __cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
+        __cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
     )
 
 
 @beartype
-def cluster_mem(
+def _cluster_memory(
     node_specs_mem: NodeSpecsUnpacked = None,
     node_specs_nomem: NodeSpecsUnpacked = None,
     min_reduction_MB=100,
@@ -382,16 +382,16 @@ def cluster_mem(
     if node_specs_nomem is None:
         raise AnsibleFilterError("keyword argument required: node_specs_nomem")
     output = node_specs_mem.copy()
-    for grouping in pack(node_specs_nomem):
+    for grouping in slurm_node_specs_pack(node_specs_nomem):
         sorted_memoryMB_hostname = sorted(
             [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
         )
-        # do reduction now rather than inside _cluster_memory so that it doesn't produce extra
+        # do reduction now rather than inside __cluster_memory so that it doesn't produce extra
         # warning messages for reducing each node memory by exactly min_reduction_MB
         sorted_memoryMB_hostname = [
             (x[0] - min_reduction_MB, x[1]) for x in sorted_memoryMB_hostname
         ]
-        for mem, hostname in _cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
+        for mem, hostname in __cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
             output[hostname]["RealMemory"] = mem
     return output
 
@@ -487,22 +487,22 @@ def slurm_node_specs_gpu_from_hostvars(
 
 
 @beartype
-def build_full_node_specs(
+def slurm_build_full_node_specs(
     node_specs_packed_trio: list[NodeSpecsPacked],
     min_memory_reduction_MB: int | None = None,
     max_memory_reduction_MB: int | None = None,
 ) -> NodeSpecsUnpacked:
     "combine the mem, nomem, and hardcoded node specs, and adjust the mem for better groupings"
     mem, nomem, hardcoded = node_specs_packed_trio
-    hardcoded_unpacked = unpack(hardcoded)
-    nomem_unpacked = unpack(nomem)
-    mem_unpacked = unpack(mem)
+    hardcoded_unpacked = slurm_node_specs_unpack(hardcoded)
+    nomem_unpacked = slurm_node_specs_unpack(nomem)
+    mem_unpacked = slurm_node_specs_unpack(mem)
     cluster_mem_kwargs = {}
     if min_memory_reduction_MB is not None:
         cluster_mem_kwargs["min_reduction_MB"] = min_memory_reduction_MB
     if max_memory_reduction_MB is not None:
         cluster_mem_kwargs["max_reduction_MB"] = max_memory_reduction_MB
-    mem_clustered_unpacked = cluster_mem(mem_unpacked, nomem_unpacked, **cluster_mem_kwargs)
+    mem_clustered_unpacked = _cluster_memory(mem_unpacked, nomem_unpacked, **cluster_mem_kwargs)
     return _merge(hardcoded_unpacked, _merge(mem_clustered_unpacked, nomem_unpacked))
 
 
@@ -566,31 +566,6 @@ def slurm_partitions_group_by_gpu_presence(
 
 
 @beartype
-def slurm_mpi_constraints(
-    full_node_specs_unpacked: NodeSpecsUnpacked, arch2cpu_model_feature_regex: dict[_str, _str]
-) -> dict[_str, _str]:
-    """
-    returns a mapping from architecture to constraint
-    an MPI job should require the same model CPU on all nodes
-    the square brackets make the constraint a "matching OR"
-    https://slurm.schedmd.com/sbatch.html#OPT_Matching-OR
-    """
-    valid_arches = list(arch2cpu_model_feature_regex.keys())
-    arch2hostnames = {}
-    for hostname, node_specs in full_node_specs_unpacked.items():
-        arch2hostnames.setdefault(_get_arch(node_specs, valid_arches), []).append(hostname)
-    output = {}
-    for arch, feature_regex_str in arch2cpu_model_feature_regex.items():
-        features = set()
-        feature_regex = re.compile(feature_regex_str)
-        for hostname in arch2hostnames[arch]:
-            this_host_features = full_node_specs_unpacked[hostname]["Features"]
-            features.update(set([x for x in this_host_features if feature_regex.match(x)]))
-        output[arch] = f"[{"|".join(sorted(list(features)))}]"
-    return output
-
-
-@beartype
 def slurm_gpus_and_vram_features(full_node_specs_unpacked: NodeSpecsUnpacked) -> list[int]:
     output = set()
     vram_feature_re = re.compile(r"vram(\d+)")
@@ -625,15 +600,40 @@ def slurm_gpus_group_by_partition(
     return output
 
 
+@beartype
+def slurm_mpi_constraints(
+    full_node_specs_unpacked: NodeSpecsUnpacked, arch2cpu_model_feature_regex: dict[_str, _str]
+) -> dict[_str, _str]:
+    """
+    returns a mapping from architecture to constraint
+    an MPI job should require the same model CPU on all nodes
+    the square brackets make the constraint a "matching OR"
+    https://slurm.schedmd.com/sbatch.html#OPT_Matching-OR
+    """
+    valid_arches = list(arch2cpu_model_feature_regex.keys())
+    arch2hostnames = {}
+    for hostname, node_specs in full_node_specs_unpacked.items():
+        arch2hostnames.setdefault(_get_arch(node_specs, valid_arches), []).append(hostname)
+    output = {}
+    for arch, feature_regex_str in arch2cpu_model_feature_regex.items():
+        features = set()
+        feature_regex = re.compile(feature_regex_str)
+        for hostname in arch2hostnames[arch]:
+            this_host_features = full_node_specs_unpacked[hostname]["Features"]
+            features.update(set([x for x in this_host_features if feature_regex.match(x)]))
+        output[arch] = f"[{"|".join(sorted(list(features)))}]"
+    return output
+
+
 class FilterModule:
     def filters(self):
         return dict(
-            slurm_node_specs_pack=pack,
-            slurm_node_specs_unpack=unpack,
-            slurm_build_full_node_specs=build_full_node_specs,
+            slurm_node_specs_pack=slurm_node_specs_pack,
+            slurm_node_specs_unpack=slurm_node_specs_unpack,
             slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
+            slurm_build_full_node_specs=slurm_build_full_node_specs,
             slurm_nodes_group_by_partition=slurm_nodes_group_by_partition,
             slurm_partitions_group_by_arch=slurm_partitions_group_by_arch,
             slurm_partitions_group_by_gpu_presence=slurm_partitions_group_by_gpu_presence,
