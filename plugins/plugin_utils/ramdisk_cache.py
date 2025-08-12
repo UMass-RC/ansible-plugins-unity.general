@@ -136,6 +136,12 @@ def cache_lambda(key, cache_name: str, lambda_func, plugin_options: dict, name=N
     if plugin_options["enable_cache"] is False:
         display.v(f"({key}) cache is disabled")
         return lambda_func()
+    # One might be tempted to use a read-only lock for checking cache hit or cache miss
+    # and then a write lock for populating the cache.
+    # That would be wrong because in the time between the 1st and 2nd locks, another thread
+    # may detect a cache miss and also decide it also wants to poulate the cache.
+    # It's important that once a cache miss is detected, the cache is populated by the same thread
+    # before any other cache misses can occur for any other threads
     with RamdiskCacheContextManager(cache_name, plugin_options, name=name) as cache_file:
         try:
             cache_file.seek(0)
