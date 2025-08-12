@@ -115,7 +115,8 @@ class LookupModule(LookupBase):
         cache_key = md5((str(terms) + str(kwargs)).encode()).hexdigest()[:5]
         return cache_lambda(
             cache_key,
-            "bitwarden",
+            "bitwarden.json",
+            f"bitwarden_lookup_{cache_key}",
             lambda: do_bitwarden_lookup(terms, variables, **kwargs),
             self.get_options(),
         )
