@@ -80,7 +80,8 @@ class LookupModule(LookupBase):
 
         output = cache_lambda(
             f"{bw_item_id}.{bw_attachment_filename}",
-            "bitwarden",
+            "bitwarden.json",
+            f"bitwarden_download_attachment_{bw_item_id}.{bw_attachment_filename}",
             lambda: self.download_attachment(bw_item_id, bw_attachment_filename),
             self.get_options(),
         )

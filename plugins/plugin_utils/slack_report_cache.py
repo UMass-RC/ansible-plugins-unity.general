@@ -14,8 +14,10 @@ def add_line(line: str, plugin_options: dict, end="\n") -> None:
     plugin_options is the result from AnsiblePlugin.get_options()
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
-    name = f"slack_report_cache.add_line.{md5(line.encode()).hexdigest()[:5]}"
-    with RamdiskCacheContextManager("slack-report", plugin_options, name=name) as cache_file:
+    log_name = f"slack_report_cache.add_line.{md5(line.encode()).hexdigest()[:5]}"
+    with RamdiskCacheContextManager(
+        "slack-report", log_name, plugin_options, needs_write=False
+    ) as cache_file:
         cache_file.seek(0, io.SEEK_END)  # seek to end of file
         cache_file.write(line)
         cache_file.write(end)
@@ -27,7 +29,7 @@ def get_lines(plugin_options: dict) -> list[str]:
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
     with RamdiskCacheContextManager(
-        "slack-report", plugin_options, name="slack_report_cache.get_lines"
+        "slack-report", "slack_report_cache.get_lines", plugin_options
     ) as cache_file:
         lines = cache_file.read().strip().splitlines()  # don't include trailing "\n" in each line
     return lines
@@ -39,6 +41,6 @@ def flush(plugin_options: dict):
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
     with RamdiskCacheContextManager(
-        "slack-report", plugin_options, name="slack_report_cache.flush"
+        "slack-report", "slack_report_cache.flush", plugin_options
     ) as cache_file:
         cache_file.truncate()

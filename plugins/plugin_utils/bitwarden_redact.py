@@ -11,7 +11,7 @@ display = Display()
 
 def _get_bitwarden_secrets(plugin_options: dict):
     with RamdiskCacheContextManager(
-        "bitwarden", plugin_options, needs_write=False, name="bitwarden_redact"
+        "bitwarden", "bitwarden_redact", plugin_options, needs_write=False
     ) as cache_file:
         try:
             bitwarden_cache = json.load(cache_file)
