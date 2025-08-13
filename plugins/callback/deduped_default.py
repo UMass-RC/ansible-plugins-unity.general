@@ -33,9 +33,6 @@ from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback impo
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
-from ansible_collections.unity.general.plugins.plugin_utils.options_fixed_callback import (
-    OptionsFixedCallback,
-)
 
 DOCUMENTATION = r"""
   name: deduped_default
@@ -102,7 +99,7 @@ def _hash_object_dirty(x) -> str:
 
 
 @beartype
-class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, DefaultCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
