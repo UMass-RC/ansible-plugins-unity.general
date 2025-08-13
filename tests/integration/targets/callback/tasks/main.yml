@@ -114,7 +114,7 @@
           {%- endfor -%}"
       register: munged_outputs
 
-    - name: display expected vs actual diff (don't forget to add the `--diff` argument to `ansible-test integration`)
+    - name: display expected vs actual diff (don't forget to add the `--color --diff` arguments to `ansible-test integration`)
       unity.general.return_args:
         changed: true
         diff:
