@@ -159,30 +159,24 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         """
         if preferred_max_width is None and sys.stdout.isatty():
             preferred_max_width = os.get_terminal_size().columns  # default 80 if not a tty
-        item_hash2hostnames = {}
-        item_hash2item = {}
+        item_label2hostnames = {}
         for result_id in result_ids:
-            item_hash = _hash_object_dirty(result_id.item)
-            item_hash2item[item_hash] = result_id.item
-            item_hash2hostnames.setdefault(item_hash, set()).add(result_id.hostname)
-        hostnames_str2items = {}
-        for item_hash, hostnames in item_hash2hostnames.items():
-            item = item_hash2item[item_hash]
+            item_label2hostnames.setdefault(result_id.item_label, set()).add(result_id.hostname)
+        hostnames_str2item_labels = {}
+        for item_label, hostnames in item_label2hostnames.items():
             hostnames_str = format_hostnames(hostnames)
-            hostnames_str2items.setdefault(hostnames_str, []).append(item)
+            hostnames_str2item_labels.setdefault(hostnames_str, []).append(item_label)
         output_groupings = []
-        for hostnames_str, items in hostnames_str2items.items():
+        for hostnames_str, item_labels in hostnames_str2item_labels.items():
             # dont want: foo,bar (items=["foo", None])
             # want: foo,bar; foo,bar(item="foo")
-            if None in items:
-                items.remove(None)
+            if None in item_labels:
+                item_labels.remove(None)
                 output_groupings.append(hostnames_str)
-            if len(items) == 1:
-                output_groupings.append(f"{hostnames_str} (item={items[0]})")
-            elif len(items) > 1:
-                output_groupings.append(
-                    f"{hostnames_str} (items={json.dumps(items, sort_keys=True, default=str)})"
-                )  # dirty serialize
+            if len(item_labels) == 1:
+                output_groupings.append(f"{hostnames_str} (item={item_labels[0]})")
+            elif len(item_labels) > 1:
+                output_groupings.append(f"{hostnames_str} (items={item_labels})")
         oneline_output = "; ".join(output_groupings)
         if (
             multiline is None
@@ -349,7 +343,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         sorted_diffs_and_groupings = sorted(diffs_and_groupings, key=lambda x: len(x[1]))
         for diff, diff_ids in sorted_diffs_and_groupings:
             # convert DiffID to ResultID, discarding index
-            result_ids = [ResultID(x.hostname, x.item) for x in diff_ids]
+            result_ids = [ResultID(x.hostname, x.item_label) for x in diff_ids]
             self._ensure_banner_printed()
             self._display.display(diff)
             self._display.display(
