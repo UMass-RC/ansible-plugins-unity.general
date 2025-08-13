@@ -149,15 +149,18 @@
 
     - name: assert that expected output == actual output
       fail:
-        msg: "the following tests did not produce the expected output: {{ failed_tests }}"
+        msg: >-
+          the following tests didn't produce the expected output: {{ failed_tests | to_json | replace("'", "\'") | replace('"', "'") }}
       when: failed_tests != ''
       vars:
-         failed_tests: "
+         failed_tests: |
+          {%- set output = [] -%}
           {%- for result in munged_outputs.results -%}
           {%-   if result.test.expected_output != (result.content | b64decode) -%}
-          {{-     result.test.name -}}{{- ', ' -}}
+          {%- set _ = output.append(result.test.name) -%}
           {%-   endif -%}
-          {%- endfor -%}"
+          {%- endfor -%}
+          {{ output }}
 
   always:
     - name: remove temporary playbooks
