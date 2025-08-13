@@ -5,6 +5,7 @@ import signal
 import hashlib
 import threading
 import traceback
+from dataclasses import dataclass
 
 from ansible import constants as C
 from ansible.playbook import Playbook
@@ -92,11 +93,10 @@ for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_dif
 
 
 @beartype
-def _anonymize(hostname: str, item: object, _input: object) -> object:
+def _anonymize(hostname: str, item_label: str | None, _input: object) -> object:
     """
-    in all string leaf nodes, replace hostname with "<redacted hostname>"
-    if item is string, item will be replaced with "<redacted item>"
-    if item label is string, item label will be replaced with "<redacted item>"
+    crawls dictionaries and lists to find string leaf nodes
+    replaces `hostname` with "<redacted hostname>" and `item_label` with "<redacted item>"
     """
 
     def _filter_string_leaf_nodes(node, filters):
@@ -114,61 +114,57 @@ def _anonymize(hostname: str, item: object, _input: object) -> object:
 
     hostname_regex = re.compile(re.escape(hostname), flags=re.IGNORECASE)
     filters = [lambda x: re.sub(hostname_regex, "<redacted hostname>", x)]
-    if isinstance(item, str):
-        if len(item) < 5:
-            display.debug(f"dedupe_callback: not anonymizing item because length {len(item)} < 5")
+    if item_label is not None:
+        if (length := len(item_label)) < 5:
+            display.debug(f"dedupe_callback: not anonymizing item because length {length} < 5")
         else:
-            item_regex = re.compile(re.escape(item), flags=re.IGNORECASE)
+            item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
             filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
     return _filter_string_leaf_nodes(_input, filters)
 
 
-class ResultID:
-    """
-    normally I prefer to just use dictionaries but having a type makes it easier for variable names
-    """
+@beartype
+@dataclass(frozen=True)
+class HostnameAndItemLabel:
+    hostname: str
+    item_label: str | None
 
-    @beartype
-    def __init__(self, hostname: str, item: object):
-        assert isinstance(hostname, str)
-        self.hostname = hostname
-        self.item = item
-
-    @beartype
     def __str__(self):
-        if self.item:
-            return f"{self.hostname} (item={self.item})"
+        if self.item_label:
+            return f"{self.hostname} (item={self.item_label})"
         return self.hostname
 
 
-class ExceptionID(ResultID):
-    "there can be only 1 exception per result"
+@beartype
+@dataclass(frozen=True)
+class HostnameItemLabelAndIndex:
+    hostname: str
+    item_label: str | None
+    index: int
 
-
-class WarningID:
-    """
-    normally I prefer to just use dictionaries but having a type makes it easier for variable names
-    there can be multiple warnings per result so there must also be an index
-    """
-
-    @beartype
-    def __init__(self, hostname: str, item: object, index: int):
-        self.hostname = hostname
-        self.item = item
-        self.index = index
-
-    @beartype
     def __str__(self):
-        if self.item:
-            return f"{self.hostname} (item={self.item})[{self.index}]"
+        if self.item_label:
+            return f"{self.hostname} (item={self.item_label})[{self.index}]"
         return f"{self.hostname}[{self.index}]"
 
 
-class DeprecationID(WarningID):
+class ResultID(HostnameAndItemLabel):
     pass
 
 
-class DiffID(WarningID):
+class ExceptionID(HostnameAndItemLabel):
+    pass
+
+
+class WarningID(HostnameItemLabelAndIndex):
+    pass
+
+
+class DeprecationID(HostnameItemLabelAndIndex):
+    pass
+
+
+class DiffID(HostnameItemLabelAndIndex):
     pass
 
 
@@ -387,11 +383,15 @@ class DedupeCallback(CallbackBase):
         )
         self.__update_status_totals(final=True)
 
+    def _make_item_label(self, result: TaskResult) -> str | None:
+        output = self._get_item_label(result._result)
+        return output if output is None else str(output)
+
     @beartype
     def __process_result(self, result: TaskResult, status: str):
         hostname = CallbackBase.host_label(result)
-        item = self._get_item_label(result._result)
-        result_id = ResultID(hostname, item)
+        item_label = self._make_item_label(result)
+        result_id = ResultID(hostname, item_label)
 
         if status == "skipped" and "msg" not in result._result:
             skipped_info = {
@@ -410,7 +410,7 @@ class DedupeCallback(CallbackBase):
             result._result["msg"] = str(result._result[result._task.args["var"]])
 
         if "msg" in result._result:
-            result._result["msg"] = _anonymize(hostname, item, result._result["msg"])
+            result._result["msg"] = _anonymize(hostname, item_label, result._result["msg"])
         gist = ResultGist(
             status,
             result._result.get("msg", None),
@@ -421,15 +421,15 @@ class DedupeCallback(CallbackBase):
         gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
         for i, warning in enumerate(result._result.get("warnings", [])):
-            warning_id = WarningID(hostname, item, i)
+            warning_id = WarningID(hostname, item_label, i)
             dupe_of = self.warning_grouper.add(warning_id, warning)  # TODO anonymize
             self.deduped_warning(warning, warning_id, dupe_of)
         for i, deprecation in enumerate(result._result.get("deprecations", [])):
-            deprecation_id = DeprecationID(hostname, item, i)
+            deprecation_id = DeprecationID(hostname, item_label, i)
             dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)  # TODO anonymize
             self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
         if exception := result._result.get("exception", None):
-            exception_id = ExceptionID(hostname, item)
+            exception_id = ExceptionID(hostname, item_label)
             dupe_of = self.exception_grouper.add(exception_id, exception)  # TODO anonymize
             self.deduped_exception(exception, exception_id, dupe_of)
 
@@ -453,7 +453,7 @@ class DedupeCallback(CallbackBase):
             if len(formatted_diffs) == 0:
                 formatted_diffs.append(SURROGATE_DIFF)
             for i, formatted_diff in enumerate(formatted_diffs):
-                self.diff_grouper.add(DiffID(hostname, item, i), formatted_diff)
+                self.diff_grouper.add(DiffID(hostname, item_label, i), formatted_diff)
 
         if not self.task_is_loop:
             try:

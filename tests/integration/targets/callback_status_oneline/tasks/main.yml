@@ -31,23 +31,20 @@
                     debug: msg=foo
             regex_replacements:
               - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
-            expected_output:
-              [
-                "",
-                "PLAY [testhost] ****************************************************************",
-                "",
-                "TASK [foo] *********************************************************************",
-                "running=1                                                                       ",
-                "[testhost]: OK =>",
-                "  msg: foo",
-                "ok=1                                                                            ",
-                "ok=1                                                                            ",
-                "ok: testhost",
-                "elapsed: <omitted> seconds",
-                "",
-                "PLAY RECAP *********************************************************************",
-                "testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   ",
-              ]
+            expected_output: |
+              PLAY [testhost] ****************************************************************
+
+              TASK [foo] *********************************************************************
+              running=1
+              [testhost]: OK =>
+                msg: foo
+              ok=1
+              ok=1
+              ok: testhost
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: one of each status
             environment:
@@ -85,72 +82,69 @@
               - ['delta: .[\d:\.]+.', "delta: <omitted>"]
               - ['start: .[\d\-]+ [\d:\.]+.', "start: <omitted>"]
               - ['end: .[\d\-]+ [\d:\.]+.', "end: <omitted>"]
-            expected_output:
-              [
-                "",
-                "PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************",
-                "",
-                "TASK [foo] *********************************************************************",
-                "running=1                                                                       ",
-                " [started TASK: foo on unreachable1]",
-                "running=2                                                                       ",
-                " [started TASK: foo on dedupe1]",
-                "[unreachable1]: UNREACHABLE =>",
-                "  changed: false",
-                "  msg: 'Failed to connect to the host via ssh: ssh: Could not resolve hostname unreachable1:",
-                "    nodename nor servname provided, or not known'",
-                "  unreachable: true",
-                "unreachable=1  running=1                                                        ",
-                "unreachable=1  running=2                                                        ",
-                " [started TASK: foo on dedupe2]",
-                "unreachable=1  skipped=1  running=1                                             ",
-                "unreachable=1  skipped=1  running=2                                             ",
-                " [started TASK: foo on dedupe3]",
-                "changed=1  unreachable=1  skipped=1  running=1                                  ",
-                "changed=1  unreachable=1  skipped=1  running=2                                  ",
-                " [started TASK: foo on testhost]",
-                "ok=1  changed=1  unreachable=1  skipped=1  running=1                            ",
-                "ok=1  changed=1  unreachable=1  skipped=1  running=2                            ",
-                " [started TASK: foo on testhost2]",
-                "[testhost]: FAILED =>",
-                "  changed: false",
-                "  cmd: 'False'",
-                "  delta: <omitted>",
-                "  end: <omitted>",
-                "  msg: non-zero return code",
-                "  rc: 1",
-                "  start: <omitted>",
-                "  stderr: ''",
-                "  stderr_lines: <omitted>",
-                "  stdout: ''",
-                "  stdout_lines: <omitted>",
-                "ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=1                  ",
-                "ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=2                  ",
-                " [started TASK: foo on testhost3]",
-                "[testhost2]: IGNORED =>",
-                "  changed: false",
-                "  cmd: 'False'",
-                "  delta: <omitted>",
-                "  end: <omitted>",
-                "  msg: non-zero return code",
-                "  rc: 1",
-                "  start: <omitted>",
-                "  stderr: ''",
-                "  stderr_lines: <omitted>",
-                "  stdout: ''",
-                "  stdout_lines: <omitted>",
-                "ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  running=1       ",
-                "ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  interrupted=1   ",
-                "task reports changed=true but does not report any diff.",
-                "changed: dedupe2",
-                "ok: dedupe3",
-                "unreachable: unreachable1",
-                "failed: testhost",
-                "skipped: dedupe1",
-                "ignored: testhost2",
-                "interrupted: testhost3",
-                "elapsed: <omitted> seconds"
-              ]
+            expected_output: |
+              PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************
+
+              TASK [foo] *********************************************************************
+              running=1
+               [started TASK: foo on unreachable1]
+              running=2
+               [started TASK: foo on dedupe1]
+              [unreachable1]: UNREACHABLE =>
+                changed: false
+                msg: 'Failed to connect to the host via ssh: ssh: Could not resolve hostname unreachable1:
+                  nodename nor servname provided, or not known'
+                unreachable: true
+              unreachable=1  running=1
+              unreachable=1  running=2
+               [started TASK: foo on dedupe2]
+              unreachable=1  skipped=1  running=1
+              unreachable=1  skipped=1  running=2
+               [started TASK: foo on dedupe3]
+              changed=1  unreachable=1  skipped=1  running=1
+              changed=1  unreachable=1  skipped=1  running=2
+               [started TASK: foo on testhost]
+              ok=1  changed=1  unreachable=1  skipped=1  running=1
+              ok=1  changed=1  unreachable=1  skipped=1  running=2
+               [started TASK: foo on testhost2]
+              [testhost]: FAILED =>
+                changed: false
+                cmd: 'False'
+                delta: <omitted>
+                end: <omitted>
+                msg: non-zero return code
+                rc: 1
+                start: <omitted>
+                stderr: ''
+                stderr_lines: <omitted>
+                stdout: ''
+                stdout_lines: <omitted>
+              ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=1
+              ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=2
+               [started TASK: foo on testhost3]
+              [testhost2]: IGNORED =>
+                changed: false
+                cmd: 'False'
+                delta: <omitted>
+                end: <omitted>
+                msg: non-zero return code
+                rc: 1
+                start: <omitted>
+                stderr: ''
+                stderr_lines: <omitted>
+                stdout: ''
+                stdout_lines: <omitted>
+              ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  running=1
+              ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  interrupted=1
+              task reports changed=true but does not report any diff.
+              changed: dedupe2
+              ok: dedupe3
+              unreachable: unreachable1
+              failed: testhost
+              skipped: dedupe1
+              ignored: testhost2
+              interrupted: testhost3
+              elapsed: <omitted> seconds
   always:
     - name: delete tempfile
       file:
