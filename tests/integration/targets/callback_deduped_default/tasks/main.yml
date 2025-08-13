@@ -529,7 +529,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              skipped: testhost
+              skipped: testhost => {"skip_reason": "Conditional result was False", "false_condition": false}
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
@@ -566,7 +566,7 @@
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
-              skipped: testhost
+              skipped: testhost => {"skip_reason": "Conditional result was False", "false_condition": false}
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
