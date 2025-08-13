@@ -444,7 +444,6 @@ class DedupeCallback(CallbackBase):
                 if filters := _DIFF_FILTERS.get(gist["task_action"], None):
                     for _filter in filters:
                         _filter(diff)
-                diff = _anonymize(hostname, item, diff)
                 formatted_diff = self._get_diff(diff).strip()
                 if formatted_diff:
                     formatted_diffs.append(formatted_diff)
