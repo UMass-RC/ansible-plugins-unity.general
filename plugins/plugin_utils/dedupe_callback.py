@@ -570,11 +570,6 @@ class DedupeCallback(CallbackBase):
         self.deduped_playbook_on_task_start(task, is_conditional)
 
     @beartype
-    def v2_playbook_on_cleanup_task_start(self, task: Task) -> None:
-        self.__task_start(task)
-        self.deduped_playbook_on_cleanup_task_start(task)
-
-    @beartype
     def v2_playbook_on_handler_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
@@ -593,14 +588,6 @@ class DedupeCallback(CallbackBase):
     @beartype
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         self.deduped_playbook_on_notify(handler, host)
-
-    @beartype
-    def v2_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
-        self.deduped_playbook_on_import_for_host(result, imported_file)
-
-    @beartype
-    def v2_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
-        self.deduped_playbook_on_not_import_for_host(result, missing_file)
 
     @beartype
     def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
@@ -662,10 +649,6 @@ class DedupeCallback(CallbackBase):
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
 
     @beartype
-    def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_cleanup_task_start"
-
-    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_handler_task_start"
 
@@ -684,14 +667,6 @@ class DedupeCallback(CallbackBase):
     @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
-
-    @beartype
-    def deduped_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_import_for_host"
-
-    @beartype
-    def deduped_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_not_import_for_host"
 
     @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
