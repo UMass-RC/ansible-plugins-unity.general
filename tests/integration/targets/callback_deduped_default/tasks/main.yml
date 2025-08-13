@@ -49,7 +49,6 @@
               +++ after: {{ tempfile.path }}
               @@ -0,0 +1 @@
               +Foo bar
-
               changed: testhost
               elapsed: <omitted> seconds
 
@@ -59,7 +58,6 @@
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
-
               changed: testhost
               elapsed: <omitted> seconds
 
@@ -150,7 +148,6 @@
               @@ -1,2 +1 @@
                Foo bar
               -Bar baz bam!
-
               changed: testhost
               elapsed: <omitted> seconds
 
@@ -160,7 +157,6 @@
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
-
               changed: testhost
               elapsed: <omitted> seconds
 
@@ -220,7 +216,6 @@
               -Bar baz bam!
               +bar
               \ No newline at end of file
-
               changed: dedupe3
 
               --- before: {{ tempfile.path }}
@@ -230,7 +225,6 @@
               -Bar baz bam!
               +foo
               \ No newline at end of file
-
               changed: dedupe[1-2]
               elapsed: <omitted> seconds
 
