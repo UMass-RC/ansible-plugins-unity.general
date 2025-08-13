@@ -407,11 +407,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         self.__task_start(task)
 
     @beartype
-    def deduped_playbook_on_cleanup_task_start(self, task: Task):
-        DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
-        self.__task_start(task)
-
-    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task):
         DefaultCallback.v2_playbook_on_handler_task_start(self, task)
         self.__task_start(task)
