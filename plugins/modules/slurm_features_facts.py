@@ -83,7 +83,10 @@ def _get_cpu_vendor_model() -> tuple[str, str]:
     model = None
     lscpu_out = _check_output(["lscpu"])
     for line in lscpu_out.splitlines():
-        if line.startswith("Model name:"):
+        if line.startswith("BIOS Model name:"):
+            _, model = line.split(":", 1)
+            model = model.strip()
+        if line.startswith("Model name:") and not model:
             _, model = line.split(":", 1)
             model = model.strip()
         if line.startswith("Vendor ID:"):
@@ -109,17 +112,26 @@ def get_cpu_model_features() -> set[str]:
                 len(matches) == 1
             ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
             features.add(f"intel{matches[0].lower().replace(' ', '')}")
-        if cpu_model.lower().startswith("amd"):
+        elif cpu_model.lower().startswith("amd"):
             model_number_regex = r"\b\d[0-9a-z]{3,}\b"  # examples: "7h12", "1900x", "7955wx"
             matches = re.findall(model_number_regex, cpu_model.lower())
             assert (
                 len(matches) == 1
             ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
             features.add(f"amd{matches[0].lower()}")
-        if cpu_model == "Neoverse-N1":
-            features.add("armn1")
-        elif cpu_model == "Neoverse-V2":
-            features.add("armv2")
+        elif cpu_model.lower().startswith("ampere"):
+            model_number_regex = (
+                r"ampere(?:\(r\))?\s+\b(\w+)(?:\(r\))?\s+(?:processor)?\s+(\w\d+-\d+)\b"
+            )
+            matches = re.findall(model_number_regex, cpu_model.lower())
+            assert (
+                len(matches) == 1
+            ), f'wrong number of regex matches! cpu_model: "{cpu_model.lower()}", regex: "{model_number_regex}", matches: "{matches}"'
+            model_name, model_number = matches[0]
+            features.add(f"ampere_{model_name}_{model_number.replace('-', '_')}")
+        elif cpu_model.lower().startswith("grace"):
+            grace, model, _ = cpu_model.lower().split(" ", 2)
+            features.add(f"grace_{model}")
         if "altivec supported" in cpu_model:
             features.add("altivec")
     return features
