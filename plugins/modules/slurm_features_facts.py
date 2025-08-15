@@ -43,7 +43,7 @@ FEATURE_INCLUDE_WHEN = {
 # this takes precedence over FEATURE_INCLUDE_WHEN
 FEATURE_EXCLUDE_WHEN = {}
 FEATURE_EXCLUDE_REGEXES = [
-    r"armv\d.*",  # this is broken but we don't use armv* anyway
+    r"armv\d.*",  # https://github.com/archspec/archspec/issues/205
     r"neoverse.*",
 ]
 # features that are added based on CPU micro-architecture (uarch)
@@ -122,10 +122,7 @@ def get_cpu_model_features() -> set[str]:
 def _get_uarches() -> list[str]:
     """
     shamelessly ripped off from https://github.com/archspec/archspec
-    known bug: aarch64 nodes are given all versions of ARM, despite not being qualified.
-    While PowerPC has a "generation" requirement, there is no information given
-    on how to enforce these arm versions. And since we don't use those arm versions as
-    slurm features on Unity, I ignore the problem
+    ARM doesn't work: https://github.com/archspec/archspec/issues/205
     """
     with open("/proc/cpuinfo", "r", encoding="utf8") as proc_cpuinfo_file:
         cpuinfo = {}
