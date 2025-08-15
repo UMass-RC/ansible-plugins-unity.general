@@ -138,7 +138,7 @@ def get_cpu_model_features() -> set[str]:
         if cpu_model == "Neoverse-N1":
             features.add("armn1")
         elif cpu_model == "Neoverse-V2":
-            features.add("armn2")
+            features.add("armv2")
         if "altivec supported" in cpu_model:
             features.add("altivec")
     return features
