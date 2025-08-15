@@ -28,7 +28,10 @@ import re
 import platform
 import subprocess
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.unity.general.plugins.module_utils.archspec import UARCH_DB
+from ansible_collections.unity.general.plugins.module_utils.archspec import (
+    UARCH_DB,
+    check_requirements,
+)
 
 BLOCKING_TIMEOUT_SEC = 10
 # features based on other features
@@ -51,34 +54,6 @@ FEATURE_EXCLUDE_REGEXES = [
 # a machine with ppc64le CPUs doesn't seem to list any flags
 FEATURE_UARCH_ALIASES = {"avx512": {"any_of": ["x86_64_v4", "skylake_avx512"]}}
 CPU_FAMILY = platform.machine()
-
-
-def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
-    """
-    require that certain elements are present or absent from _list
-    if requirements are satisfied, add `name` to the output list
-    example: [
-        "foobar": {
-            "all_of": ["foo", "bar"]
-            "any_of": ["fu", "ba"],
-            "none_of": ["baz"],
-        }
-    ]
-    if "foobar" is an empty dict, it will always be added to output
-    """
-    output = set()
-    for name, requirements in name2requirements.items():
-        if "all_of" in requirements:
-            if not all(x in _list for x in requirements["all_of"]):
-                continue
-        if "any_of" in requirements:
-            if not any(x in _list for x in requirements["any_of"]):
-                continue
-        if "none_of" in requirements:
-            if any(x in _list for x in requirements["none_of"]):
-                continue
-        output.add(name)
-    return output
 
 
 def _check_output(argv: list[str]) -> str:

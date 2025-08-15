@@ -37,6 +37,8 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 
+from ansible_collections.unity.general.plugins.module_utils.archspec import check_requirements
+
 # 8 -> "vram8". GB, not GiB. a node with vram12 will inherit vram11, vram8, ...
 VRAM_FEATURES = [8, 11, 12, 16, 23, 32, 40, 48, 80, 102]
 # this should include all of the nvidia compute capability versions present in the cluster
@@ -67,34 +69,6 @@ FEATURE_INCLUDE_WHEN = {
     "1080ti": {"all_of": ["1080_ti"]},
     "rtx8000": {"all_of": ["rtx_8000"]},
 }
-
-
-def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
-    """
-    require that certain elements are present or absent from _list
-    if requirements are satisfied, add `name` to the output list
-    example: [
-        "foobar": {
-            "all_of": ["foo", "bar"]
-            "any_of": ["fu", "ba"],
-            "none_of": ["baz"],
-        }
-    ]
-    if "foobar" is an empty dict, it will always be added to output
-    """
-    output = set()
-    for name, requirements in name2requirements.items():
-        if "all_of" in requirements:
-            if not all(x in _list for x in requirements["all_of"]):
-                continue
-        if "any_of" in requirements:
-            if not any(x in _list for x in requirements["any_of"]):
-                continue
-        if "none_of" in requirements:
-            if any(x in _list for x in requirements["none_of"]):
-                continue
-        output.add(name)
-    return output
 
 
 def all_elements_equal(x: list) -> bool:
