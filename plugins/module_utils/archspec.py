@@ -1,5 +1,35 @@
-# fmt: off
 import json
+
+
+def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
+    """
+    require that certain elements are present or absent from _list
+    if requirements are satisfied, add `name` to the output list
+    example: [
+        "foobar": {
+            "all_of": ["foo", "bar"]
+            "any_of": ["fu", "ba"],
+            "none_of": ["baz"],
+        }
+    ]
+    if "foobar" is an empty dict, it will always be added to output
+    """
+    output = set()
+    for name, requirements in name2requirements.items():
+        if "all_of" in requirements:
+            if not all(x in _list for x in requirements["all_of"]):
+                continue
+        if "any_of" in requirements:
+            if not any(x in _list for x in requirements["any_of"]):
+                continue
+        if "none_of" in requirements:
+            if any(x in _list for x in requirements["none_of"]):
+                continue
+        output.add(name)
+    return output
+
+
+# fmt: off
 # curl https://raw.githubusercontent.com/archspec/archspec-json/master/cpu/microarchitectures.json | jq '.microarchitectures |= with_entries(.value |= del(.compilers))'
 # duplicating 3rd party deps into your collections is unfortunately best practice
 # https://forum.ansible.com/t/how-to-handle-module-dependencies-during-development/4563
