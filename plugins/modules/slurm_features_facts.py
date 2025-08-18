@@ -73,17 +73,9 @@ def get_link_speed() -> set[str]:
 
 
 def _get_cpu_vendor_model() -> tuple[str, str]:
-    vendor = None
-    model = None
-    lscpu_out = _check_output(["lscpu"])
-    for line in lscpu_out.splitlines():
-        if line.startswith("Model name:"):
-            _, model = line.split(":", 1)
-            model = model.strip()
-        if line.startswith("Vendor ID:"):
-            _, vendor = line.split(":", 1)
-            vendor = vendor.strip()
-    return (vendor, model)
+    lscpu_out = _check_output(["lscpu", "--json"])
+    lscpu = json.loads(lscpu_out)
+    return (lscpu["Vendor:"], lscpu["Model:"])
 
 
 def get_cpu_model_features() -> set[str]:
