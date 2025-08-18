@@ -101,14 +101,14 @@ def get_cpu_model_features() -> set[str]:
             matches = re.findall(model_number_regex, cpu_model.lower())
             assert (
                 len(matches) == 1
-            ), f'wrong number of regex matches! cpu_model: "{cpu_model.lower()}", regex: "{model_number_regex}", matches: "{matches}"'
+            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
             features.add(f"intel{matches[0].lower().replace(' ', '')}")
         if cpu_model.lower().startswith("amd"):
             model_number_regex = r"\b\d[0-9a-z]{3,}\b"  # examples: "7h12", "1900x", "7955wx"
             matches = re.findall(model_number_regex, cpu_model.lower())
             assert (
                 len(matches) == 1
-            ), f'wrong number of regex matches! cpu_model: "{cpu_model.lower()}", regex: "{model_number_regex}", matches: "{matches}"'
+            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
             features.add(f"amd{matches[0].lower()}")
         if cpu_model == "Neoverse-N1":
             features.add("armn1")
