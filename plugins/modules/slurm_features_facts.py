@@ -43,7 +43,6 @@ FEATURE_INCLUDE_WHEN = {
 # this takes precedence over FEATURE_INCLUDE_WHEN
 FEATURE_EXCLUDE_WHEN = {}
 FEATURE_EXCLUDE_REGEXES = [
-    r"armv\d.*",  # https://github.com/archspec/archspec/issues/205
     r"neoverse.*",
 ]
 # features that are added based on CPU micro-architecture (uarch)
@@ -169,6 +168,9 @@ def _get_uarches() -> list[str]:
             continue
         # ignore empty
         if info["vendor"] == "generic" and info["features"] == [] and info["from"] == []:
+            continue
+        # ignore broken armv* (https://github.com/archspec/archspec/issues/205)
+        if name.startswith("armv") and info["features"] == []:
             continue
         if "generation" in info and "generation" in cpuinfo:
             if info["generation"] > cpuinfo["generation"]:
