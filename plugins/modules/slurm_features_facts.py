@@ -126,7 +126,7 @@ def get_cpu_model_features() -> set[str]:
             matches = re.findall(model_number_regex, cpu_model.lower())
             assert (
                 len(matches) == 1
-            ), f'wrong number of regex matches! cpu_model: "{cpu_model.lower()}", regex: "{model_number_regex}", matches: "{matches}"'
+            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
             model_name, model_number = matches[0]
             features.add(f"ampere_{model_name}_{model_number.replace('-', '_')}")
         elif cpu_model.lower().startswith("grace"):
