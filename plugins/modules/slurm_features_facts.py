@@ -78,11 +78,11 @@ def get_link_speed() -> set[str]:
     return set()
 
 
-def _get_cpu_vendor_model() -> tuple[str, str]:
+def _get_cpu_vendor_model() -> tuple[str | None, str]:
     lscpu_out = _check_output(["lscpu"])
     lscpu_items = [re.split(r"\s*:\s*", x.strip(), 1) for x in lscpu_out.splitlines() if x.strip()]
     lscpu = dict(lscpu_items)
-    vendor = lscpu["Vendor ID"]
+    vendor = lscpu.get("Vendor ID", None)
     model = lscpu["BIOS Model name"] if vendor == "ARM" else lscpu["Model name"]
     return (vendor, model)
 
