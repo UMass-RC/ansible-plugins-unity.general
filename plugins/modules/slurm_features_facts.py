@@ -44,6 +44,7 @@ FEATURE_INCLUDE_WHEN = {
 FEATURE_EXCLUDE_WHEN = {}
 FEATURE_EXCLUDE_REGEXES = [
     r"neoverse.*",
+    r"^prescott$",
 ]
 # features that are added based on CPU micro-architecture (uarch)
 # for example, an icelake node's uarch list looks like this:
@@ -158,9 +159,10 @@ def _get_uarches() -> list[str]:
     found_uarches = [CPU_FAMILY]
     for name, info in UARCH_DB["microarchitectures"].items():
         # require that any of the "from" uarches are found
-        if len(info["from"]) > 0:
-            if not any(x in found_uarches for x in info["from"]):
-                continue
+        # microarch proper does not do this, so we shouldn't either
+        # if len(info["from"]) > 0:
+        #     if not any(x in found_uarches for x in info["from"]):
+        #         continue
         # assume "generic" means "allow anything"
         if info["vendor"] != "generic" and not cpuinfo["vendor_id"] == info["vendor"]:
             continue
@@ -181,7 +183,10 @@ def _get_uarches() -> list[str]:
 
 def _find_best_uarches(uarches: list[str]) -> list[str]:
     """
-    explore up the "from" tree to remove uarches which were only stepping stones to other uarches
+    explore up the "from" tree to remove uarches which were only stepping stones to other uarches.
+    FIXME we should get the single best uarch. archspec proper calculates this based on the total
+    number of transient parents. for example: "prescott" comes from pentium4, and no uarches are
+    .from "prescott", so it's one of the best uarches, but nobody cares.
     """
     remove_these = set()
     uarch_db2 = UARCH_DB["microarchitectures"]
