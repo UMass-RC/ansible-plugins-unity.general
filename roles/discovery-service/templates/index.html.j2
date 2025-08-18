@@ -33,32 +33,15 @@
       // redirectAllow and returnWhiteList appear to be used in exactly the same way
       my_ui_parms.redirectAllow = null;
       my_ui_parms.returnWhiteList = [
-      {%- set unity_shib_SPs = [
-        "coldfront-dev.unity.rc.umass.edu",
-        "coldfront-dev.unity.rc.umass.edu:8080",
-        "ood-dev.unity.rc.umass.edu",
-        "ood-dev.unity.uri.edu",
-        "ood.unity.rc.umass.edu",
-        "ood.unity.uri.edu",
-        "rt.rc.umass.edu",
-        "unity.rc.umass.edu",
-        "unity.rc.umass.edu:4443",
-        "unity.uri.edu",
-        "web-dev.unity.rc.umass.edu",
-        "xdmod.unity.rc.umass.edu",
-      ] +%}
-      {%- for sp in unity_shib_SPs +%}
+      {%- for sp in shib_SPs +%}
         "^https://{{ sp }}/Shibboleth.sso/Login.*$",
       {%- endfor +%}
       ];
 
       my_ui_parms.preferredIdP = [
-        "https://webauth.umass.edu/idp/shibboleth",
-        "https://sso.uri.edu/idp",
-        "https://idp.umassd.edu/idp/shibboleth",
-        "https://sso.uml.edu/idp",
-        "https://vm-shibboleth.umb.edu/idp/shibboleth",
-        "https://login.mtholyoke.edu/idp/shibboleth",
+      {%- for idp in shib_preferred_IDPs +%}
+        "{{ idp }}",
+      {%- endfor +%}
       ];
 
       my_ui_parms.langBundles = {
