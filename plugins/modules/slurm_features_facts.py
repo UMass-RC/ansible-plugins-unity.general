@@ -41,9 +41,15 @@ FEATURE_INCLUDE_WHEN = {
     },
 }
 # this takes precedence over FEATURE_INCLUDE_WHEN
-FEATURE_EXCLUDE_WHEN = {}
+FEATURE_EXCLUDE_WHEN = {
+    # https://gitlab.rc.umass.edu/unity/ansible-collections/general/-/issues/58
+    # I think these are "generic" and v2 normally trumps n2 based on archspec proper's definition
+    # of "best". But we don't have any N2's in Unity, and I'm lazy. - Simon
+    "neoverse_n2": {
+        "all_of": ["neoverse_v2"],
+    },
+}
 FEATURE_EXCLUDE_REGEXES = [
-    r"neoverse.*",
     r"^prescott$",
 ]
 # features that are added based on CPU micro-architecture (uarch)
