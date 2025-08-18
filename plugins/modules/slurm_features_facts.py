@@ -158,9 +158,10 @@ def _get_uarches() -> list[str]:
     found_uarches = [CPU_FAMILY]
     for name, info in UARCH_DB["microarchitectures"].items():
         # require that any of the "from" uarches are found
-        if len(info["from"]) > 0:
-            if not any(x in found_uarches for x in info["from"]):
-                continue
+        # microarch proper does not do this, so we shouldn't either
+        # if len(info["from"]) > 0:
+        #     if not any(x in found_uarches for x in info["from"]):
+        #         continue
         # assume "generic" means "allow anything"
         if info["vendor"] != "generic" and not cpuinfo["vendor_id"] == info["vendor"]:
             continue
