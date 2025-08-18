@@ -346,7 +346,7 @@
               dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
               dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
-          - name: dedupe hostname, item, item label, and `dedupe_me` variable in failed results
+          - name: dedupe hostname, item label, and `dedupe_me` variable in failed results
             environment:
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
@@ -360,7 +360,7 @@
                 tasks:
                   - name: fail
                     fail:
-                      msg: "host={{ inventory_hostname }} item={{ item }} item_label={{ (item | sha1) }} dedupe_me={{ dedupe_me }}"
+                      msg: "host={{ inventory_hostname }} item_label={{ (item | sha1) }} dedupe_me={{ dedupe_me }}"
                     loop: ['aaaaaa', 'bbbbbb']
                     loop_control:
                       label: "{{ (item | sha1) }}"
@@ -370,26 +370,24 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
-              failed: dedupe1 (item=aaaaaa) => 
+              failed: dedupe1 (item={{ ('aaaaaa' | sha1) }}) => 
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
-                msg: host=<redacted hostname> item=<redacted item> item_label=<redacted item label>
-                  dedupe_me=foo
-              failed: dedupe1 (item=bbbbbb) => same result (not including diff) as dedupe1 (item=aaaaaa)
+                msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=foo
+              failed: dedupe1 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe1 => 
                 changed: false
                 msg: One or more items failed
-              failed: dedupe2 (item=aaaaaa) => same result (not including diff) as dedupe1 (item=aaaaaa)
-              failed: dedupe2 (item=bbbbbb) => same result (not including diff) as dedupe1 (item=aaaaaa)
+              failed: dedupe2 (item={{ 'aaaaaa' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
+              failed: dedupe2 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe2 => same result (not including diff) as dedupe1
-              failed: dedupe3 (item=aaaaaa) => 
+              failed: dedupe3 (item={{ 'aaaaaa' | sha1 }}) => 
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
-                msg: host=<redacted hostname> item=<redacted item> item_label=<redacted item label>
-                  dedupe_me=bar
-              failed: dedupe3 (item=bbbbbb) => same result (not including diff) as dedupe3 (item=aaaaaa)
+                msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=bar
+              failed: dedupe3 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe3 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe3 => same result (not including diff) as dedupe1
               elapsed: <omitted> seconds
 
