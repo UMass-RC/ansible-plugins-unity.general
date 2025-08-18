@@ -151,7 +151,7 @@
       fail:
         msg: >-
           the following tests didn't produce the expected output: {{ failed_tests | to_json | replace("'", "\'") | replace('"', "'") }}
-      when: failed_tests != ''
+      when: (failed_tests | length) > 0
       vars:
          failed_tests: |
           {%- set output = [] -%}
