@@ -1,0 +1,190 @@
+:root {
+  --dark-green: #085f1f;
+  --light-green: #067522;
+  --dark-gray: #555555;
+  --light-gray: #cccccc;
+  --width: 470px;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+header {
+  padding: 20px;
+  text-align: center;
+  background: var(--dark-green);
+  color: white;
+  border-radius: 0 0 15px 15px;
+  margin: 0 20px 0 20px;
+}
+
+#selector-header {
+  text-align: center;
+  display: block;
+  font-size: 18pt;
+  font-weight: bold;
+  color: var(--dark-green);
+  border-bottom: 1px solid var(--light-gray);
+  max-width: var(--width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+header > img {
+  height: 60px;
+}
+
+header > span {
+  display: block;
+  margin-top: 20px;
+  font-size: 18pt;
+  font-weight: bold;
+}
+
+a.IdPSelectDropDownToggle {
+  font-size: 14px;
+  width: 100%;
+  color: #000000;
+  background: var(--light-gray);
+  border-radius: 10px;
+  padding: 10px 0;
+}
+
+a.IdPSelectDropDownToggle:hover {
+  text-decoration: none !important;
+}
+
+div.IdPSelectPreferredIdPButton {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 5px;
+  width: auto;
+  height: auto;
+  float: none;
+  border-radius: 10px;
+}
+
+div.IdPSelectPreferredIdPButton:hover {
+  background-color: #f3f3f3; /* assuming background ffffff */
+}
+
+div.IdPSelectPreferredIdPImg,
+div.IdPSelectPreferredIdPButton img {
+  width: auto;
+  height: auto;
+  max-height: 80px;
+  max-width: 140px;
+}
+
+#idpSelectPreferredIdPTile {
+  margin-bottom: 30px;
+  /* height, overflow auto makes sure that the logos stay inside the IDP tile div */
+  height: auto;
+  overflow: auto;
+}
+
+#idpSelectIdPSelector {
+  max-width: var(--width);
+  /* remove border from idpselect.css */
+  border: 0;
+  /* center inner elements */
+  text-align: center;
+  /* center div on screen  */
+  margin-left: auto;
+  margin-right: auto;
+  width: auto;
+}
+
+div.IdPSelectTextDiv,
+a.IdPSelectHelpButton {
+  /* remove all text */
+  display: none;
+}
+
+#idpSelectInput {
+  /* padding and border are included in width for an input but not for a selector */
+  width: calc(100% - 20px - 4px);
+}
+
+/* placeholder in idpSelectInput text does not inherit color */
+::placeholder {
+  color: var(--dark-gray);
+  background-color: white;
+}
+
+#idpSelectSelector {
+  width: 100%;
+  color: var(--dark-gray);
+  background-color: white;
+}
+
+#idpSelectInput,
+#idpSelectSelector {
+  padding: 10px;
+  margin: 10px 0 0 0;
+  border-radius: 10px;
+  border: 2px solid var(--dark-gray);
+  color: var(--dark-gray);
+}
+
+ul.IdPSelectDropDown {
+  font-size: 10pt;
+  list-style: none;
+  padding: 5px;
+  border: 2px solid var(--dark-gray);
+  background-color: white;
+  z-index: 6;
+  position: absolute;
+  border-radius: 10px;
+}
+
+ul.IdPSelectDropDown li {
+  cursor: default;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+ul.IdPSelectDropDown li.IdPSelectCurrent {
+  background-color: var(--light-gray);
+  color: black;
+}
+
+#idpSelectSelectButton,
+#idpSelectListButton,
+.IdPSelectDropDownToggle {
+  margin-top: 10px;
+}
+
+#idpSelectSelectButton,
+#idpSelectListButton {
+  display: block;
+  border-radius: 10px;
+  width: 100%;
+  padding: 10px;
+  margin-left: 0;
+  border: 0;
+  background: var(--dark-green);
+  color: white;
+  font-size: 14pt;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#idpSelectSelectButton:hover {
+  background: var(--light-green);
+}
+
+footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  padding-bottom: 10px;
+}
