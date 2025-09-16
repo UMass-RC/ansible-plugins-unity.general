@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+{{ ansible_managed | comment(style='xml') }}
+<html lang="en">
+
+<head>
+  <title>Unity Single Sign-On</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-5" />
+  <link rel="stylesheet" type="text/css" href="idpselect.css?v={{ flush_browser_cache_increment_me }}" />
+  <link rel="stylesheet" type="text/css" href="custom.css?v={{ flush_browser_cache_increment_me }}" />
+</head>
+
+<body>
+  <header>
+    <img src="res/logo.png">
+    <span>Single Sign-On</span>
+  </header>
+  <main>
+    <div id="idpSelect"></div>
+    <script>
+      selector_header = document.createElement("span");
+      selector_header.id = "selector-header";
+      selector_header.textContent = "Select an Organization to Sign In";
+      document.getElementById("idpSelect").appendChild(selector_header);
+    </script>
+
+    <script src="idpselect_config.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
+
+    <script>
+      // idpselect.js gets its config by calling `new IdPSelectUIParms()`
+      // inject our parameters by overloading this function
+      var my_ui_parms = new IdPSelectUIParms();
+      my_ui_parms.defaultLogo = "res/umass.svg";
+      // redirectAllow and returnWhiteList appear to be used in exactly the same way
+      my_ui_parms.redirectAllow = null;
+      my_ui_parms.returnWhiteList = [
+      {%- for sp in shib_SPs +%}
+        "^https://{{ sp }}/Shibboleth.sso/Login.*$",
+      {%- endfor +%}
+      ];
+
+      my_ui_parms.preferredIdP = [
+      {%- for idp in shib_preferred_IDPs +%}
+        "{{ idp }}",
+      {%- endfor +%}
+      ];
+
+      my_ui_parms.langBundles = {
+        en: {
+          'fatal.divMissing': '<div> specified  as "insertAtDiv" could not be located in the HTML',
+          'fatal.noXMLHttpRequest': 'Browser does not support XMLHttpRequest, unable to load IdP selection data',
+          'fatal.wrongProtocol': 'Policy supplied to DS was not "urn:oasis:names:tc:SAML:profiles:SSO:idpdiscovery-protocol:single"',
+          'fatal.wrongEntityId': 'entityId supplied by SP did not match configuration',
+          'fatal.noData': 'Metadata download returned no data',
+          'fatal.loadFailed': 'Failed to download metadata from ',
+          'fatal.noparms': 'No parameters to discovery session and no defaultReturn parameter configured',
+          'fatal.noReturnURL': 'No URL return parameter provided',
+          'fatal.badProtocol': 'Return parameter must start with https:// or http://',
+          'fatal.badReturnString': 'Return parameter is not whitelisted',
+          'idpList.defaultOptionLabel': 'Select Organization...',
+          "idpList.showList": "Select Organization From a List Instead",
+          "idpList.showSearch": "Search For Organization Instead",
+          'submitButton.label': 'Continue',
+          "defaultLogoAlt": 'University of Massachusetts Amherst',
+          'autoFollow.message': 'Always follows this selection',
+          'autoFollow.never': 'Never',
+          'autoFollow.time0': 'One day',
+          'autoFollow.time1': '3 months',
+          'autoFollow.time2': '9 months'
+        }
+      }
+      my_ui_parms.maxPreferredIdPs = 6;
+      IdPSelectUIParms = function () { return my_ui_parms }
+    </script>
+
+    <script src="idpselect.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
+
+    <script>
+      document.querySelectorAll(".IdPSelectIdPImg").forEach(function (img) {
+        // undo defaultLogoWidth defaultLogoHeight
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        // use hard coded images instead of fetching from metadata
+        if (img.alt !== my_ui_parms.langBundles.en.defaultLogoAlt) {
+          // www.foo.bar.com -> res/bar.svg
+          const src_domain_components = (new URL(img.src)).hostname.split(".");
+          img.src = 'res/' + src_domain_components[src_domain_components.length - 2] + '.svg';
+        }
+      });
+      document.getElementById("idpSelectInput").placeholder = "Search For Organization...";
+      // the search/dropdown toggle comes after the form, I want it in the form before the submit
+      document.querySelectorAll(".IdPSelectDropDownToggle").forEach(function (toggle) {
+        form = toggle.parentNode.querySelector("form");
+        submit = form.querySelector("#idpSelectSelectButton, #idpSelectListButton");
+        form.insertBefore(toggle, submit);
+      });
+    </script>
+
+  </main>
+</body>
+<footer><span>Shibboleth Embedded Discovery Service v{{ discovery_service_version }}</span></footer>
+
+</html>

@@ -1,0 +1,2 @@
+discovery_service_install_prefix: /srv/www/unity-discovery-service
+discovery_service_version: "1.3.0"
