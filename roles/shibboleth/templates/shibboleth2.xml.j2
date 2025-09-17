@@ -31,6 +31,7 @@
         </Sessions>
         <Errors supportContact="{{ web_webmaster }}" helpLocation="/about.html" styleSheet="/shibboleth-sp/main.css" />
         <MetadataProvider type="XML" validate="true" path="filtered-incommon-metadata.xml" />
+        <MetadataProvider type="XML" validate="false" path="ms-metadata.xml" />
         <AttributeExtractor type="XML" validate="true" reloadChanges="false" path="attribute-map.xml" />
         <AttributeFilter type="XML" validate="true" path="attribute-policy.xml" />
         <CredentialResolver type="File" key="{{ shib_key_dest_path }}" certificate="{{ shib_cert_dest_path }}" />

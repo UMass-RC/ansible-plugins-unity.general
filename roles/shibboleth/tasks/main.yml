@@ -49,6 +49,16 @@
   notify: systemctl restart shibd
   tags: metadata
 
+- name: install ms-metadata.xml
+  unity.template_multi_diff.template:
+    src: ms-metadata.xml.j2
+    dest: /etc/shibboleth/ms-metadata.xml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: systemctl restart shibd
+  tags: metadata
+
 - name: setup supervisor
   ansible.builtin.import_tasks: supervisor.yml
   when: (shib_enable_supervisor | bool) is true
