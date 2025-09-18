@@ -1,10 +1,10 @@
 {{ ansible_managed | comment('xml') }}
-{# FIXME xmlns should be on new line #}
-<SPConfig xmlns="urn:mace:shibboleth:3.0:native:sp:config"
+<SPConfig
+    xmlns="urn:mace:shibboleth:3.0:native:sp:config"
     xmlns:conf="urn:mace:shibboleth:3.0:native:sp:config"
-    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" clockSkew="180"
+    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+    clockSkew="180"
 >
-{# FIXME tranLogFormat should be on new line #}
     <OutOfProcess tranLogFormat="%u|%s|%IDP|%i|%ac|%t|%attr|%n|%b|%E|%S|%SS|%L|%UA|%a" />
     <ApplicationDefaults
         entityID="{{ shib_entityid }}"
@@ -21,8 +21,8 @@
             consistentAddress="false"
             redirectLimit="exact"
         >
-            <SSO discoveryProtocol="SAMLDS" discoveryURL="{{ shib_discovery_url }}"> SAML2 </SSO>
-            <Logout> SAML2 Local </Logout>
+            <SSO discoveryProtocol="SAMLDS" discoveryURL="{{ shib_discovery_url }}">SAML2</SSO>
+            <Logout>SAML2 Local</Logout>
             <LogoutInitiator type="Admin" Location="/Logout/Admin" acl="127.0.0.1 ::1" />
             <Handler type="MetadataGenerator" Location="/Metadata" signing="false" />
             <Handler type="Status" Location="/Status" acl="127.0.0.1 ::1" />
