@@ -1,8 +1,15 @@
-- name: apt update && apt install shibboleth-sp-utils
+- name: apt install shibboleth
   ansible.builtin.apt:
     name: shibboleth-sp-utils
     state: "{{ unity_pkg_state }}"
   notify: systemctl restart shibd
+
+- name: apt install
+  ansible.builtin.apt:
+    name:
+      - python3-xmlsec
+      - python3-lxml
+    state: "{{ unity_pkg_state }}"
 
 - name: systemctl enable shibd
   ansible.builtin.systemd_service:
@@ -39,15 +46,30 @@
     mode: "0644"
   notify: systemctl restart shibd
 
-- name: install metadata
+- name: install filter-incommon-metadata.py
   unity.template_multi_diff.template:
-    src: files/shibboleth/filtered-incommon-metadata.xml.j2
-    dest: /etc/shibboleth/filtered-incommon-metadata.xml
+    src: filter-incommon-metadata.py.j2
+    dest: /etc/shibboleth/filter-incommon-metadata.py
     owner: root
     group: root
     mode: "0644"
-  notify: systemctl restart shibd
-  tags: metadata
+
+- name: install update-filtered-incommon-metadata.bash
+  unity.copy_multi_diff.copy:
+    src: update-filtered-incommon-metadata.bash
+    dest: /etc/shibboleth/update-filtered-incommon-metadata.bash
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: cron job update-filtered-incommon-metadata.bash
+  ansible.builtin.cron:
+    name: update-filtered-incommon-metadata
+    cron_file: update-filtered-incommon-metadata
+    user: root
+    minute: 0
+    hour: 0
+    job: chronic bash /etc/shibboleth/update-filtered-incommon-metadata.bash
 
 - name: install ms-metadata.xml
   unity.template_multi_diff.template:
