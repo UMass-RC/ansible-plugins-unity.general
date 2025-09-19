@@ -1,5 +1,10 @@
+- name: update metadata
+  unity.command_shell_diff.command:
+    cmd: bash /etc/shibboleth/update-filtered-incommon-metadata.bash
+    modifies: /etc/shibboleth/filtered-incommon-metadata.xml
+
 - name: systemctl restart shibd
-  ansible.builtin.shell: shibd -t && systemctl restart shibd
+  ansible.builtin.shell: systemctl restart shibd
   changed_when: true
 
 - name: systemctl reload supervisor

@@ -1,5 +1,6 @@
 set -euo pipefail
 trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
+
 tmpfile=/etc/shibboleth/filtered-incommon-metadata.xml.new
 truncate --size 0 "$tmpfile"
 chmod 644 "$tmpfile"
@@ -12,10 +13,7 @@ if cmp -s "$outfile" "$tmpfile"; then
 fi
 mv "$outfile" "$outfile.bak"
 mv "$tmpfile" "$outfile"
-sanity_check_out="$(/sbin/shibd -t 2>&1)"
-if grep CRIT <<<"$sanity_check_out"; then
-    echo "sanity check failed!"
-    echo "$sanity_check_out"
+if ! bash /etc/shibboleth/sanity-check.bash; then
     mv "$outfile" "$outfile.broken"
     mv "$outfile.bak" "$outfile"
     echo "old metadata restored."
