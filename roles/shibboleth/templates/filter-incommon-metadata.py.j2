@@ -17,7 +17,7 @@ import xmlsec
 ENTITIES_DESCRIPTOR_ELEMENT = "<EntitiesDescriptor></EntitiesDescriptor>\n"
 INCOMMON_METADATA_URL = "https://mdq.incommon.org/entities"
 INCOMMON_METADATA_CERT_URL = "https://mdq.incommon.org/certs/inc-md-cert-mdq.pem"
-ENTITY_INCLUDE_LIST = json.loads("""{{ shib_allowed_entities | sort | to_json }}""")
+ENTITY_INCLUDE_LIST = json.loads("""{{ shib_incommon_allowed_entities | sort | to_json }}""")
 
 def verify_incommon_metadata(metadata_file: BytesIO) -> None:
     # https://xmlsec.readthedocs.io/en/stable/examples.html#verify

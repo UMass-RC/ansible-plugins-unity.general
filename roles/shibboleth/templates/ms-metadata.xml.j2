@@ -22,7 +22,7 @@
       </ds:X509Data>
     </ds:KeyInfo>
   </Signature>
-{% for institution in shib_microsoft_institutions %}
+{% for institution in unity_institutions.azure.values() %}
 <EntityDescriptor ID="{{ institution.scope }}"
   entityID="{{ institution.entityID }}"
   xmlns="urn:oasis:names:tc:SAML:2.0:metadata">
