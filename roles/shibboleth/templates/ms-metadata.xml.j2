@@ -22,8 +22,8 @@
       </ds:X509Data>
     </ds:KeyInfo>
   </Signature>
-{% for institution in unity_institutions.azure.values() %}
-<EntityDescriptor ID="{{ institution.scope }}"
+{% for scope, institution in unity_institutions.azure.items() %}
+<EntityDescriptor ID="{{ scope }}"
   entityID="{{ institution.entityID }}"
   xmlns="urn:oasis:names:tc:SAML:2.0:metadata">
   <Organization>
@@ -33,7 +33,7 @@
   </Organization>
   <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
     <Extensions>
-      <shibmd:Scope regexp="false">{{ institution.scope }}</shibmd:Scope>
+      <shibmd:Scope regexp="false">{{ scope }}</shibmd:Scope>
       <mdui:UIInfo>
         <mdui:DisplayName xml:lang="en">{{ institution.name }}</mdui:DisplayName>
       </mdui:UIInfo>
