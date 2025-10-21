@@ -1,3 +1,14 @@
+- name: ensure parent directories exist
+  unity.file_multi_diff.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ shib_cert_dest_path | dirname }}"
+    - "{{ shib_key_dest_path | dirname }}"
+
 - name: install SP cert
   unity.template_multi_diff.template:
     src: sp-cert.pem.j2
