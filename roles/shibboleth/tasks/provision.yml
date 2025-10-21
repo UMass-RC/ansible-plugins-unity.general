@@ -1,7 +1,7 @@
 - name: install SP cert
   unity.template_multi_diff.template:
     src: sp-cert.pem.j2
-    dest: /srv/certs/shib/sp-cert.pem
+    dest: "{{ shib_cert_dest_path }}"
     owner: _shibd
     group: root
     mode: "0600"
@@ -10,7 +10,7 @@
 - name: install SP key
   unity.template_multi_diff.template:
     src: sp-key.pem.j2
-    dest: /srv/certs/shib/sp-key.pem
+    dest: "{{ shib_key_dest_path }}"
     owner: _shibd
     group: root
     mode: "0600"
