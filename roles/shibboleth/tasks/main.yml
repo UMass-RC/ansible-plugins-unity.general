@@ -37,6 +37,15 @@
     mode: "0644"
   notify: systemctl restart shibd
 
+- name: install attribute-policy.xml
+  unity.copy_multi_diff.copy:
+    src: attribute-policy.xml
+    dest: /etc/shibboleth/attribute-policy.xml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: systemctl restart shibd
+
 - name: install shibboleth2.xml
   unity.template_multi_diff.template:
     src: "{{ 'rt-shibboleth2.xml.j2' if inventory_hostname == 'rt' else 'shibboleth2.xml.j2' }}"
@@ -89,16 +98,6 @@
     minute: 0
     hour: 0
     job: chronic bash /etc/shibboleth/update-filtered-incommon-metadata.bash
-
-- name: install ms-metadata.xml
-  unity.template_multi_diff.template:
-    src: ms-metadata.xml.j2
-    dest: /etc/shibboleth/ms-metadata.xml
-    owner: root
-    group: root
-    mode: "0644"
-  notify: systemctl restart shibd
-  tags: metadata
 
 - name: setup supervisor
   ansible.builtin.import_tasks: supervisor.yml
