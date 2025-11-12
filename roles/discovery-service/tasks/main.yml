@@ -32,16 +32,19 @@
 # FIXME no diff https://github.com/ansible/ansible/issues/84309
 - name: copy files from distribution to production
   unity.copy_multi_diff.copy:
-    src: "{{ discovery_service_install_prefix }}-{{ discovery_service_version }}.dist/{{ item }}"
-    dest: "{{ discovery_service_install_prefix }}/eds/{{ item }}"
+    src: "{{ discovery_service_install_prefix }}-{{ discovery_service_version }}.dist/{{ item[0] }}"
+    dest: "{{ discovery_service_install_prefix }}/eds/{{ item[1] }}"
     owner: root
     group: root
     mode: "0644"
     remote_src: true
   loop:
-    - idpselect.css
-    - idpselect.js
-    - idpselect_config.js
+    - [idpselect.css, idpselect.css]
+    - [nonminimised/idpselect.js, idpselect.js]
+    - [nonminimised/idpselect_config.js, idpselect_config.js]
+    - [nonminimised/idpselect_languages.js, idpselect_languages.js]
+    - [nonminimised/json2.js, json2.js]
+    - [nonminimised/typeahead.js, typeahead.js]
 
 - name: copy logos
   unity.copy_multi_diff.copy:
@@ -59,6 +62,9 @@
     - [wide/umb.svg]
     - [square/uml.svg]
     - [wide/uri.svg]
+    - [wide/olin.svg]
+    - [square/smith.svg]
+    - [square/wit.png, wit.svg] # FIXME this is really a png, but the discovery service requires svg extension
 
 - name: install index.html
   unity.template_multi_diff.template:

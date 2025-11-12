@@ -68,10 +68,13 @@
           'autoFollow.time2': '9 months'
         }
       }
-      my_ui_parms.maxPreferredIdPs = 6;
+      my_ui_parms.maxPreferredIdPs = {{ shib_preferred_IDPs | length}};
       IdPSelectUIParms = function () { return my_ui_parms }
     </script>
 
+    <script src="typeahead.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
+    <script src="json2.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
+    <script src="idpselect_languages.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
     <script src="idpselect.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
 
     <script>
