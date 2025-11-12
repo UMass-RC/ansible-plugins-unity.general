@@ -36,6 +36,8 @@
             <MetadataFilter type="UIInfo">
                 <mdui:UIInfo xmlns:mdui="urn:oasis:names:tc:SAML:metadata:ui">
                     <mdui:DisplayName xml:lang="en">{{ ms_auth.name }}</mdui:DisplayName>
+                    <!-- Placeholder for logo -->
+                    <mdui:Logo height="83" width="83" xml:lang="en">https://{{ key }}/placeholder.svg</mdui:Logo>
                 </mdui:UIInfo>
                 <Entity>{{ ms_auth.entityID }}</Entity>
             </MetadataFilter>
