@@ -64,7 +64,7 @@
     - [wide/uri.svg]
     - [wide/olin.svg]
     - [square/smith.svg]
-    - [square/wit.png, wit.svg] # FIXME this is really a png, but the discovery service requires svg extension
+    - [square/wit.png]
 
 - name: install index.html
   unity.template_multi_diff.template:
@@ -73,6 +73,27 @@
     owner: root
     group: root
     mode: "0644"
+  vars:
+    discovery_service_logo_config:
+      umass.edu:
+        src: res/umass.svg
+      uri.edu:
+        src: res/uri.svg
+      umassd.edu:
+        src: res/umassd.svg
+      uml.edu:
+        src: res/uml.svg
+      umb.edu:
+        src: res/umb.svg
+      mtholyoke.edu:
+        src: res/mtholyoke.svg
+      smith.edu:
+        src: res/smith.svg
+      olin.edu:
+        src: res/olin.svg
+        width: 100px
+      wit.edu:
+        src: res/wit.png
 
 - name: install custom.css
   unity.copy_multi_diff.copy:

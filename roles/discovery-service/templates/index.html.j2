@@ -78,15 +78,19 @@
     <script src="idpselect.js?v={{ flush_browser_cache_increment_me }}" type="text/javascript" language="javascript"></script>
 
     <script>
+      LOGO_CONFIG = {{ discovery_service_logo_config | to_json }};
       document.querySelectorAll(".IdPSelectIdPImg").forEach(function (img) {
         // undo defaultLogoWidth defaultLogoHeight
         img.removeAttribute("width");
         img.removeAttribute("height");
-        // use hard coded images instead of fetching from metadata
-        if (img.alt !== my_ui_parms.langBundles.en.defaultLogoAlt) {
-          // www.foo.bar.com -> res/bar.svg
-          const src_domain_components = (new URL(img.src)).hostname.split(".");
-          img.src = 'res/' + src_domain_components[src_domain_components.length - 2] + '.svg';
+        const src_domain_components = (new URL(img.src)).hostname.split(".");
+        const domain = src_domain_components.slice(-2).join(".");
+        img.src = LOGO_CONFIG[domain].src;
+        if (LOGO_CONFIG[domain].width) {
+            img.style.width = LOGO_CONFIG[domain].width;
+        }
+        if (LOGO_CONFIG[domain].height) {
+            img.style.height = LOGO_CONFIG[domain].height;
         }
       });
       document.getElementById("idpSelectInput").placeholder = "Search For Organization...";
