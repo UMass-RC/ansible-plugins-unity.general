@@ -48,6 +48,6 @@ documentation:
     - mkdir -p "$tmpdir/collections/ansible_collections/unity"
     - mv "$old_path" "$tmpdir/collections/ansible_collections/unity/general"
     - cd "$tmpdir"
-    - ANSIBLE_COLLECTIONS="$tmpdir/collections" ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
+    - ANSIBLE_COLLECTIONS_PATHS="$tmpdir/collections" ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
     - set -x
     - . "$script"
