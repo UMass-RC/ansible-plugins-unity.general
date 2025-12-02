@@ -1,1 +1,5 @@
 shib_enable_supervisor: false
+shib_entityid: https://unity.rc.umass.edu/shibboleth
+shib_discovery_url: https://unity.rc.umass.edu/shibboleth-ds
+shib_key_dest_path: /srv/certs/shib/sp-key.pem
+shib_cert_dest_path: /srv/certs/shib/sp-cert.pem
