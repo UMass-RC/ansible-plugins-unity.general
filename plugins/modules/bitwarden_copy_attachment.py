@@ -20,7 +20,7 @@ DOCUMENTATION = """
     - All options other than item_name and attachment_filename are forwarded to `copy`.
   options:
     item_name:
-      desctiption: bitwarden item name
+      description: bitwarden item name
       type: str
       required: true
     attachment_filename:
