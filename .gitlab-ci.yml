@@ -14,8 +14,8 @@ todos_fixmes:
 ansible_test_integration:
   image: python:3.12-alpine
   script:
-    - apk add git openssh-keygen bash
-    - pip install 'ansible<12' clustershell
+    - apk add git openssh-keygen bash uv
+    - uv pip install .
     - old_path="$PWD"
     - tmpdir="$(mktemp -d)"
     - trap "rm -rf '$tmpdir'" EXIT
