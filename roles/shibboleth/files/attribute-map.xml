@@ -12,6 +12,7 @@
     <Attribute name="urn:mace:dir:attribute-def:eduPersonPrincipalName" id="eppn">
         <AttributeDecoder xsi:type="ScopedAttributeDecoder" caseSensitive="false"/>
     </Attribute>
+    <Attribute name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name" id="eppn" />
     <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.1.1.9" id="affiliation">
         <AttributeDecoder xsi:type="ScopedAttributeDecoder" caseSensitive="false"/>
     </Attribute>
@@ -32,4 +33,7 @@
     <Attribute name="urn:mace:dir:attribute-def:sn" id="sn"/>
     <Attribute name="urn:mace:dir:attribute-def:givenName" id="givenName"/>
     <Attribute name="urn:mace:dir:attribute-def:mail" id="mail"/>
+    <Attribute name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname" id="sn"/>
+    <Attribute name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname" id="givenName"/>
+    <Attribute name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" id="mail"/>
 </Attributes>
