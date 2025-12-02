@@ -65,7 +65,7 @@ DOCUMENTATION = r"""
     - HTTPS web server that allows file upload
   options:
     enable:
-      description:
+      description: ""
       type: bool
       default: true
       env:
