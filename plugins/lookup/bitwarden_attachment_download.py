@@ -16,7 +16,7 @@ DOCUMENTATION = """
     - so it is fast and safe in parallel.
   options:
     item_name:
-      desctiption: bitwarden item name
+      description: bitwarden item name
       type: str
       required: true
     attachment_filename:
