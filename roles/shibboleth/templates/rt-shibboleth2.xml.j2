@@ -48,7 +48,7 @@
                 <RetainedRole>md:AttributeAuthorityDescriptor</RetainedRole>
             </MetadataFilter>
             <MetadataFilter type="Whitelist">
-{% for entity in shib_allowed_entities %}
+{% for entity in shib_incommon_allowed_entities %}
                 <Include>{{ entity }}</Include>
 {% endfor %}
             </MetadataFilter>
