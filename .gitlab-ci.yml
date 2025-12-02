@@ -14,6 +14,9 @@ todos_fixmes:
 ansible_test_integration:
   image: python:3.12-alpine
   script:
+    - set -eou pipefail
+    - |
+      trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
     - apk add git openssh-keygen bash uv
     - uv pip install --system -r requirements.txt
     - old_path="$PWD"
@@ -33,12 +36,18 @@ ansible_test_integration:
 documentation:
   image: python:3.12-alpine
   script:
+    - set -eou pipefail
+    - |
+      trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
     - apk add git openssh-keygen bash uv jq
     - uv pip install --system -r requirements.txt
     - old_path="$PWD"
     - tmpdir="$(mktemp -d)"
-    - trap "rm -rf '$tmpdir'" EXIT
+    - script="$(mktemp)"
+    - trap "rm -rf '$tmpdir' '$script'" EXIT
     - mkdir -p "$tmpdir/ansible_collections/unity"
     - mv "$old_path" "$tmpdir/ansible_collections/unity/general"
     - cd "$tmpdir"
-    - ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | bash
+    - ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' > "$script"
+    - set -x
+    - . "$script"
