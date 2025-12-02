@@ -15,7 +15,7 @@ ansible_test_integration:
   image: python:alpine
   script:
     - apk add git openssh-keygen bash
-    - pip install 'ansible<13' clustershell
+    - pip install 'ansible<12' clustershell
     - old_path="$PWD"
     - tmpdir="$(mktemp -d)"
     - trap "rm -rf '$tmpdir'" EXIT
