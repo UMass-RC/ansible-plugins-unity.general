@@ -14,7 +14,7 @@ todos_fixmes:
 ansible_test_integration:
   image: python:3.12-alpine
   script:
-    - set -eou pipefail
+    - set -eo pipefail
     - |
       trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
     - apk add git openssh-keygen bash uv
@@ -36,7 +36,7 @@ ansible_test_integration:
 documentation:
   image: python:3.12-alpine
   script:
-    - set -eou pipefail
+    - set -eo pipefail
     - |
       trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
     - apk add git openssh-keygen bash uv jq
