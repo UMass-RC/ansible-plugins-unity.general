@@ -12,7 +12,7 @@ todos_fixmes:
       - fixmes.svg
     expire_in: 1 week
 ansible_test_integration:
-  image: python:alpine
+  image: python:3.12-alpine
   script:
     - apk add git openssh-keygen bash
     - pip install 'ansible<12' clustershell
