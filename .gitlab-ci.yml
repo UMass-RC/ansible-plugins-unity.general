@@ -15,7 +15,7 @@ ansible_test_integration:
   image: python:3.12-alpine
   script:
     - apk add git openssh-keygen bash uv
-    - uv pip install -r requirements.txt
+    - uv pip install --system -r requirements.txt
     - old_path="$PWD"
     - tmpdir="$(mktemp -d)"
     - trap "rm -rf '$tmpdir'" EXIT
