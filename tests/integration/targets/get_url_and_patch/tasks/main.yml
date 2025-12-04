@@ -1,0 +1,88 @@
+- name: set facts
+  set_fact:
+    url: https://gist.githubusercontent.com/simonLeary42/1433bcc0008c4655eea797ce0cf8b8fc/raw/390606a10bd1519f48f0f413e3ce5b82de6a11d6/get_url_and_patch-test-src.txt
+    url_checksum: md5:268a5059001855fef30b4f95f82044ed
+    patch_content: |
+      --- before 2025-12-04 12:11:48
+      +++ after 2025-12-04 12:12:03
+      @@ -1,3 +1,3 @@
+      foo
+      -bar
+      +BAR
+      baz
+    expected_dest_content: |
+      foo
+      BAR
+      baz
+
+- name: assert URL contents are as expected
+  get_url:
+    url: "{{ url }}"
+    dest: /tmp/get_url_and_patch_test_src
+    checksum: "{{ url_checksum }}"
+
+- name: install patch file
+  copy:
+    content: "{{ patch_content }}"
+    dest: /tmp/get_url_and_patch_test_patch
+
+- name: ensure dest file does not exist yet
+  file:
+    path: /tmp/get_url_and_patch_test_dest
+    state: absent
+
+- name: check mode run
+  unity.general.get_url_and_patch:
+    url: "{{ url }}"
+    patch: /tmp/get_url_and_patch_test_patch
+    dest: /tmp/get_url_and_patch_test_dest
+  check_mode: true
+  register: check_mode_run
+
+- name: assert changed
+  assert:
+    that:
+      - check_mode_run.changed
+
+- name: stat dest file
+  stat:
+    path: /tmp/get_url_and_patch_test_dest
+  register: stat_dest_after_check_mode_run
+
+- name: assert dest file still does not exist
+  assert:
+    that:
+      - not stat_dest_after_check_mode_run.exists
+
+- name: normal run
+  unity.general.get_url_and_patch:
+    url: "{{ url }}"
+    patch: /tmp/get_url_and_patch_test_patch
+    dest: /tmp/get_url_and_patch_test_dest
+
+- name: assert changed
+  assert:
+    that:
+      - check_mode_run.changed
+
+- name: slurp dest file
+  slurp:
+    path: /tmp/get_url_and_patch_test_dest
+  register: slurp_after_normal_run
+
+- name: assert dest file contents
+  assert:
+    that:
+      - slurp_after_normal_run.content == expected_dest_content
+
+- name: duplicate run
+  unity.general.get_url_and_patch:
+    url: "{{ url }}"
+    patch: /tmp/get_url_and_patch_test_patch
+    dest: /tmp/get_url_and_patch_test_dest
+  register: duplicate_run
+
+- name: assert not changed
+  assert:
+    that:
+      - not duplicate_run.changed
