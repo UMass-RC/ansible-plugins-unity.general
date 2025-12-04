@@ -139,7 +139,11 @@ class ActionModule(ActionBase):
         # PATCH ####################################################################################
         patch_res = self._execute_module(
             module_name="ansible.posix.patch",
-            module_args={"src": tempfile_url_path, "dest": dest, "_ansible_check_mode": False},
+            module_args={
+                "src": tempfile_patch_path,
+                "dest": tempfile_url_path,
+                "_ansible_check_mode": False,
+            },
             task_vars=task_vars,
         )
         result["module_results"].append({"name": "patch", "result": patch_res})
