@@ -45,53 +45,27 @@ EXAMPLES = r"""
 
 RETURN = r"""
 changed:
-  description: whether any step changed something
+  description: ""
   type: bool
-tempfile_res:
-  description: result dict returned from the tempfile module
-  type: dict
-get_url_res:
-  description: result dict returned from the get_url module
-  type: dict
-patch_res:
-  description: result dict returned from the patch module
-  type: dict
-file_rm_res:
-  description: result dict returned from the file module where tempfile is deleted
-  type: dict
+failed:
+  description: ""
+  type: bool
+module_results:
+  description: list of dicts of module results
+  type: list
 """
 
 
 def _update_result_from_modules(result: dict):
-    tempfile_failed = result.get("tempfile_res", {}).get("failed", False)
-    get_url_failed = result.get("get_url_res", {}).get("failed", False)
-    patch_failed = result.get("patch_res", {}).get("failed", False)
-    file_rm_failed = result.get("file_rm_res", {}).get("failed", False)
-    copy_failed = result.get("copy_res", {}).get("failed", False)
-    if tempfile_failed:
-        result["msg"] = "tempfile failed"
-    if get_url_failed:
-        result["msg"] = "tempfile succeeded and then get_url failed"
-    if (not patch_failed) and (file_rm_failed):
-        result["msg"] = (
-            "tempfile, get_url, and patch succeeded and then file (removing tempfile) failed"
-        )
-    if (patch_failed) and (not file_rm_failed):
-        result["msg"] = (
-            "tempfile and get_url succeeded, and then patch failed, and then file (removing tempfile) succeeded"
-        )
-    if (patch_failed) and (file_rm_failed):
-        result["msg"] = (
-            "tempfile and get_url succeeded, and then patch failed, and file (removing tempfile) failed"
-        )
-    if copy_failed:
-        result["msg"] = (
-            "tempfile, get_url, patch, file (removing tempfile) succeeded, and then copy failed"
-        )
-    result["failed"] = any(
-        [tempfile_failed, get_url_failed, patch_failed, file_rm_failed, copy_failed]
-    )
-    result["changed"] = result.get("patch_res", {}).get("changed", False)
+    result["failed"] = any([x["result"].get("failed", False) for x in result["module_results"]])
+    result["changed"] = False
+    for result_wrapper in result["module_results"]:
+        if result_wrapper["name"] == "patch" and result_wrapper["result"].get("changed", False):
+            result["changed"] = True
+    log = []
+    for result_wrapper in result["module_results"]:
+        log.append(f"name={result_wrapper['name']} failed={result_wrapper['result']['failed']}")
+    result["msg"] = "\n".join(log)
 
 
 class ActionModule(ActionBase):
@@ -114,11 +88,12 @@ class ActionModule(ActionBase):
         tempfile_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
-            module_args={"_ansible_check_mode": False},
+            # "remote module (ansible.builtin.tempfile) does not support check mode"
+            # module_args={"_ansible_check_mode": False},
         )
-        result.update(tempfile_patch_res=tempfile_res)
+        result["module_results"].append({"name": "tempfile", "result": tempfile_res})
         _update_result_from_modules(result)
-        if result["failed"]:
+        if tempfile_res.get("failed", False):
             return result
         tempfile_path = tempfile_res["path"]
 
@@ -127,19 +102,22 @@ class ActionModule(ActionBase):
             module_args={"url": url, "dest": tempfile_path, "_ansible_check_mode": False},
             task_vars=task_vars,
         )
-        result.update(get_url_res=get_url_res)
+        result["module_results"].append({"name": "get_url", "result": get_url_res})
         _update_result_from_modules(result)
-        if result["failed"]:
+        if get_url_res.get("failed", False):
             return result
+
+        self._transfer_file(patch_path, tempfile_path)
+        self._fixup_perms2(tempfile_path)
 
         patch_res = self._execute_module(
             module_name="ansible.posix.patch",
             module_args={"src": tempfile_path, "dest": dest, "_ansible_check_mode": False},
             task_vars=task_vars,
         )
-        result.update(patch_res=patch_res)
+        result["module_results"].append({"name": "patch", "result": patch_res})
         _update_result_from_modules(result)
-        # if result["failed"]:
+        # if patch_res.get("failed", False):
         #     return result
 
         file_rm_res = self._execute_module(
@@ -151,17 +129,17 @@ class ActionModule(ActionBase):
             },
             task_vars=task_vars,
         )
-        result.update(file_rm_res=file_rm_res)
+        result["module_results"].append({"name": "file (remove tempfile)", "result": file_rm_res})
         _update_result_from_modules(result)
-        if result["failed"]:
+        if file_rm_res.get("failed", False):
             return result
 
-        patch_res = self._execute_module(
+        copy_res = self._execute_module(
             module_name="ansible.builtin.copy",
             module_args={"src": tempfile_path, "dest": dest},
             task_vars=task_vars,
         )
-        result.update(patch_res=patch_res)
+        result["module_results"].append({"name": "copy", "result": copy_res})
         _update_result_from_modules(result)
 
         return result
