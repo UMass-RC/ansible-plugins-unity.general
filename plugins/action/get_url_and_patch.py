@@ -126,7 +126,7 @@ class ActionModule(ActionBase):
         # GET_URL ##################################################################################
         get_url_res = self._execute_module(
             module_name="ansible.builtin.get_url",
-            module_args={"url": url, "dest": tempfile_patch_path, "_ansible_check_mode": False},
+            module_args={"url": url, "dest": tempfile_url_path, "_ansible_check_mode": False},
             task_vars=task_vars,
         )
         result["module_results"].append({"name": "get_url", "result": get_url_res})
@@ -173,7 +173,7 @@ class ActionModule(ActionBase):
         file_rm_patch_res = self._execute_module(
             module_name="ansible.builtin.file",
             module_args={
-                "path": tempfile_url_path,
+                "path": tempfile_patch_path,
                 "state": "absent",
                 "_ansible_check_mode": False,
             },
