@@ -109,6 +109,17 @@ class ActionModule(ActionBase):
             return result
         tempfile_url_path = tempfile_url_res["path"]
 
+        # GET_URL ##################################################################################
+        get_url_res = self._execute_module(
+            module_name="ansible.builtin.get_url",
+            module_args={"url": url, "dest": tempfile_url_path, "_ansible_check_mode": False},
+            task_vars=task_vars,
+        )
+        result["module_results"].append({"name": "get_url", "result": get_url_res})
+        _update_result_from_modules(result)
+        if get_url_res.get("failed", False):
+            return result
+
         # TEMPFILE 2 ###############################################################################
         tempfile_patch_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
@@ -124,17 +135,6 @@ class ActionModule(ActionBase):
         tempfile_patch_path = tempfile_patch_res["path"]
         self._transfer_file(patch_path, tempfile_patch_path)
         self._fixup_perms2([tempfile_patch_path])
-
-        # GET_URL ##################################################################################
-        get_url_res = self._execute_module(
-            module_name="ansible.builtin.get_url",
-            module_args={"url": url, "dest": tempfile_url_path, "_ansible_check_mode": False},
-            task_vars=task_vars,
-        )
-        result["module_results"].append({"name": "get_url", "result": get_url_res})
-        _update_result_from_modules(result)
-        if get_url_res.get("failed", False):
-            return result
 
         # PATCH ####################################################################################
         patch_res = self._execute_module(
@@ -152,21 +152,6 @@ class ActionModule(ActionBase):
         # don't fail yet, delete tempfiles first
         # if patch_res.get("failed", False):
         #     return result
-
-        # REMOVE TEMPFILE 1 ########################################################################
-        file_rm_patch_res = self._execute_module(
-            module_name="ansible.builtin.file",
-            module_args={
-                "path": tempfile_patch_path,
-                "state": "absent",
-                "_ansible_check_mode": False,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append(
-            {"name": "file (remove tempfile for patch working copy)", "result": file_rm_patch_res}
-        )
-        _update_result_from_modules(result)
 
         # COPY #####################################################################################
         if not result["failed"]:
@@ -187,7 +172,7 @@ class ActionModule(ActionBase):
             result["module_results"].append({"name": "copy", "result": copy_res})
             _update_result_from_modules(result)
 
-        # REMOVE TEMPFILE 2 ########################################################################
+        # REMOVE TEMPFILE 1 ########################################################################
         file_rm_url_res = self._execute_module(
             module_name="ansible.builtin.file",
             module_args={
@@ -199,6 +184,21 @@ class ActionModule(ActionBase):
         )
         result["module_results"].append(
             {"name": "file (remove tempfile for URL download)", "result": file_rm_url_res}
+        )
+        _update_result_from_modules(result)
+
+        # REMOVE TEMPFILE 2 ########################################################################
+        file_rm_patch_res = self._execute_module(
+            module_name="ansible.builtin.file",
+            module_args={
+                "path": tempfile_patch_path,
+                "state": "absent",
+                "_ansible_check_mode": False,
+            },
+            task_vars=task_vars,
+        )
+        result["module_results"].append(
+            {"name": "file (remove tempfile for patch working copy)", "result": file_rm_patch_res}
         )
         _update_result_from_modules(result)
 
