@@ -64,7 +64,7 @@ def _update_result_from_modules(result: dict):
             result["changed"] = True
     module_outcomes = []
     for result_wrapper in result["module_results"]:
-        outcome = "failed" if result_wrapper["result"]["failed"] else "succeeded"
+        outcome = "failed" if result_wrapper["result"].get("failed", False) else "succeeded"
         module_outcomes.append(f"{result_wrapper['name']} {outcome}")
     result["msg"] = "\n".join(module_outcomes)
 
@@ -90,6 +90,7 @@ class ActionModule(ActionBase):
         tempfile_url_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
+            module_args={},
             # "remote module (ansible.builtin.tempfile) does not support check mode"
             # module_args={"_ansible_check_mode": False},
         )
@@ -104,6 +105,7 @@ class ActionModule(ActionBase):
         tempfile_patch_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
+            module_args={},
             # "remote module (ansible.builtin.tempfile) does not support check mode"
             # module_args={"_ansible_check_mode": False},
         )
