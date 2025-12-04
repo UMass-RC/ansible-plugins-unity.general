@@ -122,6 +122,8 @@ class ActionModule(ActionBase):
         if tempfile_patch_res.get("failed", False):
             return result
         tempfile_patch_path = tempfile_patch_res["path"]
+        self._transfer_file(patch_path, tempfile_patch_path)
+        self._fixup_perms2([tempfile_patch_path])
 
         # GET_URL ##################################################################################
         get_url_res = self._execute_module(
@@ -133,8 +135,6 @@ class ActionModule(ActionBase):
         _update_result_from_modules(result)
         if get_url_res.get("failed", False):
             return result
-        self._transfer_file(patch_path, tempfile_patch_path)
-        self._fixup_perms2([tempfile_patch_path])
 
         # PATCH ####################################################################################
         patch_res = self._execute_module(
@@ -154,23 +154,6 @@ class ActionModule(ActionBase):
         #     return result
 
         # REMOVE TEMPFILE 1 ########################################################################
-        file_rm_url_res = self._execute_module(
-            module_name="ansible.builtin.file",
-            module_args={
-                "path": tempfile_url_path,
-                "state": "absent",
-                "_ansible_check_mode": False,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append(
-            {"name": "file (remove tempfile for URL download)", "result": file_rm_url_res}
-        )
-        _update_result_from_modules(result)
-        if file_rm_url_res.get("failed", False):
-            return result
-
-        # REMOVE TEMPFILE 2 ########################################################################
         file_rm_patch_res = self._execute_module(
             module_name="ansible.builtin.file",
             module_args={
@@ -184,28 +167,39 @@ class ActionModule(ActionBase):
             {"name": "file (remove tempfile for patch working copy)", "result": file_rm_patch_res}
         )
         _update_result_from_modules(result)
-        if file_rm_patch_res.get("failed", False):
-            return result
-        # now that tempfiles are delted we can fail from this before copy
-        if patch_res.get("failed", False):
-            return result
 
         # COPY #####################################################################################
-        copy_task = self._task.copy()
-        copy_task.check_mode = original_check_mode
-        del copy_task.args
-        copy_task.args = {"src": tempfile_url_path, "dest": dest, "remote_src": True}
-        copy_action_plugin = self._shared_loader_obj.action_loader.get(
-            "ansible.builtin.copy",
-            task=copy_task,
-            connection=self._connection,
-            play_context=self._play_context,
-            loader=self._loader,
-            templar=self._templar,
-            shared_loader_obj=self._shared_loader_obj,
+        if not result["failed"]:
+            copy_task = self._task.copy()
+            copy_task.check_mode = original_check_mode
+            del copy_task.args
+            copy_task.args = {"src": tempfile_url_path, "dest": dest, "remote_src": True}
+            copy_action_plugin = self._shared_loader_obj.action_loader.get(
+                "ansible.builtin.copy",
+                task=copy_task,
+                connection=self._connection,
+                play_context=self._play_context,
+                loader=self._loader,
+                templar=self._templar,
+                shared_loader_obj=self._shared_loader_obj,
+            )
+            copy_res = copy_action_plugin.run(task_vars=task_vars)
+            result["module_results"].append({"name": "copy", "result": copy_res})
+            _update_result_from_modules(result)
+
+        # REMOVE TEMPFILE 2 ########################################################################
+        file_rm_url_res = self._execute_module(
+            module_name="ansible.builtin.file",
+            module_args={
+                "path": tempfile_url_path,
+                "state": "absent",
+                "_ansible_check_mode": False,
+            },
+            task_vars=task_vars,
         )
-        copy_res = copy_action_plugin.run(task_vars=task_vars)
-        result["module_results"].append({"name": "copy", "result": copy_res})
+        result["module_results"].append(
+            {"name": "file (remove tempfile for URL download)", "result": file_rm_url_res}
+        )
         _update_result_from_modules(result)
 
         return result
