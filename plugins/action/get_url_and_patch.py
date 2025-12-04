@@ -95,6 +95,7 @@ class ActionModule(ActionBase):
         original_check_mode = self._task.check_mode
         self._task.check_mode = False
 
+        # TEMPFILE 1 ###############################################################################
         tempfile_url_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
@@ -108,6 +109,7 @@ class ActionModule(ActionBase):
             return result
         tempfile_url_path = tempfile_url_res["path"]
 
+        # TEMPFILE 2 ###############################################################################
         tempfile_patch_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
@@ -121,6 +123,7 @@ class ActionModule(ActionBase):
             return result
         tempfile_patch_path = tempfile_patch_res["path"]
 
+        # GET_URL ##################################################################################
         get_url_res = self._execute_module(
             module_name="ansible.builtin.get_url",
             module_args={"url": url, "dest": tempfile_patch_path, "_ansible_check_mode": False},
@@ -130,10 +133,10 @@ class ActionModule(ActionBase):
         _update_result_from_modules(result)
         if get_url_res.get("failed", False):
             return result
-
         self._transfer_file(patch_path, tempfile_patch_path)
         self._fixup_perms2([tempfile_patch_path])
 
+        # PATCH ####################################################################################
         patch_res = self._execute_module(
             module_name="ansible.posix.patch",
             module_args={"src": tempfile_url_path, "dest": dest, "_ansible_check_mode": False},
@@ -145,6 +148,7 @@ class ActionModule(ActionBase):
         # if patch_res.get("failed", False):
         #     return result
 
+        # REMOVE TEMPFILE 1 ########################################################################
         file_rm_url_res = self._execute_module(
             module_name="ansible.builtin.file",
             module_args={
@@ -161,6 +165,7 @@ class ActionModule(ActionBase):
         if file_rm_url_res.get("failed", False):
             return result
 
+        # REMOVE TEMPFILE 2 ########################################################################
         file_rm_patch_res = self._execute_module(
             module_name="ansible.builtin.file",
             module_args={
@@ -176,11 +181,11 @@ class ActionModule(ActionBase):
         _update_result_from_modules(result)
         if file_rm_patch_res.get("failed", False):
             return result
-
         # now that tempfiles are delted we can fail from this before copy
         if patch_res.get("failed", False):
             return result
 
+        # COPY #####################################################################################
         copy_task = self._task.copy()
         copy_task.check_mode = original_check_mode
         del copy_task.args
