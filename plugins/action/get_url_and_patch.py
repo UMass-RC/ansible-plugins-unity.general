@@ -142,6 +142,7 @@ class ActionModule(ActionBase):
             module_args={
                 "src": tempfile_patch_path,
                 "dest": tempfile_url_path,
+                "strip": 1,
                 "_ansible_check_mode": False,
             },
             task_vars=task_vars,
