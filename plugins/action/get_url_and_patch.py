@@ -2,8 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import json
 
 from ansible.plugins.action import ActionBase
+from ansible.utils.display import Display
 
 DOCUMENTATION = r"""
 ---
@@ -55,6 +57,8 @@ module_results:
   type: list
 """
 
+display = Display()
+
 
 def _update_result_from_modules(result: dict):
     result["failed"] = any([x["result"].get("failed", False) for x in result["module_results"]])
@@ -66,7 +70,8 @@ def _update_result_from_modules(result: dict):
     for result_wrapper in result["module_results"]:
         outcome = "failed" if result_wrapper["result"].get("failed", False) else "succeeded"
         module_outcomes.append(f"{result_wrapper['name']} {outcome}")
-    result["msg"] = "\n".join(module_outcomes)
+    result["msg"] = ", ".join(module_outcomes)
+    display.v(json.dumps(result))
 
 
 class ActionModule(ActionBase):
@@ -87,12 +92,13 @@ class ActionModule(ActionBase):
             return result
         result.update(url=url, dest=dest)
 
+        original_check_mode = self._task.check_mode
+        self._task.check_mode = False
+
         tempfile_url_res = self._execute_module(
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
             module_args={},
-            # "remote module (ansible.builtin.tempfile) does not support check mode"
-            # module_args={"_ansible_check_mode": False},
         )
         result["module_results"].append(
             {"name": "tempfile (for URL download)", "result": tempfile_url_res}
@@ -106,8 +112,6 @@ class ActionModule(ActionBase):
             module_name="ansible.builtin.tempfile",
             task_vars=task_vars,
             module_args={},
-            # "remote module (ansible.builtin.tempfile) does not support check mode"
-            # module_args={"_ansible_check_mode": False},
         )
         result["module_results"].append(
             {"name": "tempfile (for patch working copy)", "result": tempfile_patch_res}
@@ -128,7 +132,7 @@ class ActionModule(ActionBase):
             return result
 
         self._transfer_file(patch_path, tempfile_patch_path)
-        self._fixup_perms2(tempfile_patch_path)
+        self._fixup_perms2([tempfile_patch_path])
 
         patch_res = self._execute_module(
             module_name="ansible.posix.patch",
@@ -137,6 +141,7 @@ class ActionModule(ActionBase):
         )
         result["module_results"].append({"name": "patch", "result": patch_res})
         _update_result_from_modules(result)
+        # don't fail yet, delete tempfiles first
         # if patch_res.get("failed", False):
         #     return result
 
@@ -172,11 +177,24 @@ class ActionModule(ActionBase):
         if file_rm_patch_res.get("failed", False):
             return result
 
-        copy_res = self._execute_module(
-            module_name="ansible.builtin.copy",
-            module_args={"src": tempfile_url_path, "dest": dest},
-            task_vars=task_vars,
+        # now that tempfiles are delted we can fail from this before copy
+        if patch_res.get("failed", False):
+            return result
+
+        copy_task = self._task.copy()
+        copy_task.check_mode = original_check_mode
+        del copy_task.args
+        copy_task.args = {"src": tempfile_url_path, "dest": dest, "remote_src": True}
+        copy_action_plugin = self._shared_loader_obj.action_loader.get(
+            "ansible.builtin.copy",
+            task=copy_task,
+            connection=self._connection,
+            play_context=self._play_context,
+            loader=self._loader,
+            templar=self._templar,
+            shared_loader_obj=self._shared_loader_obj,
         )
+        copy_res = copy_action_plugin.run(task_vars=task_vars)
         result["module_results"].append({"name": "copy", "result": copy_res})
         _update_result_from_modules(result)
 
