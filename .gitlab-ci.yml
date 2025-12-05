@@ -12,7 +12,7 @@ todos_fixmes:
       - fixmes.svg
     expire_in: 1 week
 ansible_test_integration:
-  image: registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container
+  image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
     set -eo pipefail
     trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
@@ -33,7 +33,7 @@ ansible_test_integration:
     done
     exit "$rc"
 documentation:
-  image: registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container
+  image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
     set -eo pipefail
     trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
