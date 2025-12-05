@@ -242,9 +242,9 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe2                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe3                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
           - name: dedupe normal loop
             environment:
