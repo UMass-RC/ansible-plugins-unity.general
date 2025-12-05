@@ -46,7 +46,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [create file] *************************************************************
-              --- before: {{ tempdir.path }}/<redacted hostname>
+              --- before
               +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -0,0 +1 @@
               +Foo bar
