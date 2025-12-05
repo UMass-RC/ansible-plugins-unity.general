@@ -51,10 +51,6 @@ EXAMPLES = r"""
     dest: /srv/myproject/file.txt
 """
 
-"""
-TODO: assert that patch only works on one file
-"""
-
 display = Display()
 
 
