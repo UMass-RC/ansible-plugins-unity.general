@@ -199,6 +199,14 @@
               - hosts: dedupegroup
                 gather_facts: false
                 tasks:
+                  - name: overwrite file (ignore)
+                    copy:
+                      dest: "{{ tempfile.path }}"
+                      content: |
+                        Foo bar
+                        Bar baz bam!
+                    diff: false
+                    changed_when: false
                   - name: overwrite file
                     copy:
                       dest: "{{ tempfile.path }}"
@@ -207,6 +215,10 @@
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
+
+              TASK [overwrite file (ignore)] *************************************************
+              ok: dedupe[1-3]
+              elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
               --- before: {{ tempfile.path }}
