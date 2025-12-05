@@ -36,21 +36,6 @@ author:
   - Simon Leary
 """
 
-EXAMPLES = r"""
-- name: Download a patch and apply it
-  get_url_and_patch:
-    url: "https://example.com/patches/fix-123.diff"
-    patch: /tmp/config.patch
-    dest: /etc/myapp/config.conf
-
-# specify where to download the patch on the remote host
-- name: Download to a specific path and apply
-  get_url_and_patch:
-    url: "https://example.com/patches/fix-123.diff"
-    patch: /tmp/file.patch
-    dest: /srv/myproject/file.txt
-"""
-
 display = Display()
 
 
