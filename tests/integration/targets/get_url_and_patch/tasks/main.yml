@@ -52,7 +52,7 @@
 - name: assert dest file still does not exist
   assert:
     that:
-      - not stat_dest_after_check_mode_run.exists
+      - not stat_dest_after_check_mode_run.stat.exists
 
 - name: normal run
   unity.general.get_url_and_patch:
@@ -73,7 +73,7 @@
 - name: assert dest file contents
   assert:
     that:
-      - slurp_after_normal_run.content == expected_dest_content
+      - (slurp_after_normal_run.content | b64decode) == expected_dest_content
 
 - name: duplicate run
   unity.general.get_url_and_patch:

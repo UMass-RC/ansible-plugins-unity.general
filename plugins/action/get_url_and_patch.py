@@ -64,8 +64,9 @@ def _update_result_from_modules(result: dict):
     result["failed"] = any([x["result"].get("failed", False) for x in result["module_results"]])
     result["changed"] = False
     for result_wrapper in result["module_results"]:
-        if result_wrapper["name"] == "patch" and result_wrapper["result"].get("changed", False):
-            result["changed"] = True
+        if result_wrapper["name"] == "copy":
+            result["changed"] = result_wrapper["result"].get("changed", False)
+            result["diff"] = result_wrapper["result"].get("diff", [])
     module_outcomes = []
     for result_wrapper in result["module_results"]:
         outcome = "failed" if result_wrapper["result"].get("failed", False) else "succeeded"
