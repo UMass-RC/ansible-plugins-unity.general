@@ -75,3 +75,15 @@ ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(
 ```sh
 ansible-doc --metadata-dump unity.general 2>/dev/null | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "ansible-doc --json -t \($type) \($plugin)"' | bash | jq '.[].doc | .name as $name | {$name: .requirements}'
 ```
+
+### Updating CI container
+
+To update the CI container, you will need Docker, and a PAT with the "write registry" scope.
+
+```bash
+$ docker login
+<enter gitlab email>
+<enter PAT>
+$ docker build -t registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container -f .gitlab-ci-Dockerfile
+$ docker push registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container
+```

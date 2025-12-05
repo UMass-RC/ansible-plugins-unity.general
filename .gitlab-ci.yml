@@ -12,12 +12,10 @@ todos_fixmes:
       - fixmes.svg
     expire_in: 1 week
 ansible_test_integration:
-  image: python:3.12-alpine
+  image: registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container
   script: |
     set -eo pipefail
     trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
-    apk add git openssh-keygen bash uv
-    uv pip install --system -r requirements.txt
     old_path="$PWD"
     tmpdir="$(mktemp -d)"
     trap "rm -rf '$tmpdir'" EXIT
@@ -35,12 +33,10 @@ ansible_test_integration:
     done
     exit "$rc"
 documentation:
-  image: python:3.12-alpine
+  image: registry.rc.umass.edu:5050/unity/ansible-collections/general-ci-container
   script: |
     set -eo pipefail
     trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
-    apk add git openssh-keygen bash uv jq
-    uv pip install --system -r requirements.txt
     old_path="$PWD"
     tmpdir="$(mktemp -d)"
     script="$(mktemp)"
