@@ -81,7 +81,29 @@
           - sed
           - -E
           - "{{ test.sed_E_command }}"
-          -  -i
+          - -i
+          - "{{ output_file }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      when: test.sed_E_command is defined
+      changed_when: false
+      vars:
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+
+    - name: trim trailing whitespace
+      command:
+        argv:
+          - sed
+          - -E
+          - s/[[:blank:]]+$//g;
+          - -i
           - "{{ output_file }}"
       loop: "{{ tests }}"
       loop_control:
@@ -153,7 +175,7 @@
           the following tests didn't produce the expected output: {{ failed_tests | to_json | replace("'", "\'") | replace('"', "'") }}
       when: (failed_tests | length) > 0
       vars:
-         failed_tests: |
+        failed_tests: |
           {%- set output = [] -%}
           {%- for result in munged_outputs.results -%}
           {%-   if result.test.expected_output != (result.content | b64decode) -%}
@@ -173,12 +195,12 @@
         label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
       diff: false
 
-    - name: remove temporary playbook output files
-      file:
-        path: "{{ temporary_file.path }}"
-        state: absent
-      loop: "{{ temporary_playbook_output_files.results }}"
-      loop_control:
-        loop_var: temporary_file
-        label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
-      diff: false
+    # - name: remove temporary playbook output files
+    #   file:
+    #     path: "{{ temporary_file.path }}"
+    #     state: absent
+    #   loop: "{{ temporary_playbook_output_files.results }}"
+    #   loop_control:
+    #     loop_var: temporary_file
+    #     label: "{{ temporary_file.test.name }}: {{ temporary_file.path }}"
+    #   diff: false

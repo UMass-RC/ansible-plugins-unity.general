@@ -29,18 +29,25 @@
                 tasks:
                   - name: foo
                     debug: msg=foo
-            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
-            expected_output: |
+            sed_E_command: |
+              s/\r/\n/g;
+              s/[[:blank:]]+\n/\n/g;
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/g;
+            expected_output: |+
+
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
               running=1
-              [testhost]: OK =>
+
+
+              ok: testhost =>
                 msg: foo
               ok=1
-              ok=1
-              ok: testhost
+
+
               elapsed: <omitted> seconds
+              ok=1
 
               PLAY RECAP *********************************************************************
               testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
@@ -82,7 +89,8 @@
               s/delta: '[0-9:\.]+'/delta: <omitted>/g;
               s/start: '[0-9\-]+ [0-9:\.]+'/start: <omitted>/g;
               s/end: '[0-9\-]+ [0-9:\.]+'/end: <omitted>/g
-            expected_output: |
+            expected_output: |+
+
               PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************
 
               TASK [foo] *********************************************************************
@@ -90,24 +98,34 @@
                [started TASK: foo on unreachable1]
               running=2
                [started TASK: foo on dedupe1]
-              [unreachable1]: UNREACHABLE =>
+
+
+              unreachable: unreachable1 =>
                 changed: false
-                msg: 'Failed to connect to the host via ssh: ssh: Could not resolve hostname unreachable1:
-                  nodename nor servname provided, or not known'
+                msg: 'Failed to connect to the host via ssh: ssh: Could not resolve hostname <redacted
+                  hostname>: nodename nor servname provided, or not known'
                 unreachable: true
               unreachable=1  running=1
               unreachable=1  running=2
                [started TASK: foo on dedupe2]
+
+
               unreachable=1  skipped=1  running=1
               unreachable=1  skipped=1  running=2
                [started TASK: foo on dedupe3]
+
+
               changed=1  unreachable=1  skipped=1  running=1
               changed=1  unreachable=1  skipped=1  running=2
                [started TASK: foo on testhost]
+
+
               ok=1  changed=1  unreachable=1  skipped=1  running=1
               ok=1  changed=1  unreachable=1  skipped=1  running=2
                [started TASK: foo on testhost2]
-              [testhost]: FAILED =>
+
+
+              failed: testhost =>
                 changed: false
                 cmd: 'False'
                 delta: <omitted>
@@ -122,7 +140,9 @@
               ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=1
               ok=1  changed=1  unreachable=1  failed=1  skipped=1  running=2
                [started TASK: foo on testhost3]
-              [testhost2]: IGNORED =>
+
+
+              ignored: testhost2 =>
                 changed: false
                 cmd: 'False'
                 delta: <omitted>
@@ -135,16 +155,16 @@
                 stdout: ''
                 stdout_lines: <omitted>
               ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  running=1
-              ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  interrupted=1
+
+
               task reports changed=true but does not report any diff.
               changed: dedupe2
               ok: dedupe3
-              unreachable: unreachable1
-              failed: testhost
-              skipped: dedupe1
-              ignored: testhost2
+              skipped: dedupe1 => {"skip_reason": "Conditional result was False", "false_condition": "inventory_hostname != '<redacted hostname>'"}
               interrupted: testhost3
               elapsed: <omitted> seconds
+              ok=1  changed=1  unreachable=1  failed=1  skipped=1  ignored=1  interrupted=1
+               [ERROR]: User interrupted execution
   always:
     - name: delete tempfile
       file:
