@@ -67,5 +67,5 @@ build-ci-container:
       --build-arg BUILDKIT_INLINE_CACHE=1 --pull
       --cache-from $CONTAINER_IMAGE
       -t $CONTAINER_IMAGE
-      -f Dockerfile --load .
+      -f .gitlab-ci-Dockerfile --load .
     - docker push $CONTAINER_IMAGE
