@@ -57,6 +57,10 @@ module_results:
   type: list
 """
 
+"""
+TODO: assert that patch only works on one file
+"""
+
 display = Display()
 
 
