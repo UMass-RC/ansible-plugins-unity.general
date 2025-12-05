@@ -26,13 +26,15 @@ ansible_test_integration:
     - mv "$old_path" "$tmpdir/ansible_collections/unity/general"
     - cd "$tmpdir/ansible_collections/unity/general"
     - ansible-galaxy collection install ansible.posix community.general
+    - rc=0
     - for target_path in tests/integration/targets/*; do
     -     target="$(basename "$target_path")"
     -     if [ "$target" == "callback" ]; then
     -         continue
     -     fi
-    -     ansible-test integration --color --diff "$target"
+    -     ansible-test integration --color --diff "$target" || rc="$?"
     - done
+    - exit "$rc"
 documentation:
   image: python:3.12-alpine
   script:
