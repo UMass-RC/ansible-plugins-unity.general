@@ -72,12 +72,12 @@
                     ignore_errors: "{{ inventory_hostname == 'testhost2' }}"
                     vars:
                       hostname2cmd:
-                        unreachable1: true # unreachable
-                        dedupe1: true # skipped
-                        dedupe2: true # changed
-                        dedupe3: true # ok
-                        testhost: false # failed
-                        testhost2: false # ignored
+                        unreachable1: "true" # unreachable
+                        dedupe1: "true" # skipped
+                        dedupe2: "true" # changed
+                        dedupe3: "true" # ok
+                        testhost: "false" # failed
+                        testhost2: "false" # ignored
                         testhost3: sleep 999 # interrupted
                         # TODO rescued
                       my_command: "{{ hostname2cmd[inventory_hostname] }}"
