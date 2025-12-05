@@ -31,7 +31,6 @@
                     debug: msg=foo
             sed_E_command: |
               s/\r/\n/g;
-              s/[[:blank:]]+\n/\n/g;
               s/elapsed: [0-9\.]+/elapsed: <omitted>/g;
             expected_output: |+
 

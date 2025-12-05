@@ -102,7 +102,7 @@
         argv:
           - sed
           - -E
-          - s/[[:blank:]]+$//g;
+          - s/[ ]+$//g;
           - -i
           - "{{ output_file }}"
       loop: "{{ tests }}"
