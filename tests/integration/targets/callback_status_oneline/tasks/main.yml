@@ -29,8 +29,7 @@
                 tasks:
                   - name: foo
                     debug: msg=foo
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
+            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: |
               PLAY [testhost] ****************************************************************
 
@@ -77,11 +76,12 @@
                       my_command: "{{ hostname2cmd[inventory_hostname] }}"
             timeout: 5
             allow_nonzero_exit_code: true
-            regex_replacements:
-              - ['elapsed: [\d\.]+', "elapsed: <omitted>"]
-              - ['delta: .[\d:\.]+.', "delta: <omitted>"]
-              - ['start: .[\d\-]+ [\d:\.]+.', "start: <omitted>"]
-              - ['end: .[\d\-]+ [\d:\.]+.', "end: <omitted>"]
+            sed_E_command: |
+              s/\r/\n/g;
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/g;
+              s/delta: '[0-9:\.]+'/delta: <omitted>/g;
+              s/start: '[0-9\-]+ [0-9:\.]+'/start: <omitted>/g;
+              s/end: '[0-9\-]+ [0-9:\.]+'/end: <omitted>/g
             expected_output: |
               PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************
 
