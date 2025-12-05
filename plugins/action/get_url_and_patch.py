@@ -4,6 +4,7 @@ __metaclass__ = type
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import urllib.request
@@ -39,6 +40,17 @@ author:
 display = Display()
 
 
+def _assert_single_file_patch(patch_contents):
+    num_dashdashdash = len(re.findall(r"^---", patch_contents, re.MULTILINE))
+    num_plusplusplus = len(re.findall(r"^\+\+\+", patch_contents, re.MULTILINE))
+    if num_dashdashdash != num_plusplusplus:
+        raise RuntimeError(
+            f"patch has {num_dashdashdash} '---' headers, but {num_plusplusplus} '+++' headers!"
+        )
+    if num_dashdashdash != 1:
+        raise RuntimeError(f"expected exactly 1 file in patch, found {num_dashdashdash}")
+
+
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
@@ -59,6 +71,9 @@ class ActionModule(ActionBase):
             with urllib.request.urlopen(url) as response:
                 os.write(tempfile_fd, response.read())
             with open(patch_path, "r") as patch_f:
+                patch_contents = patch_f.read()
+                _assert_single_file_patch(patch_contents)
+                patch_f.seek(0)
                 subprocess.run(
                     ["patch", "--batch", tempfile_path],  # --batch means non interactive
                     stdin=patch_f,
