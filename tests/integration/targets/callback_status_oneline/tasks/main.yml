@@ -126,7 +126,7 @@
 
               failed: testhost =>
                 changed: false
-                cmd: 'False'
+                cmd: 'false'
                 delta: <omitted>
                 end: <omitted>
                 msg: non-zero return code
@@ -143,7 +143,7 @@
 
               ignored: testhost2 =>
                 changed: false
-                cmd: 'False'
+                cmd: 'false'
                 delta: <omitted>
                 end: <omitted>
                 msg: non-zero return code
