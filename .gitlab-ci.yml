@@ -50,6 +50,7 @@ documentation:
     . "$script"
 build-ci-container:
   when: manual
+  allow_failure: false
   image: docker:24.0.5
   services:
     - docker:24.0.5-dind
