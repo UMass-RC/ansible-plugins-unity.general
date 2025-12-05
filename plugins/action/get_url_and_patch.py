@@ -79,7 +79,10 @@ class ActionModule(ActionBase):
                 os.write(tempfile_fd, response.read())
             with open(patch_path, "r") as patch_f:
                 subprocess.run(
-                    ["patch", tempfile_path], stdin=patch_f, capture_output=True, check=True
+                    ["patch", "--batch", tempfile_path],  # --batch means non interactive
+                    stdin=patch_f,
+                    capture_output=True,
+                    check=True,
                 )
             copy_task = self._task.copy()
             del copy_task.args
