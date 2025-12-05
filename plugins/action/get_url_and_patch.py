@@ -3,6 +3,10 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 import json
+import os
+import subprocess
+import tempfile
+import urllib.request
 
 from ansible.plugins.action import ActionBase
 from ansible.utils.display import Display
@@ -26,6 +30,8 @@ options:
     description: Path to the file on the remote host where the patched file is written.
     required: true
     type: str
+requirements:
+  - patch command in PATH
 author:
   - Simon Leary
 """
@@ -45,18 +51,6 @@ EXAMPLES = r"""
     dest: /srv/myproject/file.txt
 """
 
-RETURN = r"""
-changed:
-  description: ""
-  type: bool
-failed:
-  description: ""
-  type: bool
-module_results:
-  description: list of dicts of module results
-  type: list
-"""
-
 """
 TODO: assert that patch only works on one file
 """
@@ -64,26 +58,9 @@ TODO: assert that patch only works on one file
 display = Display()
 
 
-def _update_result_from_modules(result: dict):
-    result["failed"] = any([x["result"].get("failed", False) for x in result["module_results"]])
-    result["changed"] = False
-    for result_wrapper in result["module_results"]:
-        if result_wrapper["name"] == "copy":
-            result["changed"] = result_wrapper["result"].get("changed", False)
-            result["diff"] = result_wrapper["result"].get("diff", [])
-    module_outcomes = []
-    for result_wrapper in result["module_results"]:
-        outcome = "failed" if result_wrapper["result"].get("failed", False) else "succeeded"
-        module_outcomes.append(f"{result_wrapper['name']} {outcome}")
-    result["msg"] = ", ".join(module_outcomes)
-    display.v(json.dumps(result))
-
-
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
         result = super(ActionModule, self).run(tmp, task_vars)
-        result["module_results"] = []
-        _update_result_from_modules(result)
         if task_vars is None:
             task_vars = {}
         if not (url := self._task.args.get("url")):
@@ -95,80 +72,18 @@ class ActionModule(ActionBase):
         if not (dest := self._task.args.get("dest")):
             result.update(failed=True, msg="dest is required")
             return result
-        result.update(url=url, dest=dest)
-
-        original_check_mode = self._task.check_mode
-        self._task.check_mode = False
-
-        # TEMPFILE 1 ###############################################################################
-        tempfile_url_res = self._execute_module(
-            module_name="ansible.builtin.tempfile",
-            task_vars=task_vars,
-            module_args={},
-        )
-        result["module_results"].append(
-            {"name": "tempfile (for URL download)", "result": tempfile_url_res}
-        )
-        _update_result_from_modules(result)
-        if tempfile_url_res.get("failed", False):
-            return result
-        tempfile_url_path = tempfile_url_res["path"]
-
-        # GET_URL ##################################################################################
-        get_url_res = self._execute_module(
-            module_name="ansible.builtin.get_url",
-            module_args={
-                "url": url,
-                "dest": tempfile_url_path,
-                "_ansible_check_mode": False,
-                "force": True,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append({"name": "get_url", "result": get_url_res})
-        _update_result_from_modules(result)
-        if get_url_res.get("failed", False):
-            return result
-
-        # TEMPFILE 2 ###############################################################################
-        tempfile_patch_res = self._execute_module(
-            module_name="ansible.builtin.tempfile",
-            task_vars=task_vars,
-            module_args={},
-        )
-        result["module_results"].append(
-            {"name": "tempfile (for patch working copy)", "result": tempfile_patch_res}
-        )
-        _update_result_from_modules(result)
-        if tempfile_patch_res.get("failed", False):
-            return result
-        tempfile_patch_path = tempfile_patch_res["path"]
-        self._transfer_file(patch_path, tempfile_patch_path)
-        self._fixup_perms2([tempfile_patch_path])
-
-        # PATCH ####################################################################################
-        patch_res = self._execute_module(
-            module_name="ansible.posix.patch",
-            module_args={
-                "src": tempfile_patch_path,
-                "dest": tempfile_url_path,
-                "strip": 1,
-                "_ansible_check_mode": False,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append({"name": "patch", "result": patch_res})
-        _update_result_from_modules(result)
-        # don't fail yet, delete tempfiles first
-        # if patch_res.get("failed", False):
-        #     return result
-
-        # COPY #####################################################################################
-        if not result["failed"]:
+        tempfile_fd, tempfile_path = None, None
+        try:
+            tempfile_fd, tempfile_path = tempfile.mkstemp()
+            with urllib.request.urlopen(url) as response:
+                os.write(tempfile_fd, response.read())
+            with open(patch_path, "r") as patch_f:
+                subprocess.run(
+                    ["patch", tempfile_path], stdin=patch_f, capture_output=True, check=True
+                )
             copy_task = self._task.copy()
-            copy_task.check_mode = original_check_mode
             del copy_task.args
-            copy_task.args = {"src": tempfile_url_path, "dest": dest, "remote_src": True}
+            copy_task.args = {"src": tempfile_path, "dest": dest}
             copy_action_plugin = self._shared_loader_obj.action_loader.get(
                 "ansible.builtin.copy",
                 task=copy_task,
@@ -179,37 +94,19 @@ class ActionModule(ActionBase):
                 shared_loader_obj=self._shared_loader_obj,
             )
             copy_res = copy_action_plugin.run(task_vars=task_vars)
-            result["module_results"].append({"name": "copy", "result": copy_res})
-            _update_result_from_modules(result)
-
-        # REMOVE TEMPFILE 1 ########################################################################
-        file_rm_url_res = self._execute_module(
-            module_name="ansible.builtin.file",
-            module_args={
-                "path": tempfile_url_path,
-                "state": "absent",
-                "_ansible_check_mode": False,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append(
-            {"name": "file (remove tempfile for URL download)", "result": file_rm_url_res}
-        )
-        _update_result_from_modules(result)
-
-        # REMOVE TEMPFILE 2 ########################################################################
-        file_rm_patch_res = self._execute_module(
-            module_name="ansible.builtin.file",
-            module_args={
-                "path": tempfile_patch_path,
-                "state": "absent",
-                "_ansible_check_mode": False,
-            },
-            task_vars=task_vars,
-        )
-        result["module_results"].append(
-            {"name": "file (remove tempfile for patch working copy)", "result": file_rm_patch_res}
-        )
-        _update_result_from_modules(result)
-
-        return result
+            display.v(json.dumps(copy_res))
+            result.update(copy_res)
+            return result
+        except subprocess.CalledProcessError as e:
+            result.update(
+                failed=True,
+                msg=f"CalledProcessError: {e.returncode=} {e.cmd=} {e.stdout=} {e.stderr=}",
+            )
+            return result
+        except Exception as e:
+            result.update(failed=True, msg=f"Exception: {type(e)=} {str(e)=}")
+            return result
+        finally:
+            if tempfile_fd is not None:
+                os.close(tempfile_fd)
+                os.unlink(tempfile_path)
