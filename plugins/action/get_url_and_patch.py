@@ -113,7 +113,12 @@ class ActionModule(ActionBase):
         # GET_URL ##################################################################################
         get_url_res = self._execute_module(
             module_name="ansible.builtin.get_url",
-            module_args={"url": url, "dest": tempfile_url_path, "_ansible_check_mode": False},
+            module_args={
+                "url": url,
+                "dest": tempfile_url_path,
+                "_ansible_check_mode": False,
+                "force": True,
+            },
             task_vars=task_vars,
         )
         result["module_results"].append({"name": "get_url", "result": get_url_res})
