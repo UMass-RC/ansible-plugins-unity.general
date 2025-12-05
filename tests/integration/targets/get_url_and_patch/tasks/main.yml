@@ -51,16 +51,19 @@
   copy:
     content: "{{ patch_content }}"
     dest: /tmp/get_url_and_patch_test_patch
+  no_log: true
 
 - name: install multi file patch file
   copy:
     content: "{{ multi_file_patch_content }}"
     dest: /tmp/get_url_and_patch_test_multi_file_patch
+  no_log: true
 
 - name: ensure dest file does not exist yet
   file:
     path: /tmp/get_url_and_patch_test_dest
     state: absent
+  no_log: true
 
 - name: test run with multi-file patch
   unity.general.get_url_and_patch:
