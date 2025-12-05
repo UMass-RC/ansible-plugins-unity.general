@@ -1,7 +1,16 @@
 - name: set facts
   set_fact:
+    url: "{{ url }}"
+    url_checksum: "{{ url_checksum }}"
+    patch_content: "{{ patch_content }}"
+    expected_dest_content: "{{ expected_dest_content }}"
+  vars:
     url: https://gist.githubusercontent.com/simonLeary42/1433bcc0008c4655eea797ce0cf8b8fc/raw/390606a10bd1519f48f0f413e3ce5b82de6a11d6/get_url_and_patch-test-src.txt
-    url_checksum: md5:268a5059001855fef30b4f95f82044ed
+    url_checksum: md5:{{ expectected_src_content | md5 }}
+    expectected_src_content: |
+      foo
+      bar
+      baz
     patch_content: |
       --- before 2025-12-04 12:11:48
       +++ after 2025-12-04 12:12:03
