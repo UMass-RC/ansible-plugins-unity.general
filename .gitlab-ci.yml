@@ -63,7 +63,7 @@ build-ci-container:
   script:
     - docker context create builder
     - docker buildx create builder --use
-    - docker buildx build --platform linux/arm64
+    - docker buildx build --platform linux/amd64
       --build-arg BUILDKIT_INLINE_CACHE=1 --pull
       --cache-from $CONTAINER_IMAGE
       -t $CONTAINER_IMAGE
