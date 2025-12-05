@@ -7,9 +7,10 @@
 # FIXME these results assume clustershell is present
 
 - block:
-    - name: tempfile
+    - name: tempdir
       tempfile:
-      register: tempfile
+        state: directory
+      register: tempdir
       no_log: true
 
     - name: run test playbooks
@@ -29,13 +30,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -45,16 +46,16 @@
               PLAY [testhost] ****************************************************************
 
               TASK [create file] *************************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -0,0 +1 @@
               +Foo bar
               changed: testhost
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
@@ -77,13 +78,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -93,8 +94,8 @@
               PLAY [testhost] ****************************************************************
 
               TASK [create file] *************************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
                REPLACED bar
               -Bar baz bam!
@@ -102,8 +103,8 @@
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                REPLACED bar
               +Bar baz bam!
@@ -126,13 +127,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -143,8 +144,8 @@
 
               TASK [create file] *************************************************************
               [WARNING]: diff formatter "asdlkjasdlkjs" not found
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
                Foo bar
               -Bar baz bam!
@@ -152,8 +153,8 @@
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
@@ -201,7 +202,7 @@
                 tasks:
                   - name: overwrite file (ignore)
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/{% raw %}{{ inventory_hostname }}{% endraw %}"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -209,7 +210,7 @@
                     changed_when: false
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/{% raw %}{{ inventory_hostname }}{% endraw %}"
                       content: "{{ '{{ dedupe_me }}' }}"
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: |+
@@ -221,8 +222,8 @@
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
               -Foo bar
               -Bar baz bam!
@@ -230,8 +231,8 @@
               \ No newline at end of file
               changed: dedupe3
 
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
               -Foo bar
               -Bar baz bam!
@@ -848,7 +849,7 @@
                     debug: msg='foo'
                     loop:
                       - "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-                    
+
             expected_output: |+
 
               PLAY [testhost] ****************************************************************
@@ -880,7 +881,7 @@
                       failed: false
                       msg: foo
                       exception: "{{ '{{ dedupe_me }}' }}"
-                    
+
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
@@ -952,7 +953,7 @@
               testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
- 
+
           - name: delegate_to
             environment:
               ANSIBLE_FORCE_COLOR: "false"
@@ -986,8 +987,8 @@
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
   always:
-    - name: delete tempfile
+    - name: delete tempdir
       file:
-        path: "{{ tempfile.path }}"
+        path: "{{ tempdir.path }}"
         state: absent
       no_log: true
