@@ -1,4 +1,8 @@
 FROM python:3.12-alpine
-RUN apk add git openssh-keygen bash uv patch openssh
+# BusyBox trigger scripts regularly break under buildx/qemu (they try to exec a
+# native busybox helper that is not runnable under emulation). Skip trigger
+# scripts to keep installs stable in CI while still producing the same package
+# set.
+RUN apk add --no-cache --no-scripts git openssh-keygen bash uv patch openssh
 COPY requirements.txt .
 RUN uv pip install --system -r requirements.txt
