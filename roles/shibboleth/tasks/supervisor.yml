@@ -1,7 +1,7 @@
 - name: apt install supervisor
   ansible.builtin.apt:
     name: supervisor
-    state: "{{ unity_pkg_state }}"
+    state: present
   notify: systemctl daemon-reload
 
 - name: systemctl enable supervisor && systemctl start supervisor
