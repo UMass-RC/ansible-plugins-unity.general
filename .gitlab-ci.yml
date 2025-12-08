@@ -55,9 +55,11 @@ documentation:
     ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
     failed_commands=()
     cat "$script" | while IFS= read -r cmd; do
-        echo -e "\e[0Ksection_start:`date +%s`:$cmd[collapsed=true]\r\e[0K$cmd"
+        # https://docs.gitlab.com/ci/jobs/job_logs/#custom-collapsible-sections
+        section_name=$(printf '%s' "$cmd" | tr -cs 'A-Za-z0-9_.-' '_' | cut -c1-80)
+        echo -e "\e[0Ksection_start:$(date +%s):$section_name[collapsed=true]\r\e[0K$cmd"
         eval "$cmd" || failed_commands+=("$cmd")
-        echo -e "\e[0Ksection_end:`date +%s`:$cmd\r\e[0K"
+        echo -e "\e[0Ksection_end:$(date +%s):$section_name\r\e[0K"
     done
     if [ ${#failed_commands[@]} -gt 0 ]; then
         echo -e '\e[31m' # red
