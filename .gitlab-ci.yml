@@ -11,6 +11,7 @@ todos_fixmes:
       - todos.svg
       - fixmes.svg
     expire_in: 1 week
+
 ansible_test_integration:
   image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
@@ -37,6 +38,7 @@ ansible_test_integration:
         echo -e "\e[31mtargets failed: ${failed_targets[*]}\e[0m" # red
         exit 1
     fi
+
 documentation:
   image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
@@ -53,6 +55,7 @@ documentation:
     ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
     set -x
     . "$script"
+
 build-ci-container:
   when: manual
   image: docker:24.0.5
