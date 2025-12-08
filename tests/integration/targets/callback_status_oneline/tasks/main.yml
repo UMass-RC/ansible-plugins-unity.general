@@ -87,7 +87,9 @@
               s/elapsed: [0-9\.]+/elapsed: <omitted>/g;
               s/delta: '[0-9:\.]+'/delta: <omitted>/g;
               s/start: '[0-9\-]+ [0-9:\.]+'/start: <omitted>/g;
-              s/end: '[0-9\-]+ [0-9:\.]+'/end: <omitted>/g
+              s/end: '[0-9\-]+ [0-9:\.]+'/end: <omitted>/g;
+              s/nodename nor servname provided, or not known/__DNS_FAIL_MESSAGE__/g;
+              s/Name does not resolve/__DNS_FAIL_MESSAGE__/g
             expected_output: |+
 
               PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************
@@ -102,7 +104,7 @@
               unreachable: unreachable1 =>
                 changed: false
                 msg: 'Failed to connect to the host via ssh: ssh: Could not resolve hostname <redacted
-                  hostname>: nodename nor servname provided, or not known'
+                  hostname>: __DNS_FAIL_MESSAGE__'
                 unreachable: true
               unreachable=1  running=1
               unreachable=1  running=2
