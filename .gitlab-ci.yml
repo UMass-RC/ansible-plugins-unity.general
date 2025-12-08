@@ -36,7 +36,8 @@ ansible_test_integration:
     done
     if [ ${#failed_targets[@]} -gt 0 ]; then
         printf 'targets failed: '
-        printf -v joined '%s,' "${data[@]}"
+        printf -v joined '%s,' "${failed_targets[@]}"
+        exit 1
     fi
 documentation:
   image: registry.rc.umass.edu:5050/unity/ansible-collections/general
