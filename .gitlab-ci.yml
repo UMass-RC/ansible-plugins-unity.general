@@ -30,7 +30,7 @@ ansible_test_integration:
             continue
         fi
         # https://docs.gitlab.com/ci/jobs/job_logs/#custom-collapsible-sections
-        echo -e "\e[0Ksection_start:`date +%s`:$target\r\e[0K$target"
+        echo -e "\e[0Ksection_start:`date +%s`:$target\r\e[0Kansible-test integration $target"
         ansible-test integration --color --diff "$target" || failed_targets+=("$target")
         echo -e "\e[0Ksection_end:`date +%s`:$target\r\e[0K"
     done
