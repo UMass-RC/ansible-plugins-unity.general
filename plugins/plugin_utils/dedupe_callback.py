@@ -446,7 +446,7 @@ class DedupeCallback(CallbackBase):
                         _filter(diff)
                 formatted_diff = self._get_diff(diff).strip()
                 if formatted_diff:
-                    formatted_diffs.append(formatted_diff)
+                    formatted_diffs.append(_anonymize(hostname, item_label, formatted_diff))
             # convert result message to a diff unless it is printed as nothing
             if msg := result._result.get("msg", "").strip():
                 formatted_diffs.append(msg)

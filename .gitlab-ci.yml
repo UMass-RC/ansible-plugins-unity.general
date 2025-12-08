@@ -11,6 +11,7 @@ todos_fixmes:
       - todos.svg
       - fixmes.svg
     expire_in: 1 week
+
 ansible_test_integration:
   image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
@@ -22,16 +23,22 @@ ansible_test_integration:
     mkdir -p "$tmpdir/ansible_collections/unity"
     mv "$old_path" "$tmpdir/ansible_collections/unity/general"
     cd "$tmpdir/ansible_collections/unity/general"
-    ansible-galaxy collection install ansible.posix community.general
-    rc=0
+    failed_targets=()
     for target_path in tests/integration/targets/*; do
         target="$(basename "$target_path")"
         if [ "$target" == "callback" ]; then
             continue
         fi
-        ansible-test integration --color --diff "$target" || rc="$?"
+        # https://docs.gitlab.com/ci/jobs/job_logs/#custom-collapsible-sections
+        echo -e "\e[0Ksection_start:`date +%s`:$target[collapsed=true]\r\e[0Kansible-test integration $target"
+        ansible-test integration --color --diff "$target" || failed_targets+=("$target")
+        echo -e "\e[0Ksection_end:`date +%s`:$target\r\e[0K"
     done
-    exit "$rc"
+    if [ ${#failed_targets[@]} -gt 0 ]; then
+        echo -e "\e[31mtargets failed: ${failed_targets[*]}\e[0m" # red
+        exit 1
+    fi
+
 documentation:
   image: registry.rc.umass.edu:5050/unity/ansible-collections/general
   script: |
@@ -46,8 +53,24 @@ documentation:
     cd "$tmpdir"
     export ANSIBLE_COLLECTIONS_PATH="$tmpdir/collections"
     ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
-    set -x
-    . "$script"
+    failed_commands=()
+    while IFS= read -r cmd; do
+        # https://docs.gitlab.com/ci/jobs/job_logs/#custom-collapsible-sections
+        section_name=$(printf '%s' "$cmd" | tr -cs 'A-Za-z0-9_.-' '_' | cut -c1-80)
+        echo -e "\e[0Ksection_start:$(date +%s):$section_name[collapsed=true]\r\e[0K$cmd"
+        eval "$cmd" || failed_commands+=("$cmd")
+        echo -e "\e[0Ksection_end:$(date +%s):$section_name\r\e[0K"
+    done < "$script"
+    if [ ${#failed_commands[@]} -gt 0 ]; then
+        echo -e '\e[31m' # red
+        echo 'commands failed:'
+        for cmd in "${failed_commands[@]}"; do
+            echo '- `'"$cmd"'`'
+        done
+        echo -e '\e[0m'
+        exit 1
+    fi
+
 build-ci-container:
   when: manual
   image: docker:24.0.5

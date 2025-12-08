@@ -7,9 +7,10 @@
 # FIXME these results assume clustershell is present
 
 - block:
-    - name: tempfile
+    - name: tempdir
       tempfile:
-      register: tempfile
+        state: directory
+      register: tempdir
       no_log: true
 
     - name: run test playbooks
@@ -29,13 +30,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -45,16 +46,16 @@
               PLAY [testhost] ****************************************************************
 
               TASK [create file] *************************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -0,0 +1 @@
               +Foo bar
               changed: testhost
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
@@ -62,7 +63,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: formatted diff
             environment:
@@ -77,13 +78,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -93,8 +94,8 @@
               PLAY [testhost] ****************************************************************
 
               TASK [create file] *************************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
                REPLACED bar
               -Bar baz bam!
@@ -102,8 +103,8 @@
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                REPLACED bar
               +Bar baz bam!
@@ -111,7 +112,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: diff formatter not found
             environment:
@@ -126,13 +127,13 @@
                 tasks:
                   - name: create file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
 
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/<redacted hostname>"
                       content: |
                         Foo bar
                         Bar baz bam!
@@ -143,8 +144,8 @@
 
               TASK [create file] *************************************************************
               [WARNING]: diff formatter "asdlkjasdlkjs" not found
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
                Foo bar
               -Bar baz bam!
@@ -152,8 +153,8 @@
               elapsed: <omitted> seconds
 
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1 +1,2 @@
                Foo bar
               +Bar baz bam!
@@ -161,7 +162,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=2    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: empty diff
             environment:
@@ -187,7 +188,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              localhost                  : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              localhost                  : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: dedupe diff
             environment:
@@ -199,18 +200,30 @@
               - hosts: dedupegroup
                 gather_facts: false
                 tasks:
+                  - name: overwrite file (ignore)
+                    copy:
+                      dest: "{{ tempdir.path }}/{% raw %}{{ inventory_hostname }}{% endraw %}"
+                      content: |
+                        Foo bar
+                        Bar baz bam!
+                    diff: false
+                    changed_when: false
                   - name: overwrite file
                     copy:
-                      dest: "{{ tempfile.path }}"
+                      dest: "{{ tempdir.path }}/{% raw %}{{ inventory_hostname }}{% endraw %}"
                       content: "{{ '{{ dedupe_me }}' }}"
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
 
+              TASK [overwrite file (ignore)] *************************************************
+              ok: dedupe[1-3]
+              elapsed: <omitted> seconds
+
               TASK [overwrite file] **********************************************************
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
               -Foo bar
               -Bar baz bam!
@@ -218,8 +231,8 @@
               \ No newline at end of file
               changed: dedupe3
 
-              --- before: {{ tempfile.path }}
-              +++ after: {{ tempfile.path }}
+              --- before: {{ tempdir.path }}/<redacted hostname>
+              +++ after: {{ tempdir.path }}/<redacted hostname>
               @@ -1,2 +1 @@
               -Foo bar
               -Bar baz bam!
@@ -229,9 +242,9 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe2                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe3                    : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: dedupe normal loop
             environment:
@@ -261,16 +274,16 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost (item=foo) => 
+              ok: testhost (item=foo) =>
                 msg: {{ 'foo' | sha1 }}
               ok: testhost (item=foo) => same result (not including diff) as testhost (item=foo)
-              ok: testhost (item=bar) => 
+              ok: testhost (item=bar) =>
                 msg: {{ 'bar' | sha1 }}
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           # once upon a time I relied on the size of the loop variable to determine the number of runners that would be spawned
           # this was a bad idea because the loop variable might just be an un-expanded j2 template string
@@ -308,16 +321,16 @@
               elapsed: <omitted> seconds
 
               TASK [foo] *********************************************************************
-              ok: testhost (item=foo) => 
+              ok: testhost (item=foo) =>
                 msg: {{ 'foo' | sha1 }}
               ok: testhost (item=foo) => same result (not including diff) as testhost (item=foo)
-              ok: testhost (item=bar) => 
+              ok: testhost (item=bar) =>
                 msg: {{ 'bar' | sha1 }}
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: non verbose OK result
             environment:
@@ -342,9 +355,9 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: dedupe hostname, item label, and `dedupe_me` variable in failed results
             environment:
@@ -370,19 +383,19 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
-              failed: dedupe1 (item={{ ('aaaaaa' | sha1) }}) => 
+              failed: dedupe1 (item={{ ('aaaaaa' | sha1) }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
                 msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=foo
               failed: dedupe1 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
-              failed: dedupe1 => 
+              failed: dedupe1 =>
                 changed: false
                 msg: One or more items failed
               failed: dedupe2 (item={{ 'aaaaaa' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe2 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe2 => same result (not including diff) as dedupe1
-              failed: dedupe3 (item={{ 'aaaaaa' | sha1 }}) => 
+              failed: dedupe3 (item={{ 'aaaaaa' | sha1 }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
@@ -392,9 +405,9 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+              dedupe2                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+              dedupe3                    : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
 
           - name: multiple plays
             environment:
@@ -420,19 +433,19 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: foo
               elapsed: <omitted> seconds
 
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: skipped (no hosts matched) on 1st play
             environment:
@@ -460,12 +473,12 @@
               PLAY [testhost] ****************************************************************
 
               TASK [bar] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: skipped (no hosts matched) on 2nd play
             environment:
@@ -490,7 +503,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: foo
               elapsed: <omitted> seconds
 
@@ -498,7 +511,7 @@
               skipping: no hosts matched
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
           - name: skipped (when=false) 1st task
             environment:
@@ -525,12 +538,12 @@
               elapsed: <omitted> seconds
 
               TASK [bar] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: bar
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0
 
           - name: skipped (when=false) 2nd task
             environment:
@@ -553,7 +566,7 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: foo
               elapsed: <omitted> seconds
 
@@ -562,7 +575,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0
 
           # sleep_seconds is defined for each host in targets/callback/inventory.yml
           # I used to use timeout=3 but I saw a `sleep 1` marked as interrupted so I increased to timeout=4
@@ -630,10 +643,8 @@
 
               PLAY RECAP *********************************************************************
 
-               
-
-            sed_E_command: 's/\[ERROR\]: No matching task "nonexistent" found. Note: --start-at-task can only//;s/follow static includes.//'
-
+               [ERROR]: No matching task "nonexistent" found. Note: --start-at-task can only
+              follow static includes.
           - name: msg has diacritics
             environment:
               ANSIBLE_FORCE_COLOR: "false"
@@ -656,7 +667,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -682,7 +693,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -708,7 +719,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -734,7 +745,7 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -756,13 +767,13 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost (item=ÅÑŚÌβŁÈ) => 
+              ok: testhost (item=ÅÑŚÌβŁÈ) =>
                 msg: ''
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -784,13 +795,13 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: foo
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -812,13 +823,13 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost => 
+              ok: testhost =>
                 msg: foo
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -836,19 +847,19 @@
                     debug: msg='foo'
                     loop:
                       - "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-                    
+
             expected_output: |+
 
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              ok: testhost (item=Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.) => 
+              ok: testhost (item=Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.) =>
                 msg: foo
               ok: testhost => All items completed
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -868,7 +879,7 @@
                       failed: false
                       msg: foo
                       exception: "{{ '{{ dedupe_me }}' }}"
-                    
+
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
@@ -881,9 +892,9 @@
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
@@ -924,23 +935,23 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              [DEPRECATION WARNING]: testhost[0]: {{ 'foo' | sha1 }}. 
-              This feature will be removed from unity.general in a release after 1970/1/1. 
-              Deprecation warnings can be disabled by setting deprecation_warnings=False in 
+              [DEPRECATION WARNING]: testhost[0]: {{ 'foo' | sha1 }}.
+              This feature will be removed from unity.general in a release after 1970/1/1.
+              Deprecation warnings can be disabled by setting deprecation_warnings=False in
               ansible.cfg.
-              [DEPRECATION WARNING]: testhost[2]: {{ 'bar' | sha1 }}. 
-              This feature will be removed from unity.general in a release after 1970/1/2. 
-              Deprecation warnings can be disabled by setting deprecation_warnings=False in 
+              [DEPRECATION WARNING]: testhost[2]: {{ 'bar' | sha1 }}.
+              This feature will be removed from unity.general in a release after 1970/1/2.
+              Deprecation warnings can be disabled by setting deprecation_warnings=False in
               ansible.cfg.
               [DEPRECATION WARNING]: testhost[1]: same deprecation as testhost[0]
               ok: testhost => I have deprecations!
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              testhost                   : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
- 
+
           - name: delegate_to
             environment:
               ANSIBLE_FORCE_COLOR: "false"
@@ -961,21 +972,21 @@
               PLAY [dedupegroup] *************************************************************
 
               TASK [foo] *********************************************************************
-              ok: dedupe1 -> localhost => 
+              ok: dedupe1 -> localhost =>
                 msg: foo
               ok: dedupe2 -> localhost => same result (not including diff) as dedupe1 -> localhost
               ok: dedupe3 -> localhost => same result (not including diff) as dedupe1 -> localhost
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
   always:
-    - name: delete tempfile
+    - name: delete tempdir
       file:
-        path: "{{ tempfile.path }}"
+        path: "{{ tempdir.path }}"
         state: absent
       no_log: true

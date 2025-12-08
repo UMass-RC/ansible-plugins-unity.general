@@ -75,19 +75,61 @@
         env_key_value_pairs: "{{ env_keys | zip(env_values) }}"
         env_command: "env {{ env_key_value_pairs | map('join', '=') | map('quote') | join(' ') }}"
 
+    - name: trim trailing whitespace
+      command:
+        argv:
+          - sed
+          - -E
+          - s/[ ]+$//g;
+          - -i
+          - "{{ output_file }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
+      changed_when: false
+      vars:
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+
     - name: munge playbook output with sed
       command:
         argv:
           - sed
           - -E
           - "{{ test.sed_E_command }}"
-          -  -i
+          - -i
           - "{{ output_file }}"
       loop: "{{ tests }}"
       loop_control:
         loop_var: test
         label: "{{ test.name }}"
       when: test.sed_E_command is defined
+      changed_when: false
+      vars:
+        output_file: "
+          {%- for result in temporary_playbook_output_files.results -%}
+          {%-   if result.test.name == test.name -%}
+          {{-     result.path -}}
+          {%-   endif -%}
+          {%- endfor -%}"
+
+    - name: trim trailing whitespace again
+      command:
+        argv:
+          - sed
+          - -E
+          - s/[ ]+$//g;
+          - -i
+          - "{{ output_file }}"
+      loop: "{{ tests }}"
+      loop_control:
+        loop_var: test
+        label: "{{ test.name }}"
       changed_when: false
       vars:
         output_file: "
@@ -153,7 +195,7 @@
           the following tests didn't produce the expected output: {{ failed_tests | to_json | replace("'", "\'") | replace('"', "'") }}
       when: (failed_tests | length) > 0
       vars:
-         failed_tests: |
+        failed_tests: |
           {%- set output = [] -%}
           {%- for result in munged_outputs.results -%}
           {%-   if result.test.expected_output != (result.content | b64decode) -%}
