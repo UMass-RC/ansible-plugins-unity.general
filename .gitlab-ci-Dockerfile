@@ -6,6 +6,6 @@ FROM python:3.12-alpine
 RUN apk add --no-cache --no-scripts git openssh-keygen bash uv patch openssh
 COPY requirements.txt .
 RUN uv pip install --system -r requirements.txt
-ENV ANSIBLE_COLLECTIONS_PATHS=/usr/share/ansible/collections
+ENV ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections
 RUN mkdir -p /usr/share/ansible/collections
 RUN ansible-galaxy collection install -p /usr/share/ansible/collections ansible.posix community.general
