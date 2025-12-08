@@ -646,6 +646,7 @@
                [ERROR]: No matching task "nonexistent" found. Note: --start-at-task can only
               follow static includes.
 
+
           - name: msg has diacritics
             environment:
               ANSIBLE_FORCE_COLOR: "false"
