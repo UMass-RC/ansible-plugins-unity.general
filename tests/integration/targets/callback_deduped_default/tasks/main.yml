@@ -643,11 +643,8 @@
 
               PLAY RECAP *********************************************************************
 
-
-
-            sed_E_command: |
-              s/\[ERROR\]: No matching task "nonexistent" found. Note: --start-at-task can only//;
-              s/follow static includes.//
+               [ERROR]: No matching task "nonexistent" found. Note: --start-at-task can only
+              follow static includes.
 
           - name: msg has diacritics
             environment:
