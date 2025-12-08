@@ -90,8 +90,8 @@
               s/end: '[0-9\-]+ [0-9:\.]+'/end: <omitted>/g;
               s/nodename nor servname provided, or not known/__DNS_FAIL_MESSAGE__/g;
               s/Name does not resolve/__DNS_FAIL_MESSAGE__/g;
-              s/^[WARNING]: One or more worker processes are still running and will be$/d;
-              s/^terminated.$/d
+              /^[WARNING]: One or more worker processes are still running and will be$/d;
+              /^terminated.$/d;
             expected_output: |+
 
               PLAY [unreachable1, dedupegroup, testhost, testhost2, testhost3] ***************
