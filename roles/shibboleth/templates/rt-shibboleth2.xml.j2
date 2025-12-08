@@ -1,0 +1,70 @@
+{{ ansible_managed | comment('xml') }}
+{# FIXME xmlns should be on new line #}
+<SPConfig xmlns="urn:mace:shibboleth:3.0:native:sp:config"
+    xmlns:conf="urn:mace:shibboleth:3.0:native:sp:config"
+    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" clockSkew="180"
+>
+    {# FIXME tranLogFormat should be on new line #}
+    <OutOfProcess tranLogFormat="%u|%s|%IDP|%i|%ac|%t|%attr|%n|%b|%E|%S|%SS|%L|%UA|%a">
+        <Extensions>
+            <Library path="plugins.so" fatal="true"/>
+        </Extensions>
+    </OutOfProcess>
+    <RequestMapper type="XML">
+        <RequestMap>
+            <Host name="{{ server_name }}" authType="shibboleth" requireSession="true" redirectToSSL="443">
+            </Host>
+        </RequestMap>
+    </RequestMapper>
+    <ApplicationDefaults
+        entityID="{{ shib_entityid }}"
+        REMOTE_USER="eppn subject-id pairwise-id persistent-id"
+        cipherSuites="DEFAULT:!EXP:!LOW:!aNULL:!eNULL:!DES:!IDEA:!SEED:!RC4:!3DES:!kRSA:!SSLv2:!SSLv3:!TLSv1:!TLSv1.1"
+    >
+        <Sessions
+            lifetime="28800"
+            timeout="3600"
+            relayState="ss:mem"
+            checkAddress="false"
+            handlerSSL="true"
+            cookieProps="https"
+            redirectLimit="exact"
+        >
+            <SSO discoveryProtocol="SAMLDS" discoveryURL="{{ shib_discovery_url }}"> SAML2 </SSO>
+            <Logout> SAML2 Local </Logout>
+            <LogoutInitiator type="Admin" Location="/Logout/Admin" acl="127.0.0.1 ::1" />
+            <Handler type="MetadataGenerator" Location="/Metadata" signing="false" />
+            <Handler type="Status" Location="/Status" acl="127.0.0.1 ::1" />
+            <Handler type="Session" Location="/Session" showAttributeValues="false" />
+            <Handler type="DiscoveryFeed" Location="/DiscoFeed" />
+        </Sessions>
+        <Errors supportContact="{{ web_webmaster }}" helpLocation="/about.html" styleSheet="/shibboleth-sp/main.css" />
+{#
+        <MetadataProvider type="XML" url="http://md.incommon.org/InCommon/InCommon-metadata.xml" backingFilePath="InCommon-metadata.xml" legacyOrgNames="true" reloadInterval="14400">
+            <MetadataFilter type="RequireValidUntil" maxValidityInterval="2419200" />
+            <MetadataFilter type="Signature" certificate="inc-md-cert.pem" verifyBackup="false" />
+            <MetadataFilter type="EntityRoleWhiteList">
+                <RetainedRole>md:IDPSSODescriptor</RetainedRole>
+                <RetainedRole>md:AttributeAuthorityDescriptor</RetainedRole>
+            </MetadataFilter>
+            <MetadataFilter type="Whitelist">
+{% for entity in shib_incommon_allowed_entities %}
+                <Include>{{ entity }}</Include>
+{% endfor %}
+            </MetadataFilter>
+        </MetadataProvider>
+        <AttributeExtractor type="XML" validate="true" reloadChanges="false" path="attribute-map.xml" />
+        <AttributeFilter type="XML" validate="true" path="attribute-policy.xml" />
+        <AttributeResolver type="LowerCase" source="eppn"/>
+        <AttributeResolver type="Transform" source="eppn">
+            <Regex match="^(.+)@(.+)\.(.+)$" dest="unityid">$1_$2_$3</Regex>
+        </AttributeResolver>
+#}
+        <MetadataProvider type="XML" validate="true" path="filtered-incommon-metadata.xml" />
+        <AttributeExtractor type="XML" validate="true" reloadChanges="false" path="attribute-map.xml" />
+        <AttributeFilter type="XML" validate="true" path="attribute-policy.xml" />
+        <CredentialResolver type="File" key="{{ shib_key_dest_path }}" certificate="{{ shib_cert_dest_path }}" />
+    </ApplicationDefaults>
+    <SecurityPolicyProvider type="XML" validate="true" path="security-policy.xml" />
+    <ProtocolProvider type="XML" validate="true" reloadChanges="false" path="protocols.xml" />
+</SPConfig>
