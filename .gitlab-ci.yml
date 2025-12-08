@@ -22,7 +22,6 @@ ansible_test_integration:
     mkdir -p "$tmpdir/ansible_collections/unity"
     mv "$old_path" "$tmpdir/ansible_collections/unity/general"
     cd "$tmpdir/ansible_collections/unity/general"
-    ansible-galaxy collection install ansible.posix community.general
     failed_targets=()
     for target_path in tests/integration/targets/*; do
         target="$(basename "$target_path")"
