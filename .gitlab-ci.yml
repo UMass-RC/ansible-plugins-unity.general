@@ -54,13 +54,13 @@ documentation:
     export ANSIBLE_COLLECTIONS_PATH="$tmpdir/collections"
     ansible-doc --metadata-dump unity.general | jq '.all | with_entries(select(.key != "keyword" and (.value | keys | length) > 0) | .value |= keys)' | jq -r 'to_entries[] | .key as $type | .value[] | . as $plugin | "PAGER=cat ansible-doc -t \($type) \($plugin)"' | tee "$script"
     failed_commands=()
-    cat "$script" | while IFS= read -r cmd; do
+    while IFS= read -r cmd; do
         # https://docs.gitlab.com/ci/jobs/job_logs/#custom-collapsible-sections
         section_name=$(printf '%s' "$cmd" | tr -cs 'A-Za-z0-9_.-' '_' | cut -c1-80)
         echo -e "\e[0Ksection_start:$(date +%s):$section_name[collapsed=true]\r\e[0K$cmd"
         eval "$cmd" || failed_commands+=("$cmd")
         echo -e "\e[0Ksection_end:$(date +%s):$section_name\r\e[0K"
-    done
+    done < "$script"
     if [ ${#failed_commands[@]} -gt 0 ]; then
         echo -e '\e[31m' # red
         echo 'commands failed:'
