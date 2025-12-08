@@ -56,7 +56,7 @@ documentation:
     failed_commands=()
     cat "$script" | while IFS= read -r cmd; do
         echo -e "\e[0Ksection_start:`date +%s`:$cmd[collapsed=true]\r\e[0K$cmd"
-        (. "$cmd") || failed_commands+=("$cmd")
+        eval "$cmd" || failed_commands+=("$cmd")
         echo -e "\e[0Ksection_end:`date +%s`:$cmd\r\e[0K"
     done
     if [ ${#failed_commands[@]} -gt 0 ]; then
