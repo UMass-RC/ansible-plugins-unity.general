@@ -35,8 +35,7 @@ ansible_test_integration:
         echo -e "\e[0Ksection_end:`date +%s`:$target\r\e[0K"
     done
     if [ ${#failed_targets[@]} -gt 0 ]; then
-        printf 'targets failed: '
-        printf -v joined '%s,' "${failed_targets[@]}"
+        printf "targets failed: ${failed_targets[*]}"
         exit 1
     fi
 documentation:
