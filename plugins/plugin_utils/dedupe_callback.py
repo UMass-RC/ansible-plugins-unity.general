@@ -509,9 +509,6 @@ class DedupeCallback(CallbackBase):
             )
 
     # V2 API #######################################################################################
-    def v2_on_any(self, *args, **kwargs):
-        self.deduped_on_any(*args, **kwargs)
-
     @beartype
     def v2_runner_on_start(self, host: Host, task: Task) -> None:
         self.__runner_start(host, task)
@@ -633,9 +630,6 @@ class DedupeCallback(CallbackBase):
         raise NotImplementedError("dedupe_callback does not support async!")
 
     # DEDUPED API ##################################################################################
-    def deduped_on_any(self, *args, **kwargs) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_on_any"
-
     @beartype
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
