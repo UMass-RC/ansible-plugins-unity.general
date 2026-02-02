@@ -44,7 +44,7 @@
 
     - name: run playbook
       shell:
-        cmd: "{{ env_command }} {{ timeout_command }} ansible-playbook -i {{ inventory }} {{ extra_args }} {{ playbook }} 2>&1 | tee {{ output_file }}"
+        cmd: "set -euo pipefail; {{ env_command }} {{ timeout_command }} ansible-playbook -i {{ inventory }} {{ extra_args }} {{ playbook }} 2>&1 | tee {{ output_file }}"
         executable: /bin/bash
       loop: "{{ tests }}"
       loop_control:
