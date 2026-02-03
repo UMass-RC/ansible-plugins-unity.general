@@ -377,29 +377,79 @@
                     loop: ['aaaaaa', 'bbbbbb']
                     loop_control:
                       label: "{{ (item | sha1) }}"
-            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+            sed_E_command: |
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/;
+              s/Origin: .*/Origin: <omitted>/;
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
+              [ERROR]: Task failed: Action failed: host=dedupe1 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe1 (item={{ ('aaaaaa' | sha1) }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
                 msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=foo
+              [ERROR]: Task failed: Action failed: host=dedupe1 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe1 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe1 =>
                 changed: false
                 msg: One or more items failed
+              [ERROR]: Task failed: Action failed: host=dedupe2 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe2 (item={{ 'aaaaaa' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
+              [ERROR]: Task failed: Action failed: host=dedupe2 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe2 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe2 => same result (not including diff) as dedupe1
+              [ERROR]: Task failed: Action failed: host=dedupe3 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=bar
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe3 (item={{ 'aaaaaa' | sha1 }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
                 msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=bar
+              [ERROR]: Task failed: Action failed: host=dedupe3 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=bar
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe3 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe3 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe3 => same result (not including diff) as dedupe1
               elapsed: <omitted> seconds
