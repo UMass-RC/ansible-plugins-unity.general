@@ -932,7 +932,6 @@
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              task path: <omitted>
               [WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
               [DEPRECATION WARNING]: testhost[0]: {{ 'foo' | sha1 }}. This feature will be removed from unity.general in a release after 1970/1/1.
               [DEPRECATION WARNING]: testhost[2]: {{ 'bar' | sha1 }}. This feature will be removed from unity.general in a release after 1970/1/2.
