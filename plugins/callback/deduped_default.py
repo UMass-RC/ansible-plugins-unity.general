@@ -128,9 +128,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             self.textwrapper.width = width
         self.textwrapper.initial_indent = indent
         self.textwrapper.subsequent_indent = indent
-        output_chunks = (
-            []
-        )  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
+        output_chunks = []  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
         for line in x.splitlines():
             output_chunks.append("\n".join(self.textwrapper.wrap(line)))
         return "\n".join(output_chunks)
@@ -255,6 +253,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         result_gist: ResultGist,
         gist_dupes: list[ResultID],
     ) -> None:
+        # breakpoint()
         if not self._is_result_printed_immediately(result_gist):
             return
         if result_gist["status"] == "ok" and not self.get_option("display_ok_hosts"):
@@ -268,7 +267,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         status = result_gist["status"]
         color = _STATUS_COLORS[status]
         if status == "failed" and self.get_option("show_task_path_on_failure"):
-            self._display.display(f"task path: {result_gist["task_path"]}", color=color)
+            self._display.display(f"task path: {result_gist['task_path']}", color=color)
         if len(gist_dupes) > 0:
             msg = f"same result (not including diff) as {gist_dupes[0]}"
             output = self.format_status_result_ids_msg(status, [result_id], msg=msg)

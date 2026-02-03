@@ -463,7 +463,7 @@ class DedupeCallback(CallbackBase):
     @beartype
     def __play_start(self, play: Play):
         strategy_fqcn = add_internal_fqcns([play.strategy])[0]
-        if not strategy_fqcn in add_internal_fqcns(("linear", "debug")):
+        if strategy_fqcn not in add_internal_fqcns(("linear", "debug")):
             raise RuntimeError(
                 f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
             )

@@ -121,9 +121,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self.set_options()
         statuses_enable_print = self.get_option("statuses_enable_print")
         invalid_statuses = [x for x in statuses_enable_print if x not in VALID_STATUSES]
-        assert (
-            len(invalid_statuses) == 0
-        ), f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
+        assert len(invalid_statuses) == 0, (
+            f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
+        )
 
     # https://github.com/ansible/ansible/pull/84496
     def get_options(self):
