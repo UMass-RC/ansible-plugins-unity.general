@@ -2,12 +2,10 @@ import shutil
 
 from ansible import constants as C
 from ansible.utils.color import stringc
-
-from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
-
+from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
 DOCUMENTATION = r"""
   name: status_oneline
@@ -133,16 +131,6 @@ class CallbackModule(DedupedDefaultCallback):
     def deduped_result(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_result(self, *args, **kwargs)
-
-    @beartype
-    def deduped_warning(self, *args, **kwargs):
-        self._clear_line()  # destroy last status line
-        DedupedDefaultCallback.deduped_warning(self, *args, **kwargs)
-
-    @beartype
-    def deduped_exception(self, *args, **kwargs):
-        self._clear_line()  # destroy last status line
-        DedupedDefaultCallback.deduped_exception(self, *args, **kwargs)
 
     @beartype
     def deduped_task_end(self, *args, **kwargs):

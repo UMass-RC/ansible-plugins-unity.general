@@ -1,24 +1,19 @@
 import shutil
 import subprocess
 
-from ansible.executor.task_result import TaskResult
-
-from ansible_collections.unity.general.plugins.plugin_utils.color import decolorize
-from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    VALID_STATUSES,
-    ResultGist,
-    ResultID,
-    DiffID,
-    WarningID,
-    ExceptionID,
-    DeprecationID,
+from ansible_collections.unity.general.plugins.callback.deduped_default import (
+    CallbackModule as DedupedDefaultCallback,
 )
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
 from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
     BufferedCallback,
 )
-from ansible_collections.unity.general.plugins.callback.deduped_default import (
-    CallbackModule as DedupedDefaultCallback,
+from ansible_collections.unity.general.plugins.plugin_utils.color import decolorize
+from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
+    VALID_STATUSES,
+    DiffID,
+    ResultGist,
+    ResultID,
 )
 
 DOCUMENTATION = r"""
@@ -126,9 +121,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self.set_options()
         statuses_enable_print = self.get_option("statuses_enable_print")
         invalid_statuses = [x for x in statuses_enable_print if x not in VALID_STATUSES]
-        assert (
-            len(invalid_statuses) == 0
-        ), f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
+        assert len(invalid_statuses) == 0, (
+            f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
+        )
 
     # https://github.com/ansible/ansible/pull/84496
     def get_options(self):
@@ -145,21 +140,6 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             stripped_result_dict = bitwarden_redact(stripped_result_dict, self.get_options())
             result_gist = ResultGist(**bitwarden_redact(result_gist, self.get_options()))
         return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
-
-    def deduped_warning(self, *args, **kwargs):
-        if self.get_option("warning_enable_print"):
-            self._do_print = True
-        super().deduped_warning(*args, **kwargs)
-
-    def deduped_exception(self, *args, **kwargs):
-        if self.get_option("exception_enable_print"):
-            self._do_print = True
-        super().deduped_exception(*args, **kwargs)
-
-    def deduped_deprecation(self, *args, **kwargs):
-        if self.get_option("deprecation_enable_print"):
-            self._do_print = True
-        super().deduped_deprecation(*args, **kwargs)
 
     def deduped_task_end(
         self,
