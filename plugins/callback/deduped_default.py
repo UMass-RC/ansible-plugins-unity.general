@@ -253,7 +253,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         result_gist: ResultGist,
         gist_dupes: list[ResultID],
     ) -> None:
-        # breakpoint()
         if not self._is_result_printed_immediately(result_gist):
             return
         if result_gist["status"] == "ok" and not self.get_option("display_ok_hosts"):
