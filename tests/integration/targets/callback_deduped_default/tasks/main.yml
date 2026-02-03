@@ -13,6 +13,37 @@
       register: tempdir
       no_log: true
 
+    - name: create temp library
+      tempfile:
+        prefix: library
+        path: "{{ tempdir.path }}"
+        state: directory
+      register: library
+      no_log: true
+
+    - name: setup modules
+      copy:
+        content: "{{ item.content }}"
+        dest: "{{ library.path }}/{{ item.name }}"
+        mode: "0755"
+      no_log: true
+      loop:
+        - name: graceful_exception.py
+          content: |
+            #!/usr/bin/python
+            from ansible.module_utils.basic import AnsibleModule
+            if __name__ == "__main__":
+                module = AnsibleModule(argument_spec=dict())
+                try:
+                    5 / 0
+                except ZeroDivisionError as e:
+                    module.fail_json(msg="foo", exception=e)
+        - name: uncaught_exception.py
+          content: |
+            #!/usr/bin/python
+            if __name__ == "__main__":
+                5 / 0
+
     - name: run test playbooks
       include_role:
         name: callback
@@ -377,29 +408,79 @@
                     loop: ['aaaaaa', 'bbbbbb']
                     loop_control:
                       label: "{{ (item | sha1) }}"
-            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+            sed_E_command: |
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/;
+              s/Origin: .*/Origin: <omitted>/;
             expected_output: |+
 
               PLAY [dedupegroup] *************************************************************
 
               TASK [fail] ********************************************************************
+              [ERROR]: Task failed: Action failed: host=dedupe1 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe1 (item={{ ('aaaaaa' | sha1) }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
                 msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=foo
+              [ERROR]: Task failed: Action failed: host=dedupe1 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe1 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe1 =>
                 changed: false
                 msg: One or more items failed
+              [ERROR]: Task failed: Action failed: host=dedupe2 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe2 (item={{ 'aaaaaa' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
+              [ERROR]: Task failed: Action failed: host=dedupe2 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=foo
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe2 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe1 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe2 => same result (not including diff) as dedupe1
+              [ERROR]: Task failed: Action failed: host=dedupe3 item_label={{ 'aaaaaa' | sha1 }} dedupe_me=bar
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe3 (item={{ 'aaaaaa' | sha1 }}) =>
                 ansible_loop_var: item
                 changed: false
                 item: aaaaaa
                 msg: host=<redacted hostname> item_label=<redacted item> dedupe_me=bar
+              [ERROR]: Task failed: Action failed: host=dedupe3 item_label={{ 'bbbbbb' | sha1 }} dedupe_me=bar
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: fail
+                      ^ column 7
+
               failed: dedupe3 (item={{ 'bbbbbb' | sha1 }}) => same result (not including diff) as dedupe3 (item={{ 'aaaaaa' | sha1 }})
               failed: dedupe3 => same result (not including diff) as dedupe1
               elapsed: <omitted> seconds
@@ -604,7 +685,7 @@
               ok: dedupe[1-2]
               interrupted: dedupe3
               elapsed: <omitted> seconds
-               [ERROR]: User interrupted execution
+              [ERROR]: User interrupted execution
 
           - name: fatal no hosts matched
             environment:
@@ -620,7 +701,7 @@
                   - name: foo
                     debug: msg='foo'
             expected_output: |
-              ERROR! Could not match supplied host pattern, ignoring: nonexistent
+              [ERROR]: Could not match supplied host pattern, ignoring: nonexistent
 
           - name: start-at-task nonexistent
             environment:
@@ -643,8 +724,7 @@
 
               PLAY RECAP *********************************************************************
 
-               [ERROR]: No matching task "nonexistent" found. Note: --start-at-task can only
-              follow static includes.
+              [ERROR]: No matching task "nonexistent" found. Note: --start-at-task can only follow static includes.
           - name: msg has diacritics
             environment:
               ANSIBLE_FORCE_COLOR: "false"
@@ -863,40 +943,98 @@
 
             sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
 
-          - name: dedupe result exceptions
+          - name: handle graceful exception
             environment:
               ANSIBLE_FORCE_COLOR: "false"
               ANSIBLE_DIFF_ALWAYS: "true"
               ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
               ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              ANSIBLE_LIBRARY: "{{ library.path }}"
             playbook: |
-              - hosts: dedupegroup
+              - hosts: testhost
                 gather_facts: false
                 tasks:
                   - name: foo
-                    unity.general.return_args:
-                      changed: false
-                      failed: false
-                      msg: foo
-                      exception: "{{ '{{ dedupe_me }}' }}"
-
+                    graceful_exception:
+            allow_nonzero_exit_code: true
             expected_output: |+
 
-              PLAY [dedupegroup] *************************************************************
+              PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              An exception occurred during task execution. To see the full traceback, use -vvv. The error was: dedupe1: foo
-              An exception occurred during task execution. To see the full traceback, use -vvv. The error was: dedupe2: same exception as dedupe1
-              An exception occurred during task execution. To see the full traceback, use -vvv. The error was: dedupe3: bar
-              ok: dedupe[1-3] => foo
+              [ERROR]: Task failed: Module failed: foo: division by zero
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: foo
+                      ^ column 7
+
+              failed: testhost =>
+                changed: false
+                msg: foo
               elapsed: <omitted> seconds
 
               PLAY RECAP *********************************************************************
-              dedupe1                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
-              dedupe2                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
-              dedupe3                    : ok=1    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+              testhost                   : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
 
-            sed_E_command: 's/elapsed: [0-9\.]+/elapsed: <omitted>/'
+            sed_E_command: |
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/;
+              s/Origin: .*/Origin: <omitted>/;
+
+          - name: handle uncaught exception
+            environment:
+              ANSIBLE_FORCE_COLOR: "false"
+              ANSIBLE_DIFF_ALWAYS: "true"
+              ANSIBLE_PYTHON_INTERPRETER: "{{ ansible_python_interpreter }}"
+              ANSIBLE_STDOUT_CALLBACK: unity.general.deduped_default
+              ANSIBLE_LIBRARY: "{{ library.path }}"
+            playbook: |
+              - hosts: testhost
+                gather_facts: false
+                tasks:
+                  - name: bar
+                    uncaught_exception:
+            allow_nonzero_exit_code: true
+            expected_output: |+
+
+              PLAY [testhost] ****************************************************************
+
+              TASK [bar] *********************************************************************
+              [ERROR]: Task failed: Action failed: Module result deserialization failed: No start of json char found
+
+              Task failed: Action failed.
+              Origin: <omitted>
+
+              2   gather_facts: false
+              3   tasks:
+              4     - name: bar
+                      ^ column 7
+
+              <<< caused by >>>
+
+              Module result deserialization failed: No start of json char found See stdout/stderr for the returned output.
+
+              failed: testhost =>
+                changed: false
+                module_stderr: |-
+                  Traceback (most recent call last):
+                    File <omitted>, line 3, in <module>
+                      5 / 0
+                      ~~^~~
+                  ZeroDivisionError: division by zero
+                module_stdout: ''
+                msg: 'Module result deserialization failed: No start of json char found'
+                rc: 1
+              elapsed: <omitted> seconds
+
+              PLAY RECAP *********************************************************************
+              testhost                   : ok=0    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+
+            sed_E_command: |
+              s/elapsed: [0-9\.]+/elapsed: <omitted>/;
+              s/Origin: .*/Origin: <omitted>/;
+              s/File .*, line ([0-9]+), in <module>/File <omitted>, line \1, in <module>/;
 
           - name: result has deprecations
             environment:
@@ -917,33 +1055,15 @@
                       deprecations:
                         - msg: {{ 'foo' | sha1 }}
                           version: 1.2.3
-                          removed: false
                           date: 1970/1/1
-                          collection_name: unity.general
-                        - msg: {{ 'foo' | sha1 }}
-                          version: 1.2.3
-                          removed: false
-                          date: 1970/1/1
-                          collection_name: unity.general
-                        - msg: {{ 'bar' | sha1 }}
-                          version: 4.5.6
-                          removed: false
-                          date: 1970/1/2
                           collection_name: unity.general
             expected_output: |+
 
               PLAY [testhost] ****************************************************************
 
               TASK [foo] *********************************************************************
-              [DEPRECATION WARNING]: testhost[0]: {{ 'foo' | sha1 }}.
-              This feature will be removed from unity.general in a release after 1970/1/1.
-              Deprecation warnings can be disabled by setting deprecation_warnings=False in
-              ansible.cfg.
-              [DEPRECATION WARNING]: testhost[2]: {{ 'bar' | sha1 }}.
-              This feature will be removed from unity.general in a release after 1970/1/2.
-              Deprecation warnings can be disabled by setting deprecation_warnings=False in
-              ansible.cfg.
-              [DEPRECATION WARNING]: testhost[1]: same deprecation as testhost[0]
+              [WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
+              [DEPRECATION WARNING]: {{ 'foo' | sha1 }}. This feature will be removed from collection 'unity.general' in a release after 1970/1/1.
               ok: testhost => I have deprecations!
               elapsed: <omitted> seconds
 

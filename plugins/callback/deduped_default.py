@@ -1,41 +1,31 @@
+import datetime
+import hashlib
+import json
 import os
 import sys
-import copy
-import json
-import hashlib
-import datetime
 import textwrap
 
 from ansible import constants as C
-from ansible.playbook import Playbook
-from ansible.playbook.task import Task
-from ansible.playbook.play import Play
-from ansible.inventory.host import Host
-from ansible.utils.color import stringc
-from ansible.playbook.handler import Handler
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible.inventory.host import Host
+from ansible.playbook import Playbook
+from ansible.playbook.handler import Handler
 from ansible.playbook.included_file import IncludedFile
+from ansible.playbook.play import Play
+from ansible.playbook.task import Task
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
-
 from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
     DedupeCallback,
-    ResultID,
     DiffID,
-    WarningID,
-    ExceptionID,
-    DeprecationID,
     ResultGist,
-    VALID_STATUSES,
+    ResultID,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
     FormatDiffCallback,
 )
-from ansible_collections.unity.general.plugins.plugin_utils.options_fixed_callback import (
-    OptionsFixedCallback,
-)
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 DOCUMENTATION = r"""
   name: deduped_default
@@ -102,7 +92,7 @@ def _hash_object_dirty(x) -> str:
 
 
 @beartype
-class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, DefaultCallback):
+class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
@@ -138,9 +128,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             self.textwrapper.width = width
         self.textwrapper.initial_indent = indent
         self.textwrapper.subsequent_indent = indent
-        output_chunks = (
-            []
-        )  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
+        output_chunks = []  # with replace_whitespace=False, wrapper cannot properly indent newlines in input
         for line in x.splitlines():
             output_chunks.append("\n".join(self.textwrapper.wrap(line)))
         return "\n".join(output_chunks)
@@ -278,7 +266,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
         status = result_gist["status"]
         color = _STATUS_COLORS[status]
         if status == "failed" and self.get_option("show_task_path_on_failure"):
-            self._display.display(f"task path: {result_gist["task_path"]}", color=color)
+            self._display.display(f"task path: {result_gist['task_path']}", color=color)
         if len(gist_dupes) > 0:
             msg = f"same result (not including diff) as {gist_dupes[0]}"
             output = self.format_status_result_ids_msg(status, [result_id], msg=msg)
@@ -294,43 +282,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
             color=color,
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
-
-    @beartype
-    def deduped_warning(
-        self, warning: object, warning_id: WarningID, dupe_of: list[WarningID]
-    ) -> None:
-        self._ensure_banner_printed()
-        if len(dupe_of) > 0:
-            warning = f"{warning_id}: same warning as {dupe_of[0]}"
-        else:
-            warning = f"{warning_id}: {warning}"
-        self._handle_warnings({"warnings": [warning]})
-
-    @beartype
-    def deduped_exception(
-        self, exception: str, exception_id: ExceptionID, dupe_of: list[ExceptionID]
-    ) -> None:
-        self._ensure_banner_printed()
-        if len(dupe_of) > 0:
-            exception = f"{exception_id}: same exception as {dupe_of[0]}"
-        else:
-            exception = f"{exception_id}: {exception}"
-        self._handle_exception({"exception": exception})
-
-    @beartype
-    def deduped_deprecation(
-        self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
-    ) -> None:
-        self._ensure_banner_printed()
-        if len(dupe_of) > 0:
-            self._display.display(
-                f"[DEPRECATION WARNING]: {deprecation_id}: same deprecation as {dupe_of[0]}",
-                color=C.COLOR_WARN,
-            )
-        else:
-            new_deprecation = deprecation.copy()
-            new_deprecation["msg"] = f"{deprecation_id}: " + new_deprecation.get("msg", "")
-            self._handle_warnings({"deprecations": [new_deprecation]})
 
     @beartype
     def deduped_task_end(
@@ -407,11 +358,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, OptionsFixedCallback, D
     @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
-        self.__task_start(task)
-
-    @beartype
-    def deduped_playbook_on_cleanup_task_start(self, task: Task):
-        DefaultCallback.v2_playbook_on_cleanup_task_start(self, task)
         self.__task_start(task)
 
     @beartype

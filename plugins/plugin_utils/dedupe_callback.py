@@ -1,26 +1,25 @@
-import re
-import os
-import json
-import signal
 import hashlib
+import json
+import os
+import re
+import signal
 import threading
 import traceback
 from dataclasses import dataclass
 
 from ansible import constants as C
-from ansible.playbook import Playbook
-from ansible.playbook.task import Task
-from ansible.playbook.play import Play
-from ansible.inventory.host import Host
-from ansible.utils.color import stringc
-from ansible.utils.display import Display
-from ansible.playbook.handler import Handler
-from ansible.utils.fqcn import add_internal_fqcns
-from ansible.plugins.callback import CallbackBase
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
+from ansible.inventory.host import Host
+from ansible.playbook import Playbook
+from ansible.playbook.handler import Handler
 from ansible.playbook.included_file import IncludedFile
-
+from ansible.playbook.play import Play
+from ansible.playbook.task import Task
+from ansible.plugins.callback import CallbackBase
+from ansible.utils.color import stringc
+from ansible.utils.display import Display
+from ansible.utils.fqcn import add_internal_fqcns
 from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
 VALID_STATUSES = [
@@ -149,18 +148,6 @@ class HostnameItemLabelAndIndex:
 
 
 class ResultID(HostnameAndItemLabel):
-    pass
-
-
-class ExceptionID(HostnameAndItemLabel):
-    pass
-
-
-class WarningID(HostnameItemLabelAndIndex):
-    pass
-
-
-class DeprecationID(HostnameItemLabelAndIndex):
     pass
 
 
@@ -337,16 +324,8 @@ class DedupeCallback(CallbackBase):
         }
         del self.result_id2status
         self.result_id2status = {}
-        del (
-            self.warning_grouper,
-            self.exception_grouper,
-            self.deprecation_grouper,
-            self.diff_grouper,
-            self.result_gist_grouper,
-        )
-        self.warning_grouper = Grouper(WarningID)
-        self.exception_grouper = Grouper(ExceptionID)
-        self.deprecation_grouper = Grouper(DeprecationID)
+        del self.diff_grouper
+        del self.result_gist_grouper
         self.diff_grouper = Grouper(DiffID)
         self.result_gist_grouper = Grouper(ResultID)
         if not self.first_task_started:
@@ -420,18 +399,7 @@ class DedupeCallback(CallbackBase):
         )
         gist_dupes = self.result_gist_grouper.add(result_id, gist)
 
-        for i, warning in enumerate(result._result.get("warnings", [])):
-            warning_id = WarningID(hostname, item_label, i)
-            dupe_of = self.warning_grouper.add(warning_id, warning)  # TODO anonymize
-            self.deduped_warning(warning, warning_id, dupe_of)
-        for i, deprecation in enumerate(result._result.get("deprecations", [])):
-            deprecation_id = DeprecationID(hostname, item_label, i)
-            dupe_of = self.deprecation_grouper.add(deprecation_id, deprecation)  # TODO anonymize
-            self.deduped_deprecation(deprecation, deprecation_id, dupe_of)
-        if exception := result._result.get("exception", None):
-            exception_id = ExceptionID(hostname, item_label)
-            dupe_of = self.exception_grouper.add(exception_id, exception)  # TODO anonymize
-            self.deduped_exception(exception, exception_id, dupe_of)
+        self._handle_warnings_and_exception(result)
 
         if result._result.get("changed", False):
             diff_or_diffs = result._result.get("diff", [])
@@ -495,7 +463,7 @@ class DedupeCallback(CallbackBase):
     @beartype
     def __play_start(self, play: Play):
         strategy_fqcn = add_internal_fqcns([play.strategy])[0]
-        if not strategy_fqcn in add_internal_fqcns(("linear", "debug")):
+        if strategy_fqcn not in add_internal_fqcns(("linear", "debug")):
             raise RuntimeError(
                 f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
             )
@@ -509,9 +477,6 @@ class DedupeCallback(CallbackBase):
             )
 
     # V2 API #######################################################################################
-    def v2_on_any(self, *args, **kwargs):
-        self.deduped_on_any(*args, **kwargs)
-
     @beartype
     def v2_runner_on_start(self, host: Host, task: Task) -> None:
         self.__runner_start(host, task)
@@ -570,11 +535,6 @@ class DedupeCallback(CallbackBase):
         self.deduped_playbook_on_task_start(task, is_conditional)
 
     @beartype
-    def v2_playbook_on_cleanup_task_start(self, task: Task) -> None:
-        self.__task_start(task)
-        self.deduped_playbook_on_cleanup_task_start(task)
-
-    @beartype
     def v2_playbook_on_handler_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
@@ -593,14 +553,6 @@ class DedupeCallback(CallbackBase):
     @beartype
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         self.deduped_playbook_on_notify(handler, host)
-
-    @beartype
-    def v2_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
-        self.deduped_playbook_on_import_for_host(result, imported_file)
-
-    @beartype
-    def v2_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
-        self.deduped_playbook_on_not_import_for_host(result, missing_file)
 
     @beartype
     def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
@@ -646,9 +598,6 @@ class DedupeCallback(CallbackBase):
         raise NotImplementedError("dedupe_callback does not support async!")
 
     # DEDUPED API ##################################################################################
-    def deduped_on_any(self, *args, **kwargs) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_on_any"
-
     @beartype
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
@@ -660,10 +609,6 @@ class DedupeCallback(CallbackBase):
     @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
-
-    @beartype
-    def deduped_playbook_on_cleanup_task_start(self, task: Task) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_cleanup_task_start"
 
     @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
@@ -684,14 +629,6 @@ class DedupeCallback(CallbackBase):
     @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
-
-    @beartype
-    def deduped_playbook_on_import_for_host(self, result: TaskResult, imported_file) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_import_for_host"
-
-    @beartype
-    def deduped_playbook_on_not_import_for_host(self, result: TaskResult, missing_file) -> None:
-        "see ansible.plugins.callback.CallbackBase.v2_playbook_on_not_import_for_host"
 
     @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
@@ -756,33 +693,6 @@ class DedupeCallback(CallbackBase):
     def deduped_diff(self, diff: dict, result_id: ResultID, dupe_of: list[ResultID]):
         """
         use this if you need to print diffs immediately rather than waiting until end of task
-        hostnames and items are ignored when checking for dupes/groupings
-        """
-
-    @beartype
-    def deduped_exception(
-        self, exception: object, exception_id: ExceptionID, dupe_of: list[ExceptionID]
-    ) -> None:
-        """
-        use this if you need to print exceptions immediately rather than waiting until end of task
-        hostnames and items are ignored when checking for dupes/groupings
-        """
-
-    @beartype
-    def deduped_warning(
-        self, warning: str, warning_id: WarningID, dupe_of: list[WarningID]
-    ) -> None:
-        """
-        use this if you need to print warnings immediately rather than waiting until end of task
-        hostnames and items are ignored when checking for dupes/groupings
-        """
-
-    @beartype
-    def deduped_deprecation(
-        self, deprecation: dict, deprecation_id: DeprecationID, dupe_of: list[DeprecationID]
-    ) -> None:
-        """
-        use this if you need to print deprecations immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
 
