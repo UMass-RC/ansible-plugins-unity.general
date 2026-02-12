@@ -74,12 +74,29 @@ class ActionModule(ActionBase):
                 patch_contents = patch_f.read()
                 _assert_single_file_patch(patch_contents)
                 patch_f.seek(0)
-                subprocess.run(
-                    ["patch", "--batch", tempfile_path],  # --batch means non interactive
-                    stdin=patch_f,
-                    capture_output=True,
-                    check=True,
+                patch_command = [
+                    "patch",
+                    "--batch",  # noninteractive
+                    "--forward",  # do not automatically try reversed patch on failure
+                    tempfile_path,
+                ]
+                completed_process = subprocess.run(
+                    patch_command, stdin=patch_f, capture_output=True, check=False
                 )
+                result.update(patch_cmd=patch_command, patch_rc=completed_process.returncode)
+                try:
+                    result.update(
+                        patch_stdout_lines=completed_process.stdout.decode("utf8").split("\n"),
+                        patch_stderr_lines=completed_process.stderr.decode("utf8").split("\n"),
+                    )
+                except UnicodeDecodeError:
+                    result.update(
+                        failed=True, msg="failed to utf8 decode stdout or stderr from `patch`"
+                    )
+                    return result
+                if completed_process.returncode != 0:
+                    result.update(failed=True, msg="`patch` failed!")
+                    return result
             copy_task = self._task.copy()
             del copy_task.args
             copy_task.args = {"src": tempfile_path, "dest": dest}
@@ -95,12 +112,6 @@ class ActionModule(ActionBase):
             copy_res = copy_action_plugin.run(task_vars=task_vars)
             display.v(json.dumps(copy_res))
             result.update(copy_res)
-            return result
-        except subprocess.CalledProcessError as e:
-            result.update(
-                failed=True,
-                msg=f"CalledProcessError: {e.returncode=} {e.cmd=} {e.stdout=} {e.stderr=}",
-            )
             return result
         except Exception as e:
             result.update(failed=True, msg=f"Exception: {type(e)=} {str(e)=}")
