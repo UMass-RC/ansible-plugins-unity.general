@@ -1,2 +1,0 @@
-# https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching#cache_busting
-flush_browser_cache_increment_me: 3
