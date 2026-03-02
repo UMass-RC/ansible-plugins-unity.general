@@ -5,5 +5,6 @@ variables:
     * can also have a port number: `hostname:xxxx`
     * this is enforced in clientside javascript, so doesn't provide any security
 * `shib_preferred_IDPs`: IDPs which have their logos displayed on the front of the discovery page
+* `discovery_service_version`
 
 To configure the logos on the front page, you will have to modify the tasks in `tasks/main.yml`.
