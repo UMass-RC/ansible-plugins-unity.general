@@ -1,3 +1,4 @@
+import pwd
 import os
 import re
 import sys
@@ -229,7 +230,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         filename = self.get_option("upload_filename").format(
             timestamp=datetime.now(timezone.utc).timestamp(),
             playbook_name=self._playbook_name,
-            username=os.getlogin(),
+            username=pwd.getpwuid(os.getuid())[0],
             hostname=socket.gethostname().split(".", 1)[0],
         )
         if shutil.which("aha") is None:
