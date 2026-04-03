@@ -1,32 +1,32 @@
 import os
+import pwd
 import re
-import sys
-import socket
 import shutil
-import traceback
+import socket
 import subprocess
-from io import BytesIO
+import sys
+import traceback
 from datetime import datetime, timezone
-from requests.exceptions import SSLError
+from io import BytesIO
 
 import requests
-
+from ansible.errors import AnsibleError
 from ansible.playbook import Playbook
 from ansible.playbook.play import Play
-from ansible.errors import AnsibleError
-from ansible.executor.task_result import TaskResult
-from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
-from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
-    bitwarden_redact,
-)
 from ansible_collections.unity.general.plugins.callback.deduped_default import (
     CallbackModule as DedupedDefaultCallback,
-    ResultID,
+)
+from ansible_collections.unity.general.plugins.callback.deduped_default import (
     ResultGist,
+    ResultID,
+)
+from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
+    bitwarden_redact,
 )
 from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
     BufferedCallback,
 )
+from requests.exceptions import SSLError
 
 DOCUMENTATION = r"""
   name: http_post
@@ -177,12 +177,12 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
         token = self.get_option("slack_bot_user_oauth_token")
         channel_id = self.get_option("slack_channel_id")
-        assert (
-            token is not None
-        ), "slack_bot_user_oauth_token option is required when slack_message option is defined"
-        assert (
-            channel_id is not None
-        ), "slack_channel_id option is required when slack_message option is defined"
+        assert token is not None, (
+            "slack_bot_user_oauth_token option is required when slack_message option is defined"
+        )
+        assert channel_id is not None, (
+            "slack_channel_id option is required when slack_message option is defined"
+        )
         try:
             web_client = WebClient(token=token)
             web_client.chat_postMessage(channel=channel_id, text=msg)
@@ -229,7 +229,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         filename = self.get_option("upload_filename").format(
             timestamp=datetime.now(timezone.utc).timestamp(),
             playbook_name=self._playbook_name,
-            username=os.getlogin(),
+            username=pwd.getpwuid(os.getuid())[0],
             hostname=socket.gethostname().split(".", 1)[0],
         )
         if shutil.which("aha") is None:
