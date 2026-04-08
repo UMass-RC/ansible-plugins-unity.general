@@ -196,17 +196,17 @@ def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
     _node_specs = {}
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
-    for hostname, specs in _node_specs.items():
+    for hostname, specs in node_specs.items():
         _node_specs[hostname] = {}
         for spec_name, spec_value in specs.items():
             if isinstance(spec_value, list):
                 if all(isinstance(x, str) for x in spec_value):
                     _node_specs[hostname][spec_name] = sorted(
-                        _node_specs[hostname][spec_name],
+                        node_specs[hostname][spec_name],
                         key=_make_string_sortable_numerically,
                     )
                 else:
-                    _node_specs[hostname][spec_name] = sorted(_node_specs[hostname][spec_name])
+                    _node_specs[hostname][spec_name] = sorted(node_specs[hostname][spec_name])
     # "pack" the specs
     node_specs_packed = []
     for name_list_str, specs in _group_nodes_equal_specs(_node_specs).items():
