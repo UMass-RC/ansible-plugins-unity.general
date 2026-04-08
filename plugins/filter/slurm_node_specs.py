@@ -73,7 +73,6 @@ The following terms are interchangable:
 
 """
 import re
-import copy
 import json
 import hashlib
 import itertools
@@ -193,19 +192,22 @@ def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
 
 @beartype
 def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
-    _node_specs = copy.deepcopy(node_specs)
+    _node_specs = {}
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
-    for hostname, specs in _node_specs.items():
+    for hostname, specs in node_specs.items():
+        _node_specs[hostname] = {}
         for spec_name, spec_value in specs.items():
             if isinstance(spec_value, list):
                 if all(isinstance(x, str) for x in spec_value):
                     _node_specs[hostname][spec_name] = sorted(
-                        _node_specs[hostname][spec_name],
+                        node_specs[hostname][spec_name],
                         key=_make_string_sortable_numerically,
                     )
                 else:
-                    _node_specs[hostname][spec_name] = sorted(_node_specs[hostname][spec_name])
+                    _node_specs[hostname][spec_name] = sorted(node_specs[hostname][spec_name])
+            else:
+                _node_specs[hostname][spec_name] = spec_value
     # "pack" the specs
     node_specs_packed = []
     for name_list_str, specs in _group_nodes_equal_specs(_node_specs).items():
@@ -271,11 +273,10 @@ def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
         folded_node_set = specs["NodeName"]
         del specs["NodeName"]
         for hostname in _unfold_node_set(folded_node_set):
-            these_specs = copy.deepcopy(specs)  # don't want yaml anchors/references
             if hostname not in output:
-                output[hostname] = these_specs
+                output[hostname] = specs
             else:
-                output[hostname] = _merge(output[hostname], these_specs, allow_conflicts=False)
+                output[hostname] = _merge(output[hostname], specs, allow_conflicts=False)
     return output
 
 
