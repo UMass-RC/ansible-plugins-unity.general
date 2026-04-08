@@ -193,10 +193,11 @@ def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
 
 @beartype
 def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
-    _node_specs = copy.deepcopy(node_specs)
+    _node_specs = {}
     # sort spec values
     # WARNING: I assume that the order doesn't matter for all specs of type list
     for hostname, specs in _node_specs.items():
+        _node_specs[hostname] = {}
         for spec_name, spec_value in specs.items():
             if isinstance(spec_value, list):
                 if all(isinstance(x, str) for x in spec_value):
@@ -271,11 +272,10 @@ def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
         folded_node_set = specs["NodeName"]
         del specs["NodeName"]
         for hostname in _unfold_node_set(folded_node_set):
-            these_specs = copy.deepcopy(specs)  # don't want yaml anchors/references
             if hostname not in output:
-                output[hostname] = these_specs
+                output[hostname] = specs
             else:
-                output[hostname] = _merge(output[hostname], these_specs, allow_conflicts=False)
+                output[hostname] = _merge(output[hostname], specs, allow_conflicts=False)
     return output
 
 
