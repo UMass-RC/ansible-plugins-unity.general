@@ -31,7 +31,10 @@ class Display2Buffer:
         self._display = Display()
         self.buffer = ""
         functions_to_capture = [
+            # this needs to be manually maintained
+            # curl -s https://raw.githubusercontent.com/ansible/ansible/devel/lib/ansible/utils/display.py | grep '^    def' | sed -E 's/.*def (.*?)\(.*/"\1",/'
             "display",
+            "_log",
             "v",
             "vv",
             "vvv",
@@ -39,13 +42,20 @@ class Display2Buffer:
             "vvvvv",
             "vvvvvv",
             "verbose",
+            "_verbose_display",
+            "_verbose_log",
             "debug",
             "deprecated",
+            "_deprecated_with_plugin_info",
+            "_deprecated",
             "warning",
+            "_warning",
             "system_warning",
             "banner",
             "banner_cowsay",
+            "error_as_warning",
             "error",
+            "_error",
         ]
         for attr_name in dir(self._display):
             if attr_name.startswith("__"):
