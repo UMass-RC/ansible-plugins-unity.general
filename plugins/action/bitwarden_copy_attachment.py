@@ -1,9 +1,9 @@
 import traceback
 
 from ansible.errors import AnsibleError
-from ansible.utils.display import Display
 from ansible.plugins.action import ActionBase
-
+from ansible.plugins.loader import lookup_loader
+from ansible.utils.display import Display
 from ansible_collections.unity.general.plugins.plugin_utils.action import failed
 
 display = Display()
@@ -32,9 +32,12 @@ class ActionModule(ActionBase):
                 for k, v in params.items()
                 if k in ["item_name", "attachment_filename", "collection_id"]
             }
-            attachment_download_path = self._templar._lookup(
-                "unity.general.bitwarden_attachment_download", **lookup_kwargs
+            lookup = lookup_loader.get(
+                "unity.general.bitwarden_attachment_download",
+                loader=self._loader,
+                templar=self._templar,
             )
+            attachment_download_path = lookup.run([], **lookup_kwargs)
         except AnsibleError as e:
             display.v(traceback.format_exception(e))
             return failed(f"Error fetching attachment: {str(e)}")
