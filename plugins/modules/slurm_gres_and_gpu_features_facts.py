@@ -195,7 +195,7 @@ def get_gpu_table(_module: AnsibleModule) -> list[list[str, int, float]]:
 
 
 def main():
-    _module = AnsibleModule(argument_spec={})
+    _module = AnsibleModule(argument_spec={}, supports_check_mode=True)
     gpu_table = get_gpu_table(_module)
     for row in gpu_table[1:]:
         for i, row in enumerate(gpu_table, start=1):

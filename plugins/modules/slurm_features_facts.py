@@ -250,7 +250,7 @@ def main():
     features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
     features.difference_update(features_to_remove)
 
-    module = AnsibleModule(argument_spec={})
+    module = AnsibleModule(argument_spec={}, supports_check_mode=True)
     module.exit_json(ansible_facts={"slurm_features": sorted(list(features))})
 
 
