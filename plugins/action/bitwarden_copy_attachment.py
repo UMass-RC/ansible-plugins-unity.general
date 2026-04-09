@@ -37,7 +37,9 @@ class ActionModule(ActionBase):
                 loader=self._loader,
                 templar=self._templar,
             )
-            attachment_download_path = lookup.run([], **lookup_kwargs)
+            lookup_result = lookup.run([], **lookup_kwargs)
+            assert len(lookup_result) == 1
+            attachment_download_path = lookup_result[0]
         except AnsibleError as e:
             display.v(traceback.format_exception(e))
             return failed(f"Error fetching attachment: {str(e)}")
