@@ -22,7 +22,7 @@ from ansible.module_utils.basic import AnsibleModule
 
 
 def main():
-    module = AnsibleModule(argument_spec={})
+    module = AnsibleModule(argument_spec={}, supports_check_mode=True)
     lscpu = {}
     lscpu_out = subprocess.check_output("lscpu", text=True)
     for line in lscpu_out.splitlines():
