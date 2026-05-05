@@ -359,7 +359,9 @@ def cluster_mem(
         raise AnsibleFilterError("keyword argument required: node_specs_mem")
     if node_specs_nomem is None:
         raise AnsibleFilterError("keyword argument required: node_specs_nomem")
-    output = node_specs_mem.copy()
+    # need to make a copy of node_specs_mem because it's passed by reference
+    # and some other code is mucking with it
+    output = {k: {"RealMemory": v["RealMemory"]} for k, v in node_specs_mem.items()}
     for grouping in pack(node_specs_nomem):
         sorted_memoryMB_hostname = sorted(
             [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
