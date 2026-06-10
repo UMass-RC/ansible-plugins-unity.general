@@ -1118,7 +1118,7 @@
                   - name: create include_me.yml
                     copy:
                       dest: "{{ tempdir.path }}/include_me.yml"
-                      content: "[{command: /usr/bin/true}]\n"
+                      content: "[{command: 'true'}]\n"
               - hosts: dedupegroup
                 gather_facts: false
                 tasks:
@@ -1133,7 +1133,7 @@
               --- before
               +++ after: {{ tempdir.path}}/include_me.yml
               @@ -0,0 +1 @@
-              +[{command: /usr/bin/true}]
+              +[{command: 'true'}]
               changed: testhost
               elapsed: <omitted> seconds
 
