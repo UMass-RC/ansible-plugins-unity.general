@@ -378,8 +378,13 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         DefaultCallback.v2_playbook_on_notify(self, handler, host)
 
     @beartype
-    def deduped_playbook_on_include(self, included_file: IncludedFile):
-        DefaultCallback.v2_playbook_on_include(self, included_file)
+    def deduped_playbook_on_include(self, included_file: IncludedFile, hosts: str):
+        # TODO upgrade ansible and start using this new option
+        # if self.get_option("display_included_hosts"):
+        msg = f"included: {included_file._filename} for {hosts}"
+        if label := self._get_item_label(included_file._vars):
+            msg += f" => (item={label})"
+        self._display.display(msg, color=C.COLOR_INCLUDED)
 
     @beartype
     def deduped_playbook_on_no_hosts_matched(self):

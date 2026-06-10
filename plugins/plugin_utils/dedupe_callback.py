@@ -21,6 +21,7 @@ from ansible.utils.color import stringc
 from ansible.utils.display import Display
 from ansible.utils.fqcn import add_internal_fqcns
 from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
+from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
 
 VALID_STATUSES = [
     "ok",
@@ -556,7 +557,8 @@ class DedupeCallback(CallbackBase):
 
     @beartype
     def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
-        self.deduped_playbook_on_include(included_file)
+        hosts = format_hostnames(included_file._hosts)
+        self.deduped_playbook_on_include(included_file, hosts)
 
     @beartype
     def v2_playbook_on_no_hosts_matched(self) -> None:
@@ -631,7 +633,7 @@ class DedupeCallback(CallbackBase):
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
 
     @beartype
-    def deduped_playbook_on_include(self, included_file: IncludedFile) -> None:
+    def deduped_playbook_on_include(self, included_file: IncludedFile, hosts: str) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_include"
 
     @beartype
