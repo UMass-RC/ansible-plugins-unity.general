@@ -139,6 +139,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         if self.get_option("redact_bitwarden"):
             stripped_result_dict = bitwarden_redact(stripped_result_dict, self.get_options())
             result_gist = ResultGist(**bitwarden_redact(result_gist, self.get_options()))
+        self._real_display.v(f"{result_id}: {stripped_result_dict}")
         return super().deduped_result(result_id, stripped_result_dict, result_gist, gist_dupes)
 
     def deduped_task_end(
@@ -156,6 +157,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
     def deduped_playbook_on_end(self):
         if not self._do_print:
+            self._real_display.v("cron: printing nothing due to `statuses_enable_print`")
             return
         if not self._display.buffer:
             self._real_display.warning("cron: no playbook output to print!")
