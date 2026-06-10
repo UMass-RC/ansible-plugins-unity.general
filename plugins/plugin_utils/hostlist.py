@@ -1,3 +1,4 @@
+from ansible.inventory.host import Host
 from ansible.utils.display import Display
 
 display = Display()
@@ -13,7 +14,8 @@ except ImportError:
     DO_NODESET = False
 
 
-def format_hostnames(hosts) -> str:
+def format_hostnames(hosts: list[str | Host]) -> str:
+    hosts = [str(x) for x in hosts]
     if DO_NODESET:
         return str(NodeSet.fromlist(sorted(list(hosts))))
     else:
