@@ -75,6 +75,8 @@
     mode: "0644"
   vars:
     discovery_service_logo_config:
+      unityhpc.org:
+        src: res/umass.svg
       umass.edu:
         src: res/umass.svg
       uri.edu:
