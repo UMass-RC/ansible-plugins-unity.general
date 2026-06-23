@@ -19,7 +19,12 @@
             handlerSSL="true"
             cookieProps="https"
             consistentAddress="false"
+        {%- if shib_redirect_whitelist | default([]) | length > 0 +%}
+            redirectLimit="exact+whitelist"
+            redirectWhitelist="{{ shib_redirect_whitelist | join(' ') }}"
+        {%- else +%}
             redirectLimit="exact"
+        {%- endif +%}
         >
             <SSO discoveryProtocol="SAMLDS" discoveryURL="{{ shib_discovery_url }}">SAML2</SSO>
             <Logout>SAML2 Local</Logout>

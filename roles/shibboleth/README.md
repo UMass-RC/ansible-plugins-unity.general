@@ -26,4 +26,8 @@ shib_enable_supervisor:
   notes:
     - "if enabled, use `supervisor` to make sure that `shibauthorizer` and `shibresponder`"
     - "are always running"
+shib_redirect_whitelist:
+  type: list[str]
+  notes:
+    - see `redirectWhitelist` option in https://shibboleth.atlassian.net/wiki/spaces/SP3/pages/2065334342/Sessions
 ```
