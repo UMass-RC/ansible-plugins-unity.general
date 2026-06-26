@@ -38,6 +38,7 @@ import re
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.unity.general.plugins.module_utils.archspec import check_requirements
+from ansible_collections.unity.general.plugins.module_utils import _check_output
 
 # 8 -> "vram8". GB, not GiB. a node with vram12 will inherit vram11, vram8, ...
 VRAM_FEATURES = [8, 11, 12, 16, 23, 32, 40, 48, 80, 102, 143]
