@@ -28,7 +28,7 @@ from ansible_collections.unity.general.plugins.module_utils.common import (
 
 
 def get_gpu_model(_module) -> str:
-    clinfo_out = _check_output(["clinfo"], _module, timeout_sec=2)
+    clinfo_out = _check_output(["clinfo"], _module, timeout_sec=5)
     gpu_lines = [x for x in clinfo_out.splitlines() if x.strip().startswith("Device Name")]
     if len(gpu_lines) == 0:
         _module.fail_json("no GPUs found!")
