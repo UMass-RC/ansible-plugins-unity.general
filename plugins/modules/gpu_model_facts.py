@@ -30,6 +30,8 @@ from ansible_collections.unity.general.plugins.module_utils.common import (
 def get_gpu_model(_module) -> str:
     clinfo_out = _check_output(["clinfo"], _module, timeout_sec=2)
     gpu_lines = [x for x in clinfo_out.splitlines() if x.strip().startswith("Device Name")]
+    if len(gpu_lines) == 0:
+        _module.fail_json("no GPUs found!")
     gpu_models = [re.sub(r"^\s*Device Name\s+(.*?)\s*$", r"\1", x) for x in gpu_lines]
     assert all_elements_equal(gpu_models)
     return translate_nvidia_gpu_model_name(gpu_models[0])
