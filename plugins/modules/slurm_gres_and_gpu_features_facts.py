@@ -72,6 +72,7 @@ FEATURE_INCLUDE_WHEN = {
     "2080ti": {"all_of": ["2080_ti"]},
     "1080ti": {"all_of": ["1080_ti"]},
     "rtx8000": {"all_of": ["rtx_8000"]},
+    "h200": {"all_of": ["h200_nvl"]},
 }
 
 
