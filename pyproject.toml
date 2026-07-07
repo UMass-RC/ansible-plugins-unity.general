@@ -7,5 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "ansible-core<2.20",
     "clustershell>=1.9.3",
+    "jc>=1.25.7",
     "pexpect>=4.9.0",
 ]
