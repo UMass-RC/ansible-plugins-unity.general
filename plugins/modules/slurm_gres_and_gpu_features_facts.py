@@ -6,6 +6,7 @@ short_description: facts module that finds Slurm Gres and GPU related features
 description: ""
 requirements:
   - nvidia-smi
+  - jc
 author: Simon Leary <simon.leary42@proton.me>
 version_added: 2.18.1
 """
@@ -40,7 +41,8 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.unity.general.plugins.module_utils.archspec import check_requirements
 from ansible_collections.unity.general.plugins.module_utils.common import (
     _check_output,
-    translate_nvidia_gpu_model_name,
+    get_gpu_model_and_count,
+    all_elements_equal,
 )
 
 # 8 -> "vram8". GB, not GiB. a node with vram12 will inherit vram11, vram8, ...
@@ -120,43 +122,32 @@ def get_nvlink_features(_module: AnsibleModule) -> set[str]:
     return set()
 
 
-def get_gpu_table(_module: AnsibleModule) -> list[list[str, int, float]]:
+def get_gpu_vram_mebibytes_and_compute_capability(_module: AnsibleModule) -> tuple[int, float]:
     nv_smi_out = _check_output(
         [
             "nvidia-smi",
-            "--query-gpu=name,memory.total,compute_cap",
+            "--query-gpu=memory.total,compute_cap",
             "--format=csv,noheader",
         ],
         _module,
         timeout_sec=NV_SMI_TIMEOUT_SEC,
     )
     gpu_table = [line.split(",") for line in nv_smi_out.splitlines()]
-    if not all(len(row) == 3 for row in gpu_table):
+    if not all(len(row) == 2 for row in gpu_table):
         _module.fail_json(f"unexpected nvidia-smi output: {nv_smi_out}")
     output = []
-    for model_name, vram_MiB, cc in gpu_table:
-        output.append(
-            [
-                translate_nvidia_gpu_model_name(model_name.strip()),
-                int(re.sub(r"\s+MiB$", "", vram_MiB)),
-                float(cc),
-            ]
-        )
-    return output
+    for vram_MiB, cc in gpu_table:
+        output.append((int(re.sub(r"\s+MiB$", "", vram_MiB)), float(cc)))
+    assert all_elements_equal(output)
+    return output[0]
 
 
 def main():
     _module = AnsibleModule(argument_spec={}, supports_check_mode=True)
-    gpu_table = get_gpu_table(_module)
-    for row in gpu_table[1:]:
-        for i, row in enumerate(gpu_table, start=1):
-            if row != gpu_table[0]:
-                _module.fail_json(
-                    msg=f"GPU {i} is different from GPU 0! all GPUs must be the same.\n{gpu_table}"
-                )
-    model_name, vram_MiB, cc = gpu_table[0]
-    gres = f"gpu:{model_name}:{len(gpu_table)}"
-    features = {model_name}
+    gpu_model, gpu_count = get_gpu_model_and_count(_module)
+    gres = f"gpu:{gpu_model}:{gpu_count}"
+    features = {gpu_model}
+    vram_MiB, cc = get_gpu_vram_mebibytes_and_compute_capability(_module)
     features.update(get_cuda_compute_capability_features(cc, _module))
     features.update(get_vram_features(vram_MiB, _module))
     # features.update(get_nvlink_features(_module))
