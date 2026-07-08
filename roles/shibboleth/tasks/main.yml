@@ -96,7 +96,7 @@
     cron_file: update-filtered-incommon-metadata
     user: root
     minute: 0
-    hour: 0
+    hour: 8 # 3AM EST 4AM EDT
     job: chronic bash /etc/shibboleth/update-filtered-incommon-metadata.bash
 
 - name: setup supervisor
