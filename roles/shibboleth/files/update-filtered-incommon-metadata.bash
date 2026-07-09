@@ -34,18 +34,15 @@ if cmp -s "$outfile" "$tmpfile"; then
     rm "$tmpfile"
     exit 0
 fi
-mv "$outfile" "$outfile.bak"
-mv "$tmpfile" "$outfile"
+(set -x;  mv "$outfile" "$outfile.bak" && mv "$tmpfile" "$outfile")
 if ! bash /etc/shibboleth/sanity-check.bash; then
-    mv "$outfile" "$outfile.broken"
-    mv "$outfile.bak" "$outfile"
-    echo "old metadata restored."
-    echo "failure-causing metadata moved to '$PWD/filtered-incommon-metadata.xml.broken'."
+    (set -x; mv "$outfile" "$outfile.broken" && mv "$outfile.bak" "$outfile")
+    echo "sanity check failed! old metadata restored, and shibd not restarted."
     exit 1
 fi
 if systemctl status shibd >/dev/null; then
     if [ "$restart" == 1 ]; then
-        systemctl restart shibd
+        (set -x; systemctl restart shibd)
     else
         echo "shibd should be restarted! (you can also call this script with --restart)"
     fi
