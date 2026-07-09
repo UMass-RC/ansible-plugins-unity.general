@@ -95,6 +95,11 @@
     cmd: /bin/python3 /etc/shibboleth/filter-incommon-metadata.py > /etc/shibboleth/filtered-incommon-metadata.xml
     creates: /etc/shibboleth/filtered-incommon-metadata.xml
 
+- name: create /etc/shibboleth/sealer.keys if it doesn't already exist
+  ansible.builtin.command:
+    cmd: shib-seckeygen
+    creates: /etc/shibboleth/sealer.keys
+
 - name: cron job update-filtered-incommon-metadata.bash
   ansible.builtin.cron:
     name: update-filtered-incommon-metadata
