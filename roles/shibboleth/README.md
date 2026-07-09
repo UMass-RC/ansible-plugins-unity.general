@@ -31,3 +31,7 @@ shib_redirect_whitelist:
   notes:
     - see `redirectWhitelist` option in https://shibboleth.atlassian.net/wiki/spaces/SP3/pages/2065334342/Sessions
 ```
+
+## Rotating Session Recovery Keys
+
+see the `shib-seckeygen` command

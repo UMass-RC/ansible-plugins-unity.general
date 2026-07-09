@@ -1,4 +1,5 @@
 <!-- this file is managed by ansible -->
+<!-- also see `persistedAttributes` in `shibboleth2.xml` -->
 <Attributes xmlns="urn:mace:shibboleth:2.0:attribute-map" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Attribute name="urn:oasis:names:tc:SAML:attribute:subject-id" id="subject-id">
         <AttributeDecoder xsi:type="ScopedAttributeDecoder" caseSensitive="false"/>
