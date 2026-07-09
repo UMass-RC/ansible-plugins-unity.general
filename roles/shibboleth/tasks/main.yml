@@ -9,12 +9,16 @@
     name:
       - python3-xmlsec
       - python3-lxml
+      - memcached
     state: present
 
-- name: systemctl enable shibd
+- name: systemctl enable
   ansible.builtin.systemd_service:
-    name: shibd
+    name: "{{ item }}"
     enabled: true
+  loop:
+    - shibd
+    - memcached
 
 - name: provision
   ansible.builtin.import_tasks: provision.yml

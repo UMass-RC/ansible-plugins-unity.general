@@ -5,16 +5,24 @@
     xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
     clockSkew="180"
 >
-    <OutOfProcess tranLogFormat="%u|%s|%IDP|%i|%ac|%t|%attr|%n|%b|%E|%S|%SS|%L|%UA|%a" />
+    <OutOfProcess tranLogFormat="%u|%s|%IDP|%i|%ac|%t|%attr|%n|%b|%E|%S|%SS|%L|%UA|%a">
+        <Extensions>
+            <Library path="memcache-store.so" fatal="true"/>
+        </Extensions>
+    </OutOfProcess>
+    <StorageService type="MEMCACHE" id="memcached" buildMap="1">
+        <Hosts>127.0.0.1:11211</Hosts>
+    </StorageService>
+    <SessionCache type="StorageService" StorageService="memcached" />
     <ApplicationDefaults
-        entityID="{{ shib_entityid }}"
+        entityID="https://unity.rc.umass.edu/shibboleth"
         REMOTE_USER="eppn subject-id pairwise-id persistent-id"
         cipherSuites="DEFAULT:!EXP:!LOW:!aNULL:!eNULL:!DES:!IDEA:!SEED:!RC4:!3DES:!kRSA:!SSLv2:!SSLv3:!TLSv1:!TLSv1.1"
     >
         <Sessions
             lifetime="28800"
             timeout="28800"
-            relayState="ss:mem"
+            relayState="ss:memcached"
             checkAddress="false"
             handlerSSL="true"
             cookieProps="https"
