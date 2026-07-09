@@ -63,16 +63,23 @@
     group: root
     mode: "0644"
 
+- name: install entity-include-list.json
+  unity.copy_multi_diff.copy:
+    content: "{{ shib_incommon_allowed_entities | sort | to_nice_json }}"
+    dest: /etc/shibboleth/entity-include-list.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: update metadata
+
 - name: install filter-incommon-metadata.py
-  unity.template_multi_diff.template:
-    src: filter-incommon-metadata.py.j2
+  unity.copy_multi_diff.copy:
+    src: filter-incommon-metadata.py
     dest: /etc/shibboleth/filter-incommon-metadata.py
     owner: root
     group: root
     mode: "0644"
-  notify:
-    - update metadata
-    - systemctl restart shibd
+  notify: update metadata
 
 - name: install update-filtered-incommon-metadata.bash
   unity.copy_multi_diff.copy:
@@ -81,9 +88,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify:
-    - update metadata
-    - systemctl restart shibd
+  notify: update metadata
 
 - name: create filtered-incommon-metadata.xml if it doesn't already exist
   ansible.builtin.shell:
@@ -97,7 +102,7 @@
     user: root
     minute: 0
     hour: 8 # 3AM EST 4AM EDT
-    job: chronic bash /etc/shibboleth/update-filtered-incommon-metadata.bash
+    job: chronic bash /etc/shibboleth/update-filtered-incommon-metadata.bash --restart
 
 - name: setup supervisor
   ansible.builtin.import_tasks: supervisor.yml
