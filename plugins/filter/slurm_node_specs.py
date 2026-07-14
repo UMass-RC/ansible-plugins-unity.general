@@ -72,6 +72,7 @@ The following terms are interchangable:
 "hostlist expression", "node range expression", "folded node set", "NodeName list string"
 
 """
+
 import re
 import json
 import hashlib
@@ -85,8 +86,8 @@ from ansible.parsing.yaml.objects import AnsibleUnicode
 
 from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
-type _str = (str | AnsibleUnicode)
-type _spec_value = (_str | int | list[_str])
+type _str = str | AnsibleUnicode
+type _spec_value = _str | int | list[_str]
 type NodeSpecsPacked = list[dict[_str, _spec_value]]
 type NodeSpecsUnpacked = dict[_str, dict[_str, _spec_value]]
 
@@ -251,7 +252,9 @@ def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
                 continue
             # dict: recursive call
             if isinstance(value, dict) and isinstance(dict1[key], dict):
-                merged[key] = _merge(dict1[key], value, current_path)
+                merged[key] = _merge(
+                    dict1[key], value, current_path, allow_conflicts=allow_conflicts
+                )
             # list: add dict2 list items to dict1 list if not already present
             elif isinstance(value, list) and isinstance(dict1[key], list):
                 merged[key] = list(dict1[key]) + [item for item in value if item not in dict1[key]]
@@ -315,7 +318,7 @@ type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
 
 
 @beartype
-def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
+def __cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
     if sorted_memoryMB_hostname[-1][0] - sorted_memoryMB_hostname[0][0] <= max_reduction:
@@ -342,23 +345,18 @@ def _cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> 
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
     # https://stackoverflow.com/a/1724975/18696276
     return itertools.chain(
-        _cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
-        _cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
+        __cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
+        __cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
     )
 
 
 @beartype
-def cluster_mem(
-    _: object,
-    node_specs_mem: NodeSpecsUnpacked = None,
-    node_specs_nomem: NodeSpecsUnpacked = None,
-    min_reduction_MB=100,
-    max_reduction_MB=1000,
+def _cluster_memory(
+    node_specs_mem: NodeSpecsUnpacked,
+    node_specs_nomem: NodeSpecsUnpacked,
+    min_reduction_MB: int,
+    max_reduction_MB: int,
 ) -> NodeSpecsUnpacked:
-    if node_specs_mem is None:
-        raise AnsibleFilterError("keyword argument required: node_specs_mem")
-    if node_specs_nomem is None:
-        raise AnsibleFilterError("keyword argument required: node_specs_nomem")
     # need to make a copy of node_specs_mem because it's passed by reference
     # and some other code is mucking with it
     output = {k: {"RealMemory": v["RealMemory"]} for k, v in node_specs_mem.items()}
@@ -371,7 +369,7 @@ def cluster_mem(
         sorted_memoryMB_hostname = [
             (x[0] - min_reduction_MB, x[1]) for x in sorted_memoryMB_hostname
         ]
-        for mem, hostname in _cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
+        for mem, hostname in __cluster_memory(sorted_memoryMB_hostname, max_reduction_MB):
             output[hostname]["RealMemory"] = mem
     return output
 
@@ -466,13 +464,47 @@ def slurm_node_specs_gpu_from_hostvars(
     return output
 
 
+@beartype
+def slurm_node_specs_merge(
+    _,
+    node_specs_hostfacts_mem: list[NodeSpecsPacked] = None,
+    node_specs_hostfacts_nomem: list[NodeSpecsPacked] = None,
+    node_specs_hardcoded: list[NodeSpecsPacked] = None,
+    min_mem_reduction_MB=100,
+    max_mem_reduction_MB=1000,
+):
+    "assemble slurm node specs from hostvars"
+    if node_specs_hostfacts_mem is None:
+        raise AnsibleFilterError("keyword argument required: node_specs_hostfacts_mem")
+    if node_specs_hostfacts_nomem is None:
+        raise AnsibleFilterError("keyword argument required: node_specs_hostfacts_nomem")
+    if node_specs_hardcoded is None:
+        raise AnsibleFilterError("keyword argument required: node_specs_hardcoded")
+    node_specs_hostfacts_mem_unpacked = unpack(node_specs_hostfacts_mem)
+    node_specs_hostfacts_nomem_unpacked = unpack(node_specs_hostfacts_nomem)
+    node_specs_hardcoded_unpacked = unpack(node_specs_hardcoded)
+    mem_clustered = _cluster_memory(
+        node_specs_hostfacts_mem_unpacked,
+        node_specs_hostfacts_nomem_unpacked,
+        min_mem_reduction_MB,
+        max_mem_reduction_MB,
+    )
+    return pack(
+        _merge(
+            _merge(mem_clustered, node_specs_hostfacts_nomem_unpacked),
+            node_specs_hardcoded_unpacked,
+            allow_conflicts=True,
+        )
+    )
+
+
 class FilterModule:
     def filters(self):
         return dict(
             slurm_node_specs_pack=pack,
             slurm_node_specs_unpack=unpack,
-            slurm_node_specs_cluster_realmemory=cluster_mem,
             slurm_node_specs_slim_from_hostvars=slurm_node_specs_slim_from_hostvars,
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
+            slurm_node_specs_merge=slurm_node_specs_merge,
         )
