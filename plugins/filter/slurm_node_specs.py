@@ -498,6 +498,21 @@ def slurm_node_specs_merge(
     )
 
 
+def slurm_node_specs_feature_groups(node_specs: list[NodeSpecsPacked]) -> dict:
+    inventory = {"plugin": "unity.general.groups_simplified_nodeset", "groups": {}}
+    for specs in node_specs:
+        for feature in specs.get("Features", []):
+            group_name = f"slurm_nodes_{feature}"
+            for forbidden_char in [".", "-"]:
+                group_name = group_name.replace(forbidden_char, "_")
+            inventory["groups"].setdefault(group_name, {"hosts": []})
+            inventory["groups"][group_name]["hosts"].append(specs["NodeName"])
+    for group_name, group_data in inventory["groups"].items():
+        nodeset = _fold_node_set(group_data["hosts"])
+        inventory["groups"][group_name]["hosts"] = [nodeset]
+    return inventory
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -507,4 +522,5 @@ class FilterModule:
             slurm_node_specs_mem_from_hostvars=slurm_node_specs_mem_from_hostvars,
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
             slurm_node_specs_merge=slurm_node_specs_merge,
+            slurm_node_specs_feature_groups=slurm_node_specs_feature_groups,
         )
