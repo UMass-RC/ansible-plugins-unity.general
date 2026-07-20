@@ -28,6 +28,7 @@ import re
 import platform
 import subprocess
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.unity.general.plugins.module_utils.common import _assert
 from ansible_collections.unity.general.plugins.module_utils.archspec import (
     UARCH_DB,
     check_requirements,
@@ -66,7 +67,7 @@ def _check_output(argv: list[str]) -> str:
     return subprocess.check_output(argv, text=True, timeout=BLOCKING_TIMEOUT_SEC)
 
 
-def get_link_speed() -> set[str]:
+def get_link_speed(module: AnsibleModule) -> set[str]:
     ip_out = _check_output(["ip", "route", "get", "8.8.8.8"])
     dev = ip_out.split(" ")[4]
     valid_speeds = [10, 25, 40, 100, 200]
@@ -87,7 +88,7 @@ def _get_cpu_vendor_model() -> tuple[str | None, str]:
     return (vendor, model)
 
 
-def get_cpu_model_features() -> set[str]:
+def get_cpu_model_features(module: AnsibleModule) -> set[str]:
     cpu_vendor, cpu_model = _get_cpu_vendor_model()
     features = set()
     if cpu_vendor is not None:
@@ -100,25 +101,31 @@ def get_cpu_model_features() -> set[str]:
         if cpu_model.lower().startswith("intel(r)"):
             model_number_regex = r"\b\d{4,}[a-z]?(?: v\d)?\b"  # examples: "8352y", "2620 v3"
             matches = re.findall(model_number_regex, cpu_model.lower())
-            assert (
-                len(matches) == 1
-            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+            _assert(
+                module,
+                len(matches) == 1,
+                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
+            )
             features.add(f"intel{matches[0].lower().replace(' ', '')}")
         elif cpu_model.lower().startswith("amd"):
             model_number_regex = r"\b\d[0-9a-z]{3,}\b"  # examples: "7h12", "1900x", "7955wx"
             matches = re.findall(model_number_regex, cpu_model.lower())
-            assert (
-                len(matches) == 1
-            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+            _assert(
+                module,
+                len(matches) == 1,
+                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
+            )
             features.add(f"amd{matches[0].lower()}")
         elif cpu_model.lower().startswith("ampere"):
             model_number_regex = (
                 r"ampere(?:\(r\))?\s+\b(\w+)(?:\(r\))?\s+(?:processor)?\s+(\w\d+-\d+)\b"
             )
             matches = re.findall(model_number_regex, cpu_model.lower())
-            assert (
-                len(matches) == 1
-            ), f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+            _assert(
+                module,
+                len(matches) == 1,
+                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
+            )
             model_name, model_number = matches[0]
             features.add(f"ampere_{model_name}_{model_number.replace('-', '_')}")
         elif cpu_model.lower().startswith("grace"):
@@ -217,7 +224,7 @@ def _find_best_uarches(uarches: list[str]) -> list[str]:
     return output
 
 
-def get_uarch_features() -> set[str]:
+def get_uarch_features(module: AnsibleModule) -> set[str]:
     features = set()
     uarches = _get_uarches()
     features.update(_find_best_uarches(uarches))
@@ -230,6 +237,8 @@ def get_uarch_features() -> set[str]:
 
 
 def main():
+    module = AnsibleModule(argument_spec={}, supports_check_mode=True)
+
     features = set()
     features.add(CPU_FAMILY)
     feature_collectors = [
@@ -238,7 +247,7 @@ def main():
         get_link_speed,
     ]
     for collector in feature_collectors:
-        features.update(collector())
+        features.update(collector(module))
 
     features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))
 
@@ -249,8 +258,6 @@ def main():
                 features_to_remove.add(feature)
     features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
     features.difference_update(features_to_remove)
-
-    module = AnsibleModule(argument_spec={}, supports_check_mode=True)
     module.exit_json(ansible_facts={"slurm_features": sorted(list(features))})
 
 
