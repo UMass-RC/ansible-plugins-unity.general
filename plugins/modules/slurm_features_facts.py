@@ -28,7 +28,7 @@ import re
 import platform
 import subprocess
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.unity.general.plugins.module_utils import _assert
+from ansible_collections.unity.general.plugins.module_utils.common import _assert
 from ansible_collections.unity.general.plugins.module_utils.archspec import (
     UARCH_DB,
     check_requirements,
