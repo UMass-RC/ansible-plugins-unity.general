@@ -19,6 +19,11 @@ def _check_output(argv: list[str], _module: AnsibleModule, timeout_sec=0) -> str
     return stdout
 
 
+def _assert(_module: AnsibleModule, condition: bool, msg: str):
+    if not condition:
+        _module.fail_json(msg=msg)
+
+
 NVIDIA_PCI_VENDOR_ID = "10de:"
 
 
@@ -63,7 +68,7 @@ def translate_nvidia_gpu_model_name(model_name: str) -> str:
     return model_name
 
 
-def get_gpu_model_and_count(_module) -> tuple[str, int]:
+def get_gpu_model_and_count(_module: AnsibleModule) -> tuple[str, int]:
     # `-q` means query the online PCI ID database, `-mmv` is required by `jc`
     stdout = _check_output(
         ["lspci", "-q", "-mmv", "-d", NVIDIA_PCI_VENDOR_ID], _module, timeout_sec=5
@@ -77,5 +82,10 @@ def get_gpu_model_and_count(_module) -> tuple[str, int]:
     ]
     # extract from square brackets - example: "GH100 [H200 NVL]"
     nvidia_gpu_models = [re.sub(r"^.*\[(.*)\].*", r"\1", x["device"]) for x in nvidia_gpus]
-    assert all_elements_equal(nvidia_gpu_models)
-    return translate_nvidia_gpu_model_name(nvidia_gpu_models[0]), len(nvidia_gpu_models)
+    nvidia_gpu_models = [translate_nvidia_gpu_model_name(x) for x in nvidia_gpu_models]
+    _assert(
+        _module,
+        all_elements_equal(nvidia_gpu_models),
+        f"mismatched GPU models! found: {list(set(nvidia_gpu_models))}",
+    )
+    return nvidia_gpu_models[0], len(nvidia_gpu_models)

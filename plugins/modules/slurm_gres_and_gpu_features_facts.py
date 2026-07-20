@@ -41,6 +41,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.unity.general.plugins.module_utils.archspec import check_requirements
 from ansible_collections.unity.general.plugins.module_utils.common import (
     _check_output,
+    _assert,
     get_gpu_model_and_count,
     all_elements_equal,
 )
@@ -138,7 +139,11 @@ def get_gpu_vram_mebibytes_and_compute_capability(_module: AnsibleModule) -> tup
     output = []
     for vram_MiB, cc in gpu_table:
         output.append((int(re.sub(r"\s+MiB$", "", vram_MiB)), float(cc)))
-    assert all_elements_equal(output)
+    _assert(
+        _module,
+        all_elements_equal(output),
+        f"mismatched VRAM/CC between GPUs! found: {list(set(output))}",
+    )
     return output[0]
 
 
