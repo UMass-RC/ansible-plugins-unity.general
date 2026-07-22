@@ -1,0 +1,147 @@
+- name: apt install
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jre
+    state: present
+
+- name: Create the jetty user account
+  ansible.builtin.user:
+    name: jetty
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+    state: present
+
+- name: check if idp is installed already
+  ansible.builtin.stat:
+    path: /etc/shibboleth-idp
+  register: shib_status
+
+- name: install shibboleth idp
+  block:
+  - name: download tar
+    ansible.builtin.get_url:
+      url: https://shibboleth.net/downloads/identity-provider/latest5/shibboleth-identity-provider-5.2.3.tar.gz
+      dest: /tmp/shibboleth-idp.tar.gz
+      owner: jetty
+      group: jetty
+      mode: '0440'
+
+  - name: Create tmp directory
+    ansible.builtin.file:
+      path: /tmp/shibboleth-idp
+      owner: jetty
+      group: jetty
+      state: directory
+
+  - name: Untar shibboleth
+    ansible.builtin.unarchive:
+      src: /tmp/shibboleth-idp.tar.gz
+      dest: /tmp/shibboleth-idp
+      remote_src: true
+      extra_opts:
+        - '--strip-components=1'
+
+  - name: install shibboleth idp
+    ansible.builtin.shell: |
+      bash /tmp/shibboleth-idp/bin/install.sh -t /etc/shibboleth-idp --scope unityhpc.org -e https://unityhpc.org/internal/shibboleth -h https://account.unityhpc.org
+  when: not (shib_status.stat.exists and shib_status.stat.isdir)
+
+- name: install jetty plugin
+  ansible.builtin.shell: |
+    yes | ./bin/plugin.sh -I net.shibboleth.idp.plugin.jetty
+  args:
+    creates: /etc/shibboleth-idp/jetty-base-12
+    chdir: /etc/shibboleth-idp
+
+- name: install nashorn plugin
+  ansible.builtin.shell: |
+    yes | ./bin/plugin.sh -I net.shibboleth.idp.plugin.nashorn
+  args:
+    creates: /etc/shibboleth-idp/credentials/net.shibboleth.idp.plugin.nashorn
+    chdir: /etc/shibboleth-idp
+    
+- name: install forwarded module
+  ansible.builtin.shell: |
+    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=forwarded
+  args:
+    creates: /etc/shibboleth-idp/start.d/forwarded.ini
+    chdir: /etc/shibboleth-idp
+
+- name: install http-forwarded module
+  ansible.builtin.shell: |
+    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=http-forwarded
+  args:
+    creates: /etc/shibboleth-idp/start.d/http-forwarded.ini
+    chdir: /etc/shibboleth-idp
+
+- name: download jetty
+  ansible.builtin.shell: |
+    ./bin/downloadjetty.sh 12.1.4
+    ./bin/setjettybase.sh
+    ./bin/setjettyversion.sh
+  args:
+    creates: /etc/shibboleth-idp/jetty-dist
+    chdir: /etc/shibboleth-idp
+  notify: restart jetty
+
+- name: install config files
+  unity.template_multi_diff.template:
+    src: "{{ item }}.j2"
+    dest: /etc/shibboleth-idp/conf/{{ item }}
+    owner: jetty
+    group: jetty
+    mode: "0644"
+  loop:
+    - attribute-filter.xml
+    - saml-nameid.xml
+    - saml-nameid.properties
+    - relying-party.xml
+    - attribute-resolver.xml
+    - authn/authn.properties
+    - metadata-providers.xml
+  notify: restart jetty
+
+- name: install jetty config files
+  unity.template_multi_diff.template:
+    src: "{{ item }}.j2"
+    dest: /etc/shibboleth-idp/{{ item }}
+    owner: jetty
+    group: jetty
+    mode: "0644"
+  loop:
+    - jetty-base/start.d/shibboleth.ini
+  notify: restart jetty
+
+- name: install metadata
+  unity.copy_multi_diff.copy:
+    src: "{{ item }}"
+    dest: /etc/shibboleth-idp/metadata/{{ item }}
+    owner: jetty
+    group: jetty
+    mode: "0644"
+  loop:
+    - umass-amherst.enterprise.slack.com.xml
+  notify: restart jetty
+
+- name: install service
+  unity.copy_multi_diff.copy:
+    src: jetty.service
+    dest: /etc/systemd/system/jetty.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Chown to jetty
+  ansible.builtin.file:
+    path: /etc/shibboleth-idp
+    state: directory
+    owner: jetty
+    group: jetty
+    recurse: yes
+
+- name: Enable and start Jetty service
+  ansible.builtin.systemd:
+    name: jetty
+    state: started
+    enabled: true

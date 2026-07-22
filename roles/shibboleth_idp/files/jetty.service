@@ -1,0 +1,30 @@
+[Install]
+WantedBy=multi-user.target
+
+[Unit]
+Documentation=https://www.eclipse.org/jetty/documentation/
+Description=Jetty Server 
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+
+# Set to your chosen values.
+User=jetty
+Group=jetty
+
+# Allow binding to port 80/443.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+Restart=no
+TimeoutSec=45
+KillMode=process
+
+WorkingDirectory=/etc/shibboleth-idp/jetty-base
+
+ExecStart=/etc/shibboleth-idp/bin/runjetty.sh start
+
+ExecStop=/bin/kill ${MAINPID}
+
+SuccessExitStatus=130 143

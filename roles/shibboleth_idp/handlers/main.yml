@@ -1,0 +1,4 @@
+- name: restart jetty
+  ansible.builtin.systemd:
+    name: jetty
+    state: restarted
