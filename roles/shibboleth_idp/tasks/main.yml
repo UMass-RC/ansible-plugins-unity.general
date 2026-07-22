@@ -44,7 +44,7 @@
 
   - name: install shibboleth idp
     ansible.builtin.shell: |
-      bash /tmp/shibboleth-idp/bin/install.sh -t /etc/shibboleth-idp --scope unityhpc.org -e https://unityhpc.org/internal/shibboleth -h https://account.unityhpc.org
+      bash /tmp/shibboleth-idp/bin/install.sh -t /etc/shibboleth-idp --scope unityhpc.org -e https://unityhpc.org/internal/shibboleth -h {{ web_domain }}
   when: not (shib_status.stat.exists and shib_status.stat.isdir)
 
 - name: install jetty plugin
@@ -60,20 +60,6 @@
   args:
     creates: /etc/shibboleth-idp/credentials/net.shibboleth.idp.plugin.nashorn
     chdir: /etc/shibboleth-idp
-    
-- name: install forwarded module
-  ansible.builtin.shell: |
-    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=forwarded
-  args:
-    creates: /etc/shibboleth-idp/start.d/forwarded.ini
-    chdir: /etc/shibboleth-idp
-
-- name: install http-forwarded module
-  ansible.builtin.shell: |
-    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=http-forwarded
-  args:
-    creates: /etc/shibboleth-idp/start.d/http-forwarded.ini
-    chdir: /etc/shibboleth-idp
 
 - name: download jetty
   ansible.builtin.shell: |
@@ -84,6 +70,20 @@
     creates: /etc/shibboleth-idp/jetty-dist
     chdir: /etc/shibboleth-idp
   notify: restart jetty
+    
+- name: install forwarded module
+  ansible.builtin.shell: |
+    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=forwarded
+  args:
+    creates: /etc/shibboleth-idp/jetty-base/start.d/forwarded.ini
+    chdir: /etc/shibboleth-idp/jetty-base
+
+- name: install http-forwarded module
+  ansible.builtin.shell: |
+    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=http-forwarded
+  args:
+    creates: /etc/shibboleth-idp/jetty-base/start.d/http-forwarded.ini
+    chdir: /etc/shibboleth-idp/jetty-base
 
 - name: install config files
   unity.template_multi_diff.template:
