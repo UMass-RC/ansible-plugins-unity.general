@@ -135,7 +135,7 @@
     mode: "0644"
 
 - name: Chown to jetty
-  ansible.builtin.file:
+  unity.file_multi_diff.file:
     path: /etc/shibboleth-idp
     state: directory
     owner: jetty
