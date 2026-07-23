@@ -78,13 +78,6 @@
     creates: /etc/shibboleth-idp/jetty-base/start.d/forwarded.ini
     chdir: /etc/shibboleth-idp/jetty-base
 
-- name: install http-forwarded module
-  ansible.builtin.shell: |
-    java -jar /etc/shibboleth-idp/jetty-home/start.jar --add-module=http-forwarded
-  args:
-    creates: /etc/shibboleth-idp/jetty-base/start.d/http-forwarded.ini
-    chdir: /etc/shibboleth-idp/jetty-base
-
 - name: install config files
   unity.template_multi_diff.template:
     src: "{{ item }}.j2"
