@@ -92,3 +92,16 @@ build-ci-container:
       -t $CONTAINER_IMAGE
       -f .gitlab-ci-Dockerfile --load .
     - docker push $CONTAINER_IMAGE
+
+# `prettier` requires nodejs
+# `pre-commit` requires git
+# alpine linux has a package for `delta` while debian does not
+# I could apk install nodejs but it's faster to just use that as the base image
+pre-commit:
+  image: node:current-alpine
+  script:
+    - apk add delta git git-lfs pre-commit py3-clustershell
+    - git lfs install --local
+    - pre-commit run --all-files --color always || touch .pre-commit-ci-failed
+    - (git diff --color=always | DELTA_PAGER=none delta) || touch .pre-commit-ci-failed
+    - if [ -f .pre-commit-ci-failed ]; then echo 'did you run `pre-commit install`?'; exit 1; fi
