@@ -1,7 +1,7 @@
 - name: apt install
   ansible.builtin.apt:
     name:
-      - openjdk-17-jre
+      - openjdk-17-jre-headless
     state: present
 
 - name: Create the jetty user account
