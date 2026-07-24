@@ -48,16 +48,18 @@
   when: not (shib_status.stat.exists and shib_status.stat.isdir)
 
 - name: install jetty plugin
-  ansible.builtin.shell: |
-    yes | ./bin/plugin.sh -I net.shibboleth.idp.plugin.jetty
-  args:
+  ansible.builtin.expect:
+    command: /bin/bash ./plugin.sh -I net.shibboleth.idp.plugin.jetty
+    responses:
+      "[yN]": "y"
     creates: /etc/shibboleth-idp/jetty-base-12
     chdir: /etc/shibboleth-idp
 
 - name: install nashorn plugin
-  ansible.builtin.shell: |
-    yes | ./bin/plugin.sh -I net.shibboleth.idp.plugin.nashorn
-  args:
+  ansible.builtin.expect:
+    command: /bin/bash ./bin/plugin.sh -I net.shibboleth.idp.plugin.nashorn
+    responses:
+      "[yN]": "y"
     creates: /etc/shibboleth-idp/credentials/net.shibboleth.idp.plugin.nashorn
     chdir: /etc/shibboleth-idp
 
