@@ -2,6 +2,7 @@
   ansible.builtin.apt:
     name:
       - openjdk-17-jre-headless
+      - python3-pexpect # needed for the `expect` module below
     state: present
 
 - name: Create the jetty user account
