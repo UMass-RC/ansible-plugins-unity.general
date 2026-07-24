@@ -19,32 +19,32 @@
 
 - name: install shibboleth idp
   block:
-  - name: download tar
-    ansible.builtin.get_url:
-      url: https://shibboleth.net/downloads/identity-provider/latest5/shibboleth-identity-provider-5.2.3.tar.gz
-      dest: /tmp/shibboleth-idp.tar.gz
-      owner: jetty
-      group: jetty
-      mode: '0440'
+    - name: download tar
+      ansible.builtin.get_url:
+        url: https://shibboleth.net/downloads/identity-provider/latest5/shibboleth-identity-provider-5.2.3.tar.gz
+        dest: /tmp/shibboleth-idp.tar.gz
+        owner: jetty
+        group: jetty
+        mode: "0440"
 
-  - name: Create tmp directory
-    ansible.builtin.file:
-      path: /tmp/shibboleth-idp
-      owner: jetty
-      group: jetty
-      state: directory
+    - name: Create tmp directory
+      ansible.builtin.file:
+        path: /tmp/shibboleth-idp
+        owner: jetty
+        group: jetty
+        state: directory
 
-  - name: Untar shibboleth
-    ansible.builtin.unarchive:
-      src: /tmp/shibboleth-idp.tar.gz
-      dest: /tmp/shibboleth-idp
-      remote_src: true
-      extra_opts:
-        - '--strip-components=1'
+    - name: Untar shibboleth
+      ansible.builtin.unarchive:
+        src: /tmp/shibboleth-idp.tar.gz
+        dest: /tmp/shibboleth-idp
+        remote_src: true
+        extra_opts:
+          - "--strip-components=1"
 
-  - name: install shibboleth idp
-    ansible.builtin.shell: |
-      bash /tmp/shibboleth-idp/bin/install.sh -t /etc/shibboleth-idp --scope unityhpc.org -e https://unityhpc.org/internal/shibboleth -h {{ web_domain }}
+    - name: install shibboleth idp
+      ansible.builtin.shell: |
+        bash /tmp/shibboleth-idp/bin/install.sh -t /etc/shibboleth-idp --scope unityhpc.org -e https://unityhpc.org/internal/shibboleth -h {{ web_domain }}
   when: not (shib_status.stat.exists and shib_status.stat.isdir)
 
 - name: install jetty plugin
