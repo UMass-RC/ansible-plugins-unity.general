@@ -1,0 +1,62 @@
+# intentionally malformed files
+# pre-commit automatically excludes submodules
+exclude: |
+  (?x)^(
+      .*\.dist|
+  )$
+repos:
+  # auto formatters (no work required) #############################################################
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: .*\.patch$
+      - id: end-of-file-fixer
+        exclude: .*\.patch$
+  # - repo: https://github.com/scop/pre-commit-shfmt.git
+  #   rev: v3.10.0-2
+  #   hooks:
+  #     - id: shfmt
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.4.2
+    hooks:
+      - id: prettier
+        types: [yaml]
+  # - repo: https://github.com/psf/black.git
+  #   rev: 24.10.0
+  #   hooks:
+  #     - id: black
+
+  # linters (work required) ########################################################################
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        exclude: "^tests/.*"
+      - id: check-json
+      - id: check-xml
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+  # TODO fix the many errors and enable this
+  # - repo: https://github.com/shellcheck-py/shellcheck-py.git
+  #   rev: v0.10.0.1
+  #   hooks:
+  #     - id: shellcheck
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.23.1
+    hooks:
+      - id: gitleaks
+  # TODO fix the many errors and enable this
+  # - repo: https://github.com/ansible/ansible-lint.git
+  #   rev: v24.10.0
+  #   hooks:
+  #     - id: ansible-lint
+
+  - repo: local
+    hooks:
+      - id: mode-must-be-quoted
+        name: mode must be in quotes
+        language: system
+        entry: sed
+        args: [-i, -E, 's/mode: ([0-9]+)$/mode: "\1"/']
+        types: [yaml]
