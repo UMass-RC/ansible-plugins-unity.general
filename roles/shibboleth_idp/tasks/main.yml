@@ -49,7 +49,7 @@
 
 - name: install jetty plugin
   ansible.builtin.expect:
-    command: /bin/bash ./plugin.sh -I net.shibboleth.idp.plugin.jetty
+    command: /bin/bash ./bin/plugin.sh -I net.shibboleth.idp.plugin.jetty
     responses:
       "[yN]": "y"
     creates: /etc/shibboleth-idp/jetty-base-12
