@@ -284,9 +284,9 @@ def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
 
 
 @beartype
-def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
-    output = {}
-    for hostname, specs in node_specs.items():
+def _do_removals(node_specs: NodeSpecsPacked) -> NodeSpecsPacked:
+    output = [x for x in node_specs] # copy
+    for specs in output:
         if "RemoveFeatures" in specs:
             if "Features" in specs:
                 for remove_feature in specs["RemoveFeatures"]:
@@ -297,7 +297,6 @@ def _do_removals(node_specs: NodeSpecsUnpacked) -> NodeSpecsUnpacked:
                 if remove_spec in specs:
                     del specs[remove_spec]
             del specs["RemoveSpecs"]
-        output[hostname] = specs
     return output
 
 
@@ -311,7 +310,7 @@ def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dic
         output = _unpack(node_specs[0])
         for specs in node_specs[1:]:
             output = _merge(output, _unpack(specs))
-    return _do_removals(output)
+    return output
 
 
 type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
@@ -473,7 +472,7 @@ def slurm_node_specs_merge(
     min_mem_reduction_MB=100,
     max_mem_reduction_MB=1000,
 ):
-    "assemble slurm node specs from hostvars"
+    "assemble slurm node specs from hostvars, also handle RemoveFeatures and RemoveSpecs"
     if node_specs_hostfacts_mem is None:
         raise AnsibleFilterError("keyword argument required: node_specs_hostfacts_mem")
     if node_specs_hostfacts_nomem is None:
@@ -489,11 +488,13 @@ def slurm_node_specs_merge(
         min_mem_reduction_MB,
         max_mem_reduction_MB,
     )
-    return pack(
-        _merge(
-            _merge(mem_clustered, node_specs_hostfacts_nomem_unpacked),
-            node_specs_hardcoded_unpacked,
-            allow_conflicts=True,
+    return _do_removals(
+        pack(
+            _merge(
+                _merge(mem_clustered, node_specs_hostfacts_nomem_unpacked),
+                node_specs_hardcoded_unpacked,
+                allow_conflicts=True,
+            )
         )
     )
 
