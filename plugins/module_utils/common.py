@@ -57,7 +57,7 @@ def translate_nvidia_gpu_model_name(model_name: str) -> str:
     model_name = model_name.replace("rev. a", "")
     model_name = model_name.replace("a2 / a16", "a16")
     model_name = model_name.replace("6000/8000", "8000")
-    if "8000" not in model_name:
+    if "8000" not in model_name and "pro 6000" not in model_name:
         model_name = model_name.replace("rtx", "")
     model_name = re.sub(r"\d+gb / \d+gb", "", model_name)
     model_name = re.sub(r"\d+gb", "", model_name)
