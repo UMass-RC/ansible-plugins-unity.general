@@ -50,7 +50,7 @@ from ansible_collections.unity.general.plugins.module_utils.common import (
 VRAM_FEATURES = [8, 11, 12, 16, 23, 32, 40, 48, 80, 102, 143]
 # this should include all of the nvidia compute capability versions present in the cluster
 # 7.0 -> "sm70". a node with sm_90 will inherit sm_89, sm_87, ...
-INCLUDE_NV_CC = [5.2, 6.1, 7.0, 7.5, 8.0, 8.6, 8.7, 8.9, 9.0]
+INCLUDE_NV_CC = [5.2, 6.1, 7.0, 7.5, 8.0, 8.6, 8.7, 8.9, 9.0, 12.0]
 NV_SMI_TIMEOUT_SEC = 10
 FEATURE_INCLUDE_WHEN = {
     "a100-80g": {
