@@ -88,4 +88,5 @@ def get_gpu_model_and_count(_module: AnsibleModule) -> tuple[str, int]:
         all_elements_equal(nvidia_gpu_models),
         f"mismatched GPU models! found: {list(set(nvidia_gpu_models))}",
     )
+    _assert(_module, len(nvidia_gpu_models) > 0, "no nvidia GPUs found!")
     return nvidia_gpu_models[0], len(nvidia_gpu_models)
