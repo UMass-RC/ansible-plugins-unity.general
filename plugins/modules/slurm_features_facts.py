@@ -24,6 +24,7 @@ slurm_features:
       - 10gbps
 """
 
+import os
 import re
 import platform
 import subprocess
@@ -67,7 +68,7 @@ def _check_output(argv: list[str]) -> str:
     return subprocess.check_output(argv, text=True, timeout=BLOCKING_TIMEOUT_SEC)
 
 
-def get_link_speed(module: AnsibleModule) -> set[str]:
+def get_link_speed_features(module: AnsibleModule) -> set[str]:
     ip_out = _check_output(["ip", "route", "get", "8.8.8.8"])
     dev = ip_out.split(" ")[4]
     valid_speeds = [10, 25, 40, 100, 200]
@@ -235,6 +236,10 @@ def get_uarch_features(module: AnsibleModule) -> set[str]:
     features.update(check_requirements(FEATURE_UARCH_ALIASES, uarches))
     return features
 
+def get_localscratch_features(module: AnsibleModule) -> set[str]:
+    if os.path.isdir("/localscratch"):
+        return set(["localscratch"])
+    return set()
 
 def main():
     module = AnsibleModule(argument_spec={}, supports_check_mode=True)
@@ -244,7 +249,8 @@ def main():
     feature_collectors = [
         get_cpu_model_features,
         get_uarch_features,
-        get_link_speed,
+        get_link_speed_features,
+        get_localscratch_features,
     ]
     for collector in feature_collectors:
         features.update(collector(module))
