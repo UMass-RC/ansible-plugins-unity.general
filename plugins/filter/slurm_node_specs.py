@@ -394,9 +394,7 @@ def _dict_get_deep(_dict: dict | HostVars | HostVarsVars, keys: list[str], name=
 
 
 @beartype
-def slurm_node_specs_slim_from_hostvars(
-    _, hostvars: HostVars = None, hosts: list[str] = None
-) -> dict[str, dict]:
+def slurm_node_specs_slim_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
     "assemble slurm node specs (no RealMemory, no GPU) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
@@ -420,9 +418,7 @@ def slurm_node_specs_slim_from_hostvars(
 
 
 @beartype
-def slurm_node_specs_mem_from_hostvars(
-    _, hostvars: HostVars = None, hosts: list[str] = None
-) -> dict[str, dict]:
+def slurm_node_specs_mem_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
     "assemble slurm node specs (RealMemory only) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
@@ -442,9 +438,7 @@ def slurm_node_specs_mem_from_hostvars(
 
 
 @beartype
-def slurm_node_specs_gpu_from_hostvars(
-    _, hostvars: HostVars = None, hosts: list[str] = None
-) -> dict[str, dict]:
+def slurm_node_specs_gpu_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
     "assemble slurm node specs (gres, GPU features only) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
