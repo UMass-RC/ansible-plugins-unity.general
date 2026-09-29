@@ -463,9 +463,9 @@ def slurm_node_specs_gpu_from_hostvars(
 @beartype
 def slurm_node_specs_merge(
     _,
-    node_specs_hostfacts_mem: list[NodeSpecsPacked] = None,
-    node_specs_hostfacts_nomem: list[NodeSpecsPacked] = None,
-    node_specs_hardcoded: list[NodeSpecsPacked] = None,
+    node_specs_hostfacts_mem: NodeSpecsPacked | list[NodeSpecsPacked] = None,
+    node_specs_hostfacts_nomem: NodeSpecsPacked | list[NodeSpecsPacked] = None,
+    node_specs_hardcoded: NodeSpecsPacked | list[NodeSpecsPacked] = None,
     min_mem_reduction_MB=100,
     max_mem_reduction_MB=1000,
 ):
@@ -496,7 +496,7 @@ def slurm_node_specs_merge(
     )
 
 
-def slurm_node_specs_feature_groups(node_specs: list[NodeSpecsPacked]) -> dict:
+def slurm_node_specs_feature_groups(node_specs: NodeSpecsPacked) -> dict:
     inventory = {"plugin": "unity.general.groups_simplified_nodeset", "groups": {}}
     for specs in node_specs:
         for feature in specs.get("Features", []):
