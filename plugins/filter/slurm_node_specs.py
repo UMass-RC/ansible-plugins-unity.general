@@ -285,7 +285,7 @@ def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
 
 @beartype
 def _do_removals(node_specs: NodeSpecsPacked) -> NodeSpecsPacked:
-    output = [x for x in node_specs] # copy
+    output = [x for x in node_specs]  # copy
     for specs in output:
         if "RemoveFeatures" in specs:
             if "Features" in specs:
@@ -394,7 +394,9 @@ def _dict_get_deep(_dict: dict | HostVars | HostVarsVars, keys: list[str], name=
 
 
 @beartype
-def slurm_node_specs_slim_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
+def slurm_node_specs_slim_from_hostvars(
+    hostvars: HostVars, hosts: list[str] = None
+) -> dict[str, dict]:
     "assemble slurm node specs (no RealMemory, no GPU) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
@@ -402,23 +404,24 @@ def slurm_node_specs_slim_from_hostvars(hostvars: HostVars, hosts: list[str] = N
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars:
-            lscpu = _dict_get(hostvars[hostname], "lscpu", name=f'hostvars["{hostname}"]')
-            lscpu_name = 'hostvars["{hostname}"]["lscpu"]'
-            output[hostname] = {
-                "Boards": 1,
-                "SocketsPerBoard": int(_dict_get(lscpu, "Socket(s)", name=lscpu_name)),
-                "CoresPerSocket": int(_dict_get(lscpu, "Core(s) per socket", name=lscpu_name)),
-                "ThreadsPerCore": int(_dict_get(lscpu, "Thread(s) per core", name=lscpu_name)),
-                "Features": _dict_get(
-                    hostvars[hostname], "slurm_features", name=f'hostvars["{hostname}"]'
-                ),
-            }
+        lscpu = _dict_get(hostvars[hostname], "lscpu", name=f'hostvars["{hostname}"]')
+        lscpu_name = 'hostvars["{hostname}"]["lscpu"]'
+        output[hostname] = {
+            "Boards": 1,
+            "SocketsPerBoard": int(_dict_get(lscpu, "Socket(s)", name=lscpu_name)),
+            "CoresPerSocket": int(_dict_get(lscpu, "Core(s) per socket", name=lscpu_name)),
+            "ThreadsPerCore": int(_dict_get(lscpu, "Thread(s) per core", name=lscpu_name)),
+            "Features": _dict_get(
+                hostvars[hostname], "slurm_features", name=f'hostvars["{hostname}"]'
+            ),
+        }
     return output
 
 
 @beartype
-def slurm_node_specs_mem_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
+def slurm_node_specs_mem_from_hostvars(
+    hostvars: HostVars, hosts: list[str] = None
+) -> dict[str, dict]:
     "assemble slurm node specs (RealMemory only) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
@@ -426,19 +429,20 @@ def slurm_node_specs_mem_from_hostvars(hostvars: HostVars, hosts: list[str] = No
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars:
-            output[hostname] = {
-                "RealMemory": _dict_get_deep(
-                    hostvars[hostname],
-                    ["ansible_memory_mb", "real", "total"],
-                    name=f'hostvars["{hostname}"]',
-                )
-            }
+        output[hostname] = {
+            "RealMemory": _dict_get_deep(
+                hostvars[hostname],
+                ["ansible_memory_mb", "real", "total"],
+                name=f'hostvars["{hostname}"]',
+            )
+        }
     return output
 
 
 @beartype
-def slurm_node_specs_gpu_from_hostvars(hostvars: HostVars, hosts: list[str] = None) -> dict[str, dict]:
+def slurm_node_specs_gpu_from_hostvars(
+    hostvars: HostVars, hosts: list[str] = None
+) -> dict[str, dict]:
     "assemble slurm node specs (gres, GPU features only) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
@@ -446,14 +450,13 @@ def slurm_node_specs_gpu_from_hostvars(hostvars: HostVars, hosts: list[str] = No
         raise AnsibleFilterError("keyword argument required: hosts")
     output = {}
     for hostname in hosts:
-        if hostname in hostvars:
-            output.setdefault(hostname, {"Features": []})
-            output[hostname]["Gres"] = _dict_get(
-                hostvars[hostname], "slurm_gres", name=f'hostvars["{hostname}"]'
-            )
-            output[hostname]["Features"].extend(
-                _dict_get(hostvars[hostname], "slurm_gpu_features", name=f'hostvars["{hostname}"]')
-            )
+        output.setdefault(hostname, {"Features": []})
+        output[hostname]["Gres"] = _dict_get(
+            hostvars[hostname], "slurm_gres", name=f'hostvars["{hostname}"]'
+        )
+        output[hostname]["Features"].extend(
+            _dict_get(hostvars[hostname], "slurm_gpu_features", name=f'hostvars["{hostname}"]')
+        )
     return output
 
 
