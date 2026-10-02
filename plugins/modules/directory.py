@@ -53,6 +53,7 @@ diff:
 
 import os
 import shutil
+import socket
 import traceback
 from ansible.module_utils.basic import AnsibleModule
 
@@ -70,6 +71,10 @@ def format_total_file_subdir_counts(path: str) -> str:
         subdirs += len(walk_subdirs)
         files += len(walk_files)
     return f"{path}: {files} total files, {subdirs} total subdirectories"
+
+
+def current_host() -> str:
+    return socket.gethostname().split(".", 1)[0]
 
 
 def main():
@@ -96,11 +101,12 @@ def main():
     result["diff"]["before_header"] = format_total_file_subdir_counts(path)
 
     if expected_not_found := set(expected_listing) - set(before_listing):
+        hostname = current_host()
         msg = " ".join(
             [
-                f"the following items were expected but not found: {sorted(list(expected_not_found))}.",
-                f"directory: '{path}'."
-                f"all items found: {before_listing}."
+                f"{hostname}: the following items were expected but not found: {sorted(list(expected_not_found))}.",
+                f"directory: '{path}'.",
+                f"all items found: {before_listing}.",
                 "this module only deletes, it doesn't create.",
             ]
         )
