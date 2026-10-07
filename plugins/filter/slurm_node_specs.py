@@ -517,6 +517,16 @@ def slurm_node_specs_feature_groups(node_specs: NodeSpecsPacked) -> dict:
     return inventory
 
 
+def slurm_all_gpu_models(node_specs: NodeSpecsPacked) -> list[str]:
+    output = set()
+    for specs in node_specs:
+        if "Gres" in specs:
+            for gres in specs["Gres"].split(","):
+                if (_match := re.fullmatch(r"gpu:(.*):\d+", gres)) is not None:
+                    output.add(_match.group(1))
+    return sorted(list(output))
+
+
 class FilterModule:
     def filters(self):
         return dict(
@@ -527,4 +537,5 @@ class FilterModule:
             slurm_node_specs_gpu_from_hostvars=slurm_node_specs_gpu_from_hostvars,
             slurm_node_specs_merge=slurm_node_specs_merge,
             slurm_node_specs_feature_groups=slurm_node_specs_feature_groups,
+            slurm_all_gpu_models=slurm_all_gpu_models,
         )
