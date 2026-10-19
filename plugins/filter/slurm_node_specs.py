@@ -102,6 +102,8 @@ NODE_SPEC_ORDER = [
     "ThreadsPerCore",
 ]
 
+MIN_MEMORY_REDUCTION_WARNING_MB = 1000
+
 
 @beartype
 def _fold_node_set(hostnames: list[str]) -> str:
@@ -330,6 +332,8 @@ def __cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) ->
             if reduction != 0:
                 reduction2hostnames.setdefault(reduction, []).append(hostname)
         for reduction, hostnames in reduction2hostnames.items():
+            if reduction < MIN_MEMORY_REDUCTION_WARNING_MB:
+                continue
             reduced_hostnames_folded = _fold_node_set(hostnames)
             display.warning(
                 f"{reduced_hostnames_folded} RealMemory reduced by {reduction} MB to match {sorted_memoryMB_hostname[0][1]}"
