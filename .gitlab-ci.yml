@@ -93,15 +93,13 @@ build-ci-container:
       -f .gitlab-ci-Dockerfile --load .
     - docker push $CONTAINER_IMAGE
 
+# alpine linux has a package for `uv` while debian does not
+# `prek` requires git
 # `prettier` requires nodejs
-# `pre-commit` requires git
-# alpine linux has a package for `delta` while debian does not
+# `prek` is theoretically able to install node but it wasn't working
 # I could apk install nodejs but it's faster to just use that as the base image
 pre-commit:
   image: node:current-alpine
   script:
-    - apk add delta git git-lfs pre-commit py3-clustershell
-    - git lfs install --local
-    - pre-commit run --all-files --color always || touch .pre-commit-ci-failed
-    - (git diff --color=always | DELTA_PAGER=none delta) || touch .pre-commit-ci-failed
-    - if [ -f .pre-commit-ci-failed ]; then echo 'did you run `pre-commit install`?'; exit 1; fi
+    - apk add git uv
+    - uv run prek run --all-files --show-diff-on-failure --color=always
