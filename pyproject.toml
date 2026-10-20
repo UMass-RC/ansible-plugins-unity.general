@@ -9,4 +9,5 @@ dependencies = [
     "clustershell>=1.9.3",
     "jc>=1.25.7",
     "pexpect>=4.9.0",
+    "prek>=0.5.6",
 ]
