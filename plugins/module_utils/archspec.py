@@ -1,7 +1,15 @@
 import json
+from collections.abc import Collection
+from typing import Literal
+
+type archspec_requirements = dict[
+    str, dict[Literal["all_of", "any_of", "none_of"], Collection[str]]
+]
 
 
-def check_requirements(name2requirements: dict[str, list], _list: list) -> set[str]:
+def check_requirements(
+    name2requirements: archspec_requirements, _list: Collection[str]
+) -> set[str]:
     """
     require that certain elements are present or absent from _list
     if requirements are satisfied, add `name` to the output list
@@ -16,15 +24,12 @@ def check_requirements(name2requirements: dict[str, list], _list: list) -> set[s
     """
     output = set()
     for name, requirements in name2requirements.items():
-        if "all_of" in requirements:
-            if not all(x in _list for x in requirements["all_of"]):
-                continue
-        if "any_of" in requirements:
-            if not any(x in _list for x in requirements["any_of"]):
-                continue
-        if "none_of" in requirements:
-            if any(x in _list for x in requirements["none_of"]):
-                continue
+        if ("all_of" in requirements) and (not all(x in _list for x in requirements["all_of"])):
+            continue
+        if ("any_of" in requirements) and (not any(x in _list for x in requirements["any_of"])):
+            continue
+        if ("none_of" in requirements) and (any(x in _list for x in requirements["none_of"])):
+            continue
         output.add(name)
     return output
 

@@ -1,5 +1,6 @@
-import re
 import json
+import re
+
 import yaml
 
 # from ansible.parsing.yaml.dumper import AnsibleDumper
@@ -30,6 +31,6 @@ def to_prettier_yaml(x: str, indent=2, sort_keys=False) -> str:
     return yaml.dump(x_munged, Dumper=PrettierYamlDumper, indent=indent, sort_keys=sort_keys)
 
 
-class FilterModule(object):
+class FilterModule:
     def filters(self):
         return {"to_prettier_yaml": to_prettier_yaml}

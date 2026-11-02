@@ -1,8 +1,5 @@
 #!/usr/bin/python
 
-from __future__ import absolute_import, division, print_function
-
-__metaclass__ = type
 
 DOCUMENTATION = r"""
 name: directory
@@ -54,7 +51,7 @@ diff:
 import os
 import shutil
 import socket
-import traceback
+
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -91,10 +88,10 @@ def main():
     result = {"diff": {}}
 
     if not os.path.exists(path):
-        module.fail_json(f"Path {path} does not exist", **result)
+        module.fail_json(f"Path {path} does not exist", exception=None, **result)
 
     if not os.path.isdir(path):
-        module.fail_json(f"Path {path} is not a directory", **result)
+        module.fail_json(f"Path {path} is not a directory", exception=None, **result)
 
     before_listing = sorted(listdir_classify_subdirs(path))
     result["diff"]["before"] = "\n".join(before_listing)
@@ -104,7 +101,7 @@ def main():
         hostname = current_host()
         msg = " ".join(
             [
-                f"{hostname}: the following items were expected but not found: {sorted(list(expected_not_found))}.",
+                f"{hostname}: the following items were expected but not found: {sorted(expected_not_found)}.",
                 f"directory: '{path}'.",
                 f"all items found: {before_listing}.",
                 "this module only deletes, it doesn't create.",
@@ -114,7 +111,7 @@ def main():
             msg += " outside check mode this error is fatal."
             module.warn(msg)
         else:
-            module.fail_json(msg, **result)
+            module.fail_json(msg, exception=None, **result)
 
     to_remove = set(before_listing) - set(expected_listing)
     result["changed"] = len(to_remove) > 0
@@ -136,10 +133,8 @@ def main():
                 new_diff_after = result["diff"]["after"].splitlines()
                 new_diff_after.remove(item)
                 result["diff"]["after"] = "\n".join(new_diff_after)
-            except OSError:
-                module.fail_json(
-                    f"failed to remove {full_path}: {traceback.format_exc()}", **result
-                )
+            except OSError as e:
+                module.fail_json(f"failed to remove {full_path}", exception=e, **result)
         after_listing = listdir_classify_subdirs(path)
         result["diff"]["after_header"] = format_total_file_subdir_counts(path)
         # double check
@@ -153,6 +148,7 @@ def main():
                         f"current listing: {after_listing}",
                     ]
                 ),
+                exception=None,
                 **result,
             )
 

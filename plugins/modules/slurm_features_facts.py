@@ -3,6 +3,7 @@
 # archspec hardcoded instead because module dependencies are weird
 # requirements:
 #   - L(archspec,https://pypi.org/project/archspec/)
+
 DOCUMENTATION = r"""
 name: slurm_features_facts
 short_description: facts module that finds Slurm features for this machine
@@ -25,25 +26,23 @@ slurm_features:
 """
 
 import os
-import re
 import platform
+import re
 import subprocess
+
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.unity.general.plugins.module_utils.common import _assert
-from ansible_collections.unity.general.plugins.module_utils.archspec import (
-    UARCH_DB,
-    check_requirements,
-)
+
+from ..module_utils.archspec import UARCH_DB, archspec_requirements, check_requirements
 
 BLOCKING_TIMEOUT_SEC = 10
 # features based on other features
-FEATURE_INCLUDE_WHEN = {
+FEATURE_INCLUDE_WHEN: archspec_requirements = {
     "arm64": {
         "all_of": ["aarch64"],
     },
 }
 # this takes precedence over FEATURE_INCLUDE_WHEN
-FEATURE_EXCLUDE_WHEN = {
+FEATURE_EXCLUDE_WHEN: archspec_requirements = {
     # https://gitlab.rc.umass.edu/unity/ansible-collections/general/-/issues/58
     # I think these are "generic" and v2 normally trumps n2 based on archspec proper's definition
     # of "best". But we don't have any N2's in Unity, and I'm lazy. - Simon
@@ -60,7 +59,9 @@ FEATURE_EXCLUDE_REGEXES = [
 # ivybridge, x86_64_v3, sandybridge, westmere, nehalem, core2, x86_64_v2, nocona, x86_64
 # icelake is just cascadelake plus a few more extra flags/features/capabilities listed in `lscpu`
 # a machine with ppc64le CPUs doesn't seem to list any flags
-FEATURE_UARCH_ALIASES = {"avx512": {"any_of": ["x86_64_v4", "skylake_avx512"]}}
+FEATURE_UARCH_ALIASES: archspec_requirements = {
+    "avx512": {"any_of": ["x86_64_v4", "skylake_avx512"]}
+}
 CPU_FAMILY = platform.machine()
 
 
@@ -102,35 +103,32 @@ def get_cpu_model_features(module: AnsibleModule) -> set[str]:
         if cpu_model.lower().startswith("intel(r)"):
             model_number_regex = r"\b\d{4,}[a-z]?(?: v\d)?\b"  # examples: "8352y", "2620 v3"
             matches = re.findall(model_number_regex, cpu_model.lower())
-            _assert(
-                module,
-                len(matches) == 1,
-                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
-            )
+            if len(matches) != 1:
+                module.fail_json(
+                    msg=f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+                )
             features.add(f"intel{matches[0].lower().replace(' ', '')}")
         elif cpu_model.lower().startswith("amd"):
             model_number_regex = r"\b\d[0-9a-z]{3,}\b"  # examples: "7h12", "1900x", "7955wx"
             matches = re.findall(model_number_regex, cpu_model.lower())
-            _assert(
-                module,
-                len(matches) == 1,
-                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
-            )
+            if len(matches) != 1:
+                module.fail_json(
+                    msg=f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+                )
             features.add(f"amd{matches[0].lower()}")
         elif cpu_model.lower().startswith("ampere"):
             model_number_regex = (
                 r"ampere(?:\(r\))?\s+\b(\w+)(?:\(r\))?\s+(?:processor)?\s+(\w\d+-\d+)\b"
             )
             matches = re.findall(model_number_regex, cpu_model.lower())
-            _assert(
-                module,
-                len(matches) == 1,
-                f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}",
-            )
+            if len(matches) != 1:
+                module.fail_json(
+                    msg=f"wrong number of regex matches! {cpu_model=}, {model_number_regex=}, {matches=}"
+                )
             model_name, model_number = matches[0]
             features.add(f"ampere_{model_name}_{model_number.replace('-', '_')}")
         elif cpu_model.lower().startswith("grace"):
-            grace, model, _ = cpu_model.lower().split(" ", 2)
+            _, model, _ = cpu_model.lower().split(" ", 2)
             features.add(f"grace_{model}")
         if "altivec supported" in cpu_model:
             features.add("altivec")
@@ -150,7 +148,11 @@ def _get_uarches() -> list[str]:
                 break
             cpuinfo[key.strip()] = value.strip()
     if "cpu" in cpuinfo and "POWER" in cpuinfo["cpu"]:
-        generation_match = re.search(r"POWER(\d+)", cpuinfo["cpu"])
+        cpu = cpuinfo["cpu"]
+        generation_match = re.search(r"POWER(\d+)", cpu)
+        assert generation_match is not None, (
+            f"failed to parse power9 generation from cpuinfo: {cpu!r}"
+        )
         cpuinfo["generation"] = int(generation_match.group(1))
         cpuinfo["vendor_id"] = "IBM"
     if CPU_FAMILY == "aarch64":
@@ -164,15 +166,12 @@ def _get_uarches() -> list[str]:
     if isinstance(cpuinfo["flags"], str):
         cpuinfo["flags"] = cpuinfo["flags"].split()
     for name, info in UARCH_DB["feature_aliases"].items():
-        if "families" in info:
-            if not any(x == CPU_FAMILY for x in info["families"]):
-                continue
-        if "any_of" in info:
-            if not any(x in cpuinfo["flags"] for x in info["any_of"]):
-                continue
-        if "all_of" in info:
-            if not all(x in cpuinfo["flags"] for x in info["all_of"]):
-                continue
+        if ("families" in info) and (not any(x == CPU_FAMILY for x in info["families"])):
+            continue
+        if ("any_of" in info) and (not any(x in cpuinfo["flags"] for x in info["any_of"])):
+            continue
+        if ("all_of" in info) and (not all(x in cpuinfo["flags"] for x in info["all_of"])):
+            continue
         cpuinfo["flags"].append(name)
     found_uarches = [CPU_FAMILY]
     for name, info in UARCH_DB["microarchitectures"].items():
@@ -182,7 +181,7 @@ def _get_uarches() -> list[str]:
         #     if not any(x in found_uarches for x in info["from"]):
         #         continue
         # assume "generic" means "allow anything"
-        if info["vendor"] != "generic" and not cpuinfo["vendor_id"] == info["vendor"]:
+        if info["vendor"] != "generic" and cpuinfo["vendor_id"] != info["vendor"]:
             continue
         if not all(x in cpuinfo["flags"] for x in info["features"]):
             continue
@@ -192,9 +191,12 @@ def _get_uarches() -> list[str]:
         # ignore broken armv* (https://github.com/archspec/archspec/issues/205)
         if name.startswith("armv") and info["features"] == []:
             continue
-        if "generation" in info and "generation" in cpuinfo:
-            if info["generation"] > cpuinfo["generation"]:
-                continue
+        if (
+            ("generation" in info)
+            and ("generation" in cpuinfo)
+            and (info["generation"] > cpuinfo["generation"])
+        ):
+            continue
         found_uarches.append(name)
     return found_uarches
 
@@ -236,10 +238,12 @@ def get_uarch_features(module: AnsibleModule) -> set[str]:
     features.update(check_requirements(FEATURE_UARCH_ALIASES, uarches))
     return features
 
+
 def get_localscratch_features(module: AnsibleModule) -> set[str]:
     if os.path.isdir("/localscratch"):
-        return set(["localscratch"])
+        return {"localscratch"}
     return set()
+
 
 def main():
     module = AnsibleModule(argument_spec={}, supports_check_mode=True)
@@ -264,7 +268,7 @@ def main():
                 features_to_remove.add(feature)
     features_to_remove.update(check_requirements(FEATURE_EXCLUDE_WHEN, features))
     features.difference_update(features_to_remove)
-    module.exit_json(ansible_facts={"slurm_features": sorted(list(features))})
+    module.exit_json(ansible_facts={"slurm_features": sorted(features)})
 
 
 if __name__ == "__main__":

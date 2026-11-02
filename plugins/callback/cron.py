@@ -1,20 +1,13 @@
 import shutil
 import subprocess
 
-from ansible_collections.unity.general.plugins.callback.deduped_default import (
-    CallbackModule as DedupedDefaultCallback,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import bitwarden_redact
-from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
-    BufferedCallback,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.color import decolorize
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    VALID_STATUSES,
-    DiffID,
-    ResultGist,
-    ResultID,
-)
+from ansible.errors import AnsibleError
+
+from ..plugin_utils import decolorize
+from ..plugin_utils.bitwarden_redact import bitwarden_redact
+from ..plugin_utils.buffered_callback import BufferedCallback
+from ..plugin_utils.dedupe_callback import VALID_STATUSES, DiffID, ResultGist, ResultID
+from .deduped_default import CallbackModule as DedupedDefaultCallback
 
 DOCUMENTATION = r"""
   name: cron
@@ -121,9 +114,8 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         self.set_options()
         statuses_enable_print = self.get_option("statuses_enable_print")
         invalid_statuses = [x for x in statuses_enable_print if x not in VALID_STATUSES]
-        assert len(invalid_statuses) == 0, (
-            f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
-        )
+        if len(invalid_statuses) > 0:
+            raise AnsibleError(f"invalid statuses in `statuses_enable_print`: {invalid_statuses}")
 
     def deduped_result(
         self,
@@ -141,7 +133,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
     def deduped_task_end(
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
-        diffs_and_groupings: list[tuple[dict, list[DiffID]]],
+        diffs_and_groupings: list[tuple[str, list[DiffID]]],
         interrupted: list[ResultID],
     ) -> None:
         statuses = {gist["status"] for gist, _ in result_gists_and_groupings}

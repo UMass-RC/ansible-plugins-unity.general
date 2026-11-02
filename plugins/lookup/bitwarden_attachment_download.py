@@ -1,3 +1,6 @@
+from ansible.errors import AnsibleLookupError
+from ClusterShell.Worker.fastsubprocess import CalledProcessError
+
 DOCUMENTATION = """
   name: bitwarden
   author: Simon Leary <simon.leary42@proton.me>
@@ -34,13 +37,14 @@ DOCUMENTATION = """
 """
 
 import subprocess
-from ansible.utils.display import Display
-from ansible.plugins.lookup import LookupBase
-from ansible.plugins.loader import lookup_loader
 
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
-    get_cache_path,
+from ansible.plugins.loader import lookup_loader
+from ansible.plugins.lookup import LookupBase
+from ansible.utils.display import Display
+
+from ..plugin_utils.ramdisk_cache import (
     cache_lambda,
+    get_cache_path,
 )
 
 display = Display()
@@ -60,13 +64,11 @@ class LookupModule(LookupBase):
             download_path,
         ]
         display.v(f"executing command: {argv}")
-        subprocess.run(
-            argv,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
-        display.v(f"done.")
+        try:
+            subprocess.check_output(argv)
+        except CalledProcessError as e:
+            raise AnsibleLookupError from e
+        display.v("done.")
         return download_path
 
     def run(self, terms, variables=None, **kwargs):

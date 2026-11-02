@@ -10,4 +10,18 @@ dependencies = [
     "jc>=1.25.7",
     "pexpect>=4.9.0",
     "prek>=0.5.6",
+    "requests>=2.34.2",
+    "slack-sdk>=3.46.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+ignore = ["UP031", "FLY002", "TRY002", "PYI042", "C408"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.3",
+    "ty>=0.0.95",
 ]

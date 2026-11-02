@@ -1,9 +1,9 @@
 import os
-import sys
 import shlex
-import pexpect
+import sys
 import tempfile
 
+import pexpect
 from ansible.module_utils.six import PY2
 
 PROMPT = "input:"

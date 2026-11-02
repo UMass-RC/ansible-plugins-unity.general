@@ -38,12 +38,11 @@ import re
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.unity.general.plugins.module_utils.archspec import check_requirements
-from ansible_collections.unity.general.plugins.module_utils.common import (
+from ..module_utils.archspec import archspec_requirements, check_requirements
+from ..module_utils.common import (
     _check_output,
-    _assert,
-    get_gpu_model_and_count,
     all_elements_equal,
+    get_gpu_model_and_count,
 )
 
 # 8 -> "vram8". GB, not GiB. a node with vram12 will inherit vram11, vram8, ...
@@ -52,7 +51,7 @@ VRAM_FEATURES = [8, 11, 12, 16, 23, 32, 40, 48, 80, 102, 143]
 # 7.0 -> "sm70". a node with sm_90 will inherit sm_89, sm_87, ...
 INCLUDE_NV_CC = [5.2, 6.1, 7.0, 7.5, 8.0, 8.6, 8.7, 8.9, 9.0, 12.0]
 NV_SMI_TIMEOUT_SEC = 10
-FEATURE_INCLUDE_WHEN = {
+FEATURE_INCLUDE_WHEN: archspec_requirements = {
     "a100-80g": {
         "all_of": ["a100", "vram80"],
     },
@@ -89,9 +88,9 @@ def get_cuda_compute_capability_features(cc: float, _module: AnsibleModule) -> s
         )
         ccs.append(cc)
     features = set()
-    for cc in ccs:
+    for x in ccs:
         # 5.2 -> "sm_52"
-        features.add(f"sm_{str(cc).replace('.', '')}")
+        features.add(f"sm_{str(x).replace('.', '')}")
     return features
 
 
@@ -123,7 +122,9 @@ def get_nvlink_features(_module: AnsibleModule) -> set[str]:
     return set()
 
 
-def get_gpu_vram_mebibytes_and_compute_capability(_module: AnsibleModule) -> tuple[int, float]:
+def get_gpu_vram_mebibytes_and_compute_capability(
+    _module: AnsibleModule,
+) -> tuple[int, float]:
     nv_smi_out = _check_output(
         [
             "nvidia-smi",
@@ -139,11 +140,8 @@ def get_gpu_vram_mebibytes_and_compute_capability(_module: AnsibleModule) -> tup
     output = []
     for vram_MiB, cc in gpu_table:
         output.append((int(re.sub(r"\s+MiB$", "", vram_MiB)), float(cc)))
-    _assert(
-        _module,
-        all_elements_equal(output),
-        f"mismatched VRAM/CC between GPUs! found: {list(set(output))}",
-    )
+    if not all_elements_equal(output):
+        _module.fail_json(msg=f"mismatched VRAM/CC between GPUs! found: {list(set(output))}")
     return output[0]
 
 
@@ -157,12 +155,7 @@ def main():
     features.update(get_vram_features(vram_MiB, _module))
     # features.update(get_nvlink_features(_module))
     features.update(check_requirements(FEATURE_INCLUDE_WHEN, features))
-    _module.exit_json(
-        ansible_facts={
-            "slurm_gres": gres,
-            "slurm_gpu_features": sorted(list(features)),
-        }
-    )
+    _module.exit_json(ansible_facts={"slurm_gres": gres, "slurm_gpu_features": sorted(features)})
 
 
 if __name__ == "__main__":

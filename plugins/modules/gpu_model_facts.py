@@ -19,7 +19,8 @@ gpu_model:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.unity.general.plugins.module_utils.common import (
+
+from ..module_utils.common import (
     get_gpu_model_and_count,
 )
 

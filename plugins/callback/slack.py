@@ -1,15 +1,12 @@
 import traceback
 
+from ansible.module_utils.common.text.converters import to_text
+from ansible.utils.display import Display
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from ansible.utils.display import Display
-from ansible.plugins.callback import CallbackBase
-from ansible.module_utils.common.text.converters import to_text
-
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import DedupeCallback
-from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
-
+from ..plugin_utils import slack_report_cache
+from ..plugin_utils.dedupe_callback import DedupeCallback
 
 display = Display()
 
@@ -52,7 +49,7 @@ class CallbackModule(DedupeCallback):
     CALLBACK_NEEDS_WHITELIST = True
 
     def __init__(self):
-        super(CallbackModule, self).__init__()
+        super().__init__()
         self._text_buffer = []
 
     def _get_report(self) -> str:
@@ -68,7 +65,7 @@ class CallbackModule(DedupeCallback):
             display.vvv(traceback.format_exc())
             display.warning(f"slack: failed to send report! {to_text(e)}\n")
 
-    def deduped_playbook_on_start(self, _):
+    def deduped_playbook_on_start(self, playbook):
         # this can happen when last playbook was interrupted
         old_report = self._get_report()
         if old_report:

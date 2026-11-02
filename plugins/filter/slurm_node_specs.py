@@ -73,18 +73,18 @@ The following terms are interchangable:
 
 """
 
-import re
-import json
 import hashlib
-import itertools
-from ClusterShell.NodeSet import NodeSet
+import json
+import re
 
-from ansible.vars.hostvars import HostVars, HostVarsVars
-from ansible.utils.display import Display
+from ansible._internal._templating._jinja_common import Marker
 from ansible.errors import AnsibleFilterError
 from ansible.parsing.yaml.objects import AnsibleUnicode
+from ansible.utils.display import Display
+from ansible.vars.hostvars import HostVars
+from ClusterShell.NodeSet import NodeSet
 
-from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
+from ..plugin_utils.filter import dict_get, dict_get_deep
 
 type _str = str | AnsibleUnicode
 type _spec_value = _str | int | list[_str]
@@ -105,7 +105,6 @@ NODE_SPEC_ORDER = [
 MIN_MEMORY_REDUCTION_WARNING_MB = 1000
 
 
-@beartype
 def _fold_node_set(hostnames: list[str]) -> str:
     """
     ["cpu001", "cpu002", "cpu003", "cpu006"] -> ["cpu[001-003,006]"]
@@ -114,13 +113,11 @@ def _fold_node_set(hostnames: list[str]) -> str:
     return str(NodeSet.fromlist(hostnames))
 
 
-@beartype
 def _get_dict_hash(x) -> str:
     sorted_json_bytes = json.dumps(x, sort_keys=True).encode()
     return hashlib.md5(sorted_json_bytes).hexdigest()
 
 
-@beartype
 def _group_nodes_equal_specs(node_specs: NodeSpecsUnpacked) -> dict[str, dict]:
     confhash2conf = {}
     confhash2hostnames = {}
@@ -135,7 +132,6 @@ def _group_nodes_equal_specs(node_specs: NodeSpecsUnpacked) -> dict[str, dict]:
     return hostnames2conf
 
 
-@beartype
 def _make_string_sortable_numerically(string: str) -> list[tuple[int, int]]:
     """
     each character becomes a tuple of two ints. The first int is either 0,1, or 2
@@ -145,29 +141,17 @@ def _make_string_sortable_numerically(string: str) -> list[tuple[int, int]]:
                 $         7         8         9         a        ~
     "$789a~" -> [[0, 36], [1, 789], [1, 789], [1, 789], [2, 97], [2, 126]]
     """
-    output = [[None, None] for _ in range(len(string))]
-    skip_these_indexes = [False] * len(string)
-    for i, char in enumerate(string):
-        if skip_these_indexes[i]:
-            continue
-        char_int = ord(char)
-        if char_int < ord("0"):
-            output[i] = (0, char_int)
-        elif str.isdigit(char):
-            first_digit_index = i
-            last_digit_index = i
-            while last_digit_index < len(string) - 1 and str.isdigit(string[last_digit_index + 1]):
-                last_digit_index += 1
-            this_number = int(string[first_digit_index : last_digit_index + 1])
-            for digit_index in range(first_digit_index, last_digit_index + 1):
-                skip_these_indexes[digit_index] = True
-                output[digit_index] = (1, this_number)
-        elif char_int > ord("9"):
-            output[i] = (2, char_int)
+    output = []
+    # yields each digit run or single non-digit character
+    for token in re.findall(r"[0-9]+|[^0-9]", string):
+        if token[0] in "0123456789":
+            output.extend([(1, int(token))] * len(token))
+        else:
+            char_int = ord(token)
+            output.append((0, char_int) if char_int < ord("0") else (2, char_int))
     return output
 
 
-@beartype
 def _sort_with_priority(_list: list, _priority_elements: list):
     """
     move priority elements to the front, in the given order
@@ -184,16 +168,14 @@ def _sort_with_priority(_list: list, _priority_elements: list):
     return sorted(_list, key=sort_key)
 
 
-@beartype
 def _dict_sorted_keys_with_priority(_dict: dict, _priority_keys: list) -> dict:
     sorted_keys = _sort_with_priority(list(_dict.keys()), _priority_keys)
-    output = dict()
+    output = {}
     for key in sorted_keys:
         output[key] = _dict[key]
     return output
 
 
-@beartype
 def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
     _node_specs = {}
     # sort spec values
@@ -204,11 +186,11 @@ def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
             if isinstance(spec_value, list):
                 if all(isinstance(x, str) for x in spec_value):
                     _node_specs[hostname][spec_name] = sorted(
-                        node_specs[hostname][spec_name],
+                        spec_value,
                         key=_make_string_sortable_numerically,
                     )
                 else:
-                    _node_specs[hostname][spec_name] = sorted(node_specs[hostname][spec_name])
+                    _node_specs[hostname][spec_name] = sorted(spec_value)
             else:
                 _node_specs[hostname][spec_name] = spec_value
     # "pack" the specs
@@ -225,11 +207,16 @@ def pack(node_specs: NodeSpecsUnpacked) -> NodeSpecsPacked:
     return sorted(
         node_specs_packed,
         # ignore '[' such that cpu001 doesn't end up sorted after cpu[002-005]
-        key=lambda x: _make_string_sortable_numerically(re.sub(r"\[(\d)", r"\1", x["NodeName"])),
+        key=lambda x: _make_string_sortable_numerically(
+            re.sub(
+                r"\[(\d)",
+                r"\1",
+                dict_get(x, "NodeName", str, name="node_specs_packed entry"),
+            )
+        ),
     )
 
 
-@beartype
 def _unfold_node_set(hostnames: str) -> list[str]:
     """
     "cpu[001-003,006]" -> ["cpu001", "cpu002", "cpu003", "cpu006"]
@@ -238,7 +225,6 @@ def _unfold_node_set(hostnames: str) -> list[str]:
     return list(NodeSet(hostnames))
 
 
-@beartype
 def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
     # track the current path during recursion for a good error message
     if path is None:
@@ -250,7 +236,7 @@ def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
             merged[key] = value
         else:
             # redundant copy: do nothing
-            if dict1[key] == dict2[key]:
+            if dict1[key] == value:
                 continue
             # dict: recursive call
             if isinstance(value, dict) and isinstance(dict1[key], dict):
@@ -263,19 +249,18 @@ def _merge(dict1: dict, dict2: dict, path=None, allow_conflicts=False) -> dict:
             # else: error
             else:
                 if allow_conflicts:
-                    merged[key] = dict2[key]
+                    merged[key] = value
                 else:
                     full_path = ".".join(map(str, current_path))
-                    msg = f"Conflict at '{full_path}': '{dict1[key]}' vs '{dict2[key]}'"
+                    msg = f"Conflict at '{full_path}': '{dict1[key]}' vs '{value}'"
                     raise RuntimeError(msg)
     return merged
 
 
-@beartype
 def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
     output = {}
     for specs in node_specs:
-        folded_node_set = specs["NodeName"]
+        folded_node_set = dict_get(specs, "NodeName", str, name="node_specs entry")
         del specs["NodeName"]
         for hostname in _unfold_node_set(folded_node_set):
             if hostname not in output:
@@ -285,40 +270,44 @@ def _unpack(node_specs: NodeSpecsPacked) -> NodeSpecsUnpacked:
     return output
 
 
-@beartype
 def _do_removals(node_specs: NodeSpecsPacked) -> NodeSpecsPacked:
     output = [x for x in node_specs]  # copy
     for specs in output:
         if "RemoveFeatures" in specs:
             if "Features" in specs:
-                for remove_feature in specs["RemoveFeatures"]:
-                    specs["Features"] = [x for x in specs["Features"] if x != remove_feature]
+                for remove_feature in dict_get(
+                    specs, "RemoveFeatures", list, name="node_specs entry"
+                ):
+                    specs["Features"] = [
+                        x
+                        for x in dict_get(specs, "Features", list, name="node_specs entry")
+                        if x != remove_feature
+                    ]
             del specs["RemoveFeatures"]
         if "RemoveSpecs" in specs:
-            for remove_spec in specs["RemoveSpecs"]:
+            for remove_spec in dict_get(specs, "RemoveSpecs", list, name="node_specs entry"):
                 if remove_spec in specs:
                     del specs[remove_spec]
             del specs["RemoveSpecs"]
     return output
 
 
-@beartype
 def unpack(node_specs: NodeSpecsPacked | list[NodeSpecsPacked]) -> dict[str, dict]:
     if not node_specs:
         return {}
+    # type checker can't understand this check but it's solid
     if isinstance(node_specs[0], dict):
-        output = _unpack(node_specs)
+        output = _unpack(node_specs)  # type:ignore
     else:
         output = _unpack(node_specs[0])
         for specs in node_specs[1:]:
-            output = _merge(output, _unpack(specs))
+            output = _merge(output, _unpack(specs))  # type:ignore
     return output
 
 
-type _mem_iter = list[tuple[int, str]] | itertools.chain[tuple[int, str]]
+type _mem_iter = list[tuple[int, str]]
 
 
-@beartype
 def __cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) -> _mem_iter:
     "cluster integers by reducing them by no more than max_reduction"
     # if the entire range can be reduced to equal the lowest number without violating max_reduction
@@ -346,14 +335,11 @@ def __cluster_memory(sorted_memoryMB_hostname: _mem_iter, max_reduction: int) ->
         gaps.append(memoryMB - sorted_memoryMB_hostname[i - 1][0])
     # https://stackoverflow.com/a/11825864/18696276
     biggest_gap_index = max(range(len(gaps)), key=gaps.__getitem__)
-    # https://stackoverflow.com/a/1724975/18696276
-    return itertools.chain(
-        __cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction),
-        __cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction),
-    )
+    left = __cluster_memory(sorted_memoryMB_hostname[:biggest_gap_index], max_reduction)
+    right = __cluster_memory(sorted_memoryMB_hostname[biggest_gap_index:], max_reduction)
+    return left + right
 
 
-@beartype
 def _cluster_memory(
     node_specs_mem: NodeSpecsUnpacked,
     node_specs_nomem: NodeSpecsUnpacked,
@@ -365,7 +351,20 @@ def _cluster_memory(
     output = {k: {"RealMemory": v["RealMemory"]} for k, v in node_specs_mem.items()}
     for grouping in pack(node_specs_nomem):
         sorted_memoryMB_hostname = sorted(
-            [(node_specs_mem[x]["RealMemory"], x) for x in _unfold_node_set(grouping["NodeName"])]
+            [
+                (
+                    dict_get(
+                        node_specs_mem[x],
+                        "RealMemory",
+                        int,
+                        name=f'node_specs_mem["{x}"]',
+                    ),
+                    x,
+                )
+                for x in _unfold_node_set(
+                    dict_get(grouping, "NodeName", str, name="packed node_specs_nomem group")
+                )
+            ]
         )
         # do reduction now rather than inside _cluster_memory so that it doesn't produce extra
         # warning messages for reducing each node memory by exactly min_reduction_MB
@@ -377,29 +376,8 @@ def _cluster_memory(
     return output
 
 
-@beartype
-def _dict_get(_dict: dict | HostVars | HostVarsVars, key: str, name="dict") -> object:
-    try:
-        return _dict[key]
-    except KeyError as e:
-        raise AnsibleFilterError(f'key "{key}" not found in "{name}"') from e
-
-
-@beartype
-def _dict_get_deep(_dict: dict | HostVars | HostVarsVars, keys: list[str], name="dict") -> object:
-    cursor = _dict
-    for key in keys:
-        name += f'["{key}"]'
-        try:
-            cursor = cursor[key]
-        except KeyError as e:
-            raise AnsibleFilterError(f'key "{key}" not found in "{name}"') from e
-    return cursor
-
-
-@beartype
 def slurm_node_specs_slim_from_hostvars(
-    hostvars: HostVars, hosts: list[str] = None
+    hostvars: HostVars, hosts: list[str] | None = None
 ) -> dict[str, dict]:
     "assemble slurm node specs (no RealMemory, no GPU) from hostvars"
     if hostvars is None:
@@ -410,23 +388,25 @@ def slurm_node_specs_slim_from_hostvars(
     for hostname in hosts:
         if hostname not in hostvars:
             raise AnsibleFilterError(f'host "{hostname}" not found in host vars!"')
-        lscpu = _dict_get(hostvars[hostname], "lscpu", name=f'hostvars["{hostname}"]')
-        lscpu_name = 'hostvars["{hostname}"]["lscpu"]'
+        this_host_vars = hostvars[hostname]
+        if isinstance(this_host_vars, Marker):
+            raise AnsibleFilterError(f'hostvars["{hostname}"] is unresolved')
+        lscpu = dict_get(this_host_vars, "lscpu", dict, name=f'hostvars["{hostname}"]')
+        lscpu_name = f'hostvars["{hostname}"]["lscpu"]'
         output[hostname] = {
             "Boards": 1,
-            "SocketsPerBoard": int(_dict_get(lscpu, "Socket(s)", name=lscpu_name)),
-            "CoresPerSocket": int(_dict_get(lscpu, "Core(s) per socket", name=lscpu_name)),
-            "ThreadsPerCore": int(_dict_get(lscpu, "Thread(s) per core", name=lscpu_name)),
-            "Features": _dict_get(
-                hostvars[hostname], "slurm_features", name=f'hostvars["{hostname}"]'
+            "SocketsPerBoard": int(dict_get(lscpu, "Socket(s)", str, name=lscpu_name)),
+            "CoresPerSocket": int(dict_get(lscpu, "Core(s) per socket", str, name=lscpu_name)),
+            "ThreadsPerCore": int(dict_get(lscpu, "Thread(s) per core", str, name=lscpu_name)),
+            "Features": dict_get(
+                this_host_vars, "slurm_features", list, name=f'hostvars["{hostname}"]'
             ),
         }
     return output
 
 
-@beartype
 def slurm_node_specs_mem_from_hostvars(
-    hostvars: HostVars, hosts: list[str] = None
+    hostvars: HostVars, hosts: list[str] | None = None
 ) -> dict[str, dict]:
     "assemble slurm node specs (RealMemory only) from hostvars"
     if hostvars is None:
@@ -437,45 +417,55 @@ def slurm_node_specs_mem_from_hostvars(
     for hostname in hosts:
         if hostname not in hostvars:
             raise AnsibleFilterError(f'host "{hostname}" not found in host vars!"')
+        this_host_vars = hostvars[hostname]
+        if isinstance(this_host_vars, Marker):
+            raise AnsibleFilterError(f'hostvars["{hostname}"] is unresolved')
         output[hostname] = {
-            "RealMemory": _dict_get_deep(
-                hostvars[hostname],
+            "RealMemory": dict_get_deep(
+                this_host_vars,
                 ["ansible_memory_mb", "real", "total"],
+                int,
                 name=f'hostvars["{hostname}"]',
             )
         }
     return output
 
 
-@beartype
 def slurm_node_specs_gpu_from_hostvars(
-    hostvars: HostVars, hosts: list[str] = None
+    hostvars: HostVars, hosts: list[str] | None = None
 ) -> dict[str, dict]:
     "assemble slurm node specs (gres, GPU features only) from hostvars"
     if hostvars is None:
         raise AnsibleFilterError("keyword argument required: hostvars")
     if hosts is None:
         raise AnsibleFilterError("keyword argument required: hosts")
-    output = {}
+    output: dict[str, dict] = {}
     for hostname in hosts:
         if hostname not in hostvars:
             raise AnsibleFilterError(f'host "{hostname}" not found in host vars!"')
+        this_host_vars = hostvars[hostname]
+        if isinstance(this_host_vars, Marker):
+            raise AnsibleFilterError(f'hostvars["{hostname}"] is unresolved')
         output.setdefault(hostname, {"Features": []})
-        output[hostname]["Gres"] = _dict_get(
-            hostvars[hostname], "slurm_gres", name=f'hostvars["{hostname}"]'
+        output[hostname]["Gres"] = dict_get(
+            this_host_vars, "slurm_gres", str, name=f'hostvars["{hostname}"]'
         )
         output[hostname]["Features"].extend(
-            _dict_get(hostvars[hostname], "slurm_gpu_features", name=f'hostvars["{hostname}"]')
+            dict_get(
+                this_host_vars,
+                "slurm_gpu_features",
+                list,
+                name=f'hostvars["{hostname}"]',
+            )
         )
     return output
 
 
-@beartype
 def slurm_node_specs_merge(
     _,
-    node_specs_hostfacts_mem: NodeSpecsPacked | list[NodeSpecsPacked] = None,
-    node_specs_hostfacts_nomem: NodeSpecsPacked | list[NodeSpecsPacked] = None,
-    node_specs_hardcoded: NodeSpecsPacked | list[NodeSpecsPacked] = None,
+    node_specs_hostfacts_mem: NodeSpecsPacked | list[NodeSpecsPacked] | None = None,
+    node_specs_hostfacts_nomem: NodeSpecsPacked | list[NodeSpecsPacked] | None = None,
+    node_specs_hardcoded: NodeSpecsPacked | list[NodeSpecsPacked] | None = None,
     min_mem_reduction_MB=100,
     max_mem_reduction_MB=1000,
 ):
@@ -509,7 +499,7 @@ def slurm_node_specs_merge(
 def slurm_node_specs_feature_groups(node_specs: NodeSpecsPacked) -> dict:
     inventory = {"plugin": "unity.general.groups_simplified_nodeset", "groups": {}}
     for specs in node_specs:
-        for feature in specs.get("Features", []):
+        for feature in dict_get(specs, "Features", list, name="node_specs entry"):
             group_name = f"slurm_nodes_{feature}"
             for forbidden_char in [".", "-"]:
                 group_name = group_name.replace(forbidden_char, "_")
@@ -527,10 +517,10 @@ def slurm_all_gpu_models(node_specs: NodeSpecsPacked) -> list[str]:
     output = set()
     for specs in node_specs:
         if "Gres" in specs:
-            for gres in specs["Gres"].split(","):
-                if (_match := re.fullmatch(r"gpu:(.*):\d+", gres)) is not None:
+            for token in dict_get(specs, "Gres", str, name="node_specs entry").split(","):
+                if (_match := re.fullmatch(r"gpu:(.*):\d+", token)) is not None:
                     output.add(_match.group(1))
-    return sorted(list(output))
+    return sorted(output)
 
 
 class FilterModule:

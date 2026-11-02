@@ -1,4 +1,4 @@
-class ModuleDocFragment(object):
+class ModuleDocFragment:
     DOCUMENTATION = r"""
       requirements:
         - "for macOS: ~/tmpdisk/shm must be created with L(TmpDisk,https://github.com/imothee/tmpdisk)"

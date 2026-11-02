@@ -2,9 +2,8 @@ import io
 from hashlib import md5
 
 from ansible.utils.display import Display
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
-    RamdiskCacheContextManager,
-)
+
+from .ramdisk_cache import RamdiskCacheContextManager
 
 display = Display()
 

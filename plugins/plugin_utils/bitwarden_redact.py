@@ -1,10 +1,10 @@
-import json
 import datetime
+import json
+from datetime import UTC
 
 from ansible.utils.display import Display
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
-    RamdiskCacheContextManager,
-)
+
+from .ramdisk_cache import RamdiskCacheContextManager
 
 display = Display()
 
@@ -16,7 +16,7 @@ def _get_bitwarden_secrets(plugin_options: dict):
         try:
             bitwarden_cache = json.load(cache_file)
         except json.JSONDecodeError as e:
-            display.debug(f"assuming bitwarden cache is empty due to json decode error: {str(e)}")
+            display.debug(f"assuming bitwarden cache is empty due to json decode error: {e!s}")
             return []
         secrets = []
         for value in bitwarden_cache.values():
@@ -27,22 +27,22 @@ def _get_bitwarden_secrets(plugin_options: dict):
     return [x.strip() for x in secrets]
 
 
-def bitwarden_redact(x: object, plugin_options: dict) -> str:
+def bitwarden_redact(x: dict, plugin_options: dict) -> dict:
     """
-    any secrets currently in bitwarden cache will be removed from object x
+    any secrets currently in bitwarden cache will be removed from x
     x must be JSON serializable
 
     plugin_options is the result from AnsiblePlugin.get_options()
     your plugin must extend the unity.general.ramdisk_cache documentation fragment
     """
     num_secrets_redacted = 0
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(UTC)
     x_json_str = json.dumps(x)
     for secret in _get_bitwarden_secrets(plugin_options):
         if secret in x_json_str:
             x_json_str = x_json_str.replace(secret, "REDACTED")
             num_secrets_redacted += 1
-    seconds_elapsed = (datetime.datetime.now() - start_time).total_seconds()
+    seconds_elapsed = (datetime.datetime.now(UTC) - start_time).total_seconds()
     display.v(
         f"it took {seconds_elapsed:.1f} seconds to remove {num_secrets_redacted} bitwarden secrets from a string of length {len(x)}."
     )

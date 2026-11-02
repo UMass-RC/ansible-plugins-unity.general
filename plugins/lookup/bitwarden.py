@@ -39,12 +39,12 @@ DOCUMENTATION = """
 
 from hashlib import md5
 
-from ansible.errors import AnsibleError
-from ansible.utils.display import Display
-from ansible.plugins.lookup import LookupBase
+from ansible.errors import AnsibleError, AnsibleLookupError
 from ansible.plugins.loader import lookup_loader
+from ansible.plugins.lookup import LookupBase
+from ansible.utils.display import Display
 
-from ansible_collections.unity.general.plugins.plugin_utils.ramdisk_cache import (
+from ..plugin_utils.ramdisk_cache import (
     cache_lambda,
 )
 
@@ -62,7 +62,7 @@ def make_shell_command(terms, **kwargs) -> str:
         if "collection_id" in kwargs:
             subcommand += f" --collectionid='{kwargs['collection_id']}'"
         if "search" in kwargs:
-            subcommand += f" | jq '.[] | select(.[\"{kwargs['search']}\"] == \"{term}\")'"
+            subcommand += f' | jq \'.[] | select(.["{kwargs["search"]}"] == "{term}")\''
         if "field" in kwargs:
             subcommand += ' | jq \'.[] | {{"item[custom_fields][{x}]": .["fields"]["{x}"], "item[login][{x}]": .["login"]["{x}"], "item[{x}]": .["{x}"]}}\''.format(
                 x=kwargs["field"],
@@ -85,7 +85,7 @@ def do_bitwarden_lookup(terms, variables, **kwargs):
         results = lookup_loader.get("community.general.bitwarden").run(terms, variables, **kwargs)
         display.v("done.")
     except AnsibleError as e:
-        raise AnsibleError(f"{e}\n{help}") from e
+        raise AnsibleLookupError(f"{e}\n{help}") from e
     # results is a nested list
     # the first index represents each term in terms
     # the second index represents each item that matches that term
@@ -93,20 +93,19 @@ def do_bitwarden_lookup(terms, variables, **kwargs):
     for result_list in results:
         flat_results += result_list
     if len(flat_results) == 0:
-        raise AnsibleError(f"no results found!\n{help}")
+        raise AnsibleLookupError(f"no results found!\n{help}")
 
     if len(flat_results) > 1:
-        raise AnsibleError(f"too many results!\n{help}")
+        raise AnsibleLookupError(f"too many results!\n{help}")
     # ansible requires that lookup returns a list
     return [flat_results[0]]
 
 
 class LookupModule(LookupBase):
-
     def run(self, terms, variables=None, **kwargs):
         self.set_options(direct=kwargs)
         if len(terms) != 1:
-            raise AnsibleError(f"exactly one posisional argument required. Given: {terms}")
+            raise AnsibleLookupError(f"exactly one posisional argument required. Given: {terms}")
 
         default_collection_id = self.get_option("default_collection_id")
         if "collection_id" not in kwargs and default_collection_id is not None:

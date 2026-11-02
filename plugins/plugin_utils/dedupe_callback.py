@@ -5,9 +5,12 @@ import re
 import signal
 import threading
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import overload
 
 from ansible import constants as C
+from ansible.errors import AnsibleError
 from ansible.executor.stats import AggregateStats
 from ansible.executor.task_result import TaskResult
 from ansible.inventory.host import Host
@@ -20,8 +23,8 @@ from ansible.plugins.callback import CallbackBase
 from ansible.utils.color import stringc
 from ansible.utils.display import Display
 from ansible.utils.fqcn import add_internal_fqcns
-from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+
+from .hostlist import format_hostnames
 
 VALID_STATUSES = [
     "ok",
@@ -34,7 +37,7 @@ VALID_STATUSES = [
     "running",
 ]
 
-SURROGATE_DIFF = stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)
+SURROGATE_DIFF = stringc("task reports changed=true but does not report any diff.", C.COLOR_CHANGED)  # ty: ignore[unresolved-attribute]
 
 _DELEGATION_HOST_LABEL = re.compile(r"^(\S+) -> \S+$")
 
@@ -46,6 +49,8 @@ _NOT_UPGRADED_REGEX = re.compile(r"and \d+ not upgraded")
 
 def _apt_redact_not_upgraded(diff: dict[str, object]) -> None:
     if "prepared" in diff:
+        if not isinstance(diff["prepared"], str):
+            raise AnsibleError(f"result.diff.prepared is not a string: {diff}")
         try:
             other_lines, last_line = diff["prepared"].rsplit("\n", 1)
         except ValueError:
@@ -59,6 +64,8 @@ def _apt_redact_not_upgraded(diff: dict[str, object]) -> None:
 
 def _apt_redact_autoremove(diff: dict[str, object]) -> None:
     if "prepared" in diff:
+        if not isinstance(diff["prepared"], str):
+            raise AnsibleError(f"result.diff.prepared is not a string: {diff}")
         begin_strip = [
             "The following packages were automatically installed and are no longer required:",
             "The following package was automatically installed and is no longer required:",
@@ -92,26 +99,29 @@ for action_name in add_internal_fqcns(["template"]) + ["unity.template_multi_dif
     _DIFF_FILTERS[action_name] = [_template_redact_tmpfile]
 
 
-@beartype
+def _redact(node: object, filters: list[Callable[[str], str]]) -> object:
+    if isinstance(node, str):
+        for _filter in filters:
+            node = _filter(node)
+        return node
+    if isinstance(node, list):
+        return [_redact(e, filters) for e in node]
+    if isinstance(node, dict):
+        return {k: _redact(v, filters) for k, v in node.items()}
+    return node
+
+
+@overload
+def _anonymize(hostname: str, item_label: str | None, _input: str) -> str: ...
+@overload
+def _anonymize[T](hostname: str, item_label: str | None, _input: list[T]) -> list[T]: ...
+@overload
+def _anonymize[K, V](hostname: str, item_label: str | None, _input: dict[K, V]) -> dict[K, V]: ...
 def _anonymize(hostname: str, item_label: str | None, _input: object) -> object:
     """
     crawls dictionaries and lists to find string leaf nodes
     replaces `hostname` with "<redacted hostname>" and `item_label` with "<redacted item>"
     """
-
-    def _filter_string_leaf_nodes(node, filters):
-        if isinstance(node, str):
-            output = node
-            if filters:
-                for _filter in filters:
-                    output = _filter(output)
-            return output
-        if isinstance(node, list):
-            return [_filter_string_leaf_nodes(e, filters) for e in node]
-        if isinstance(node, dict):
-            return {k: _filter_string_leaf_nodes(v, filters) for k, v in node.items()}
-        return node
-
     hostname_regex = re.compile(re.escape(hostname), flags=re.IGNORECASE)
     filters = [lambda x: re.sub(hostname_regex, "<redacted hostname>", x)]
     if item_label is not None:
@@ -120,10 +130,9 @@ def _anonymize(hostname: str, item_label: str | None, _input: object) -> object:
         else:
             item_regex = re.compile(re.escape(item_label), flags=re.IGNORECASE)
             filters.append(lambda x: re.sub(item_regex, "<redacted item>", x))
-    return _filter_string_leaf_nodes(_input, filters)
+    return _redact(_input, filters)
 
 
-@beartype
 @dataclass(frozen=True)
 class HostnameAndItemLabel:
     hostname: str
@@ -135,7 +144,6 @@ class HostnameAndItemLabel:
         return self.hostname
 
 
-@beartype
 @dataclass(frozen=True)
 class HostnameItemLabelAndIndex:
     hostname: str
@@ -162,7 +170,6 @@ class ResultGist(dict):
     that results can't be deduped
     """
 
-    @beartype
     def __init__(
         self,
         status: str,
@@ -179,15 +186,13 @@ class ResultGist(dict):
         self["task_action"] = task_action
 
 
-class Grouper:
-    @beartype
-    def __init__(self, id_type):
+class Grouper[ID, V]:
+    def __init__(self, id_type: type[ID]):
         self._id_type = id_type
-        self.values_1st_match = []
-        self.ids = []
+        self.values_1st_match: list[V] = []
+        self.ids: list[list[ID]] = []
 
-    @beartype
-    def add(self, _id, value) -> list[object]:
+    def add(self, _id: ID, value: V) -> list[ID]:
         "returns list of dupes"
         assert isinstance(_id, self._id_type), f"expected {self._id_type}, got {type(_id)}"
         for i, group_value in enumerate(self.values_1st_match):
@@ -199,8 +204,7 @@ class Grouper:
         self.ids.append([_id])
         return []
 
-    @beartype
-    def export(self) -> list[tuple[object, list[object]]]:
+    def export(self) -> list[tuple[V, list[ID]]]:
         "each tuple has value on left and list of ids on right"
         output = []
         for i, value in enumerate(self.values_1st_match):
@@ -235,7 +239,6 @@ class DedupeCallback(CallbackBase):
       be setting the label with `loop_control`
     """
 
-    @beartype
     def __sigint_handler(self, signum, frame):
         """
         make sure the user knows which runners were interrupted
@@ -266,6 +269,9 @@ class DedupeCallback(CallbackBase):
                 )
                 return
             self.__sigint_handler_run = True
+            assert self.running_hosts is not None
+            assert self.result_id2status is not None
+            assert self.status2result_ids is not None
             for hostname in self.running_hosts:
                 fake_result_id = ResultID(hostname, None)
                 self.result_id2status[fake_result_id] = "interrupted"
@@ -280,9 +286,8 @@ class DedupeCallback(CallbackBase):
             display.v(f"[{_id_hash}] executing original sigint handler...")
             self.original_sigint_handler(signum, frame)
 
-    @beartype
     def __init__(self):
-        super(DedupeCallback, self).__init__()
+        super().__init__()
         self.task_name = None
         self.task_is_loop = None
         self.task_end_done = None
@@ -302,10 +307,11 @@ class DedupeCallback(CallbackBase):
         self.__sigint_handler_lock = threading.RLock()
         self.__sigint_handler_run = False
 
-        self.original_sigint_handler = signal.getsignal(signal.SIGINT)
+        original_sigint_handler = signal.getsignal(signal.SIGINT)
+        assert isinstance(original_sigint_handler, Callable)
+        self.original_sigint_handler = original_sigint_handler
         signal.signal(signal.SIGINT, self.__sigint_handler)
 
-    @beartype
     def __task_start(self, task: Task):
         self.__maybe_task_end()
         self.task_name = task.get_name()
@@ -327,19 +333,18 @@ class DedupeCallback(CallbackBase):
         self.result_id2status = {}
         del self.diff_grouper
         del self.result_gist_grouper
-        self.diff_grouper = Grouper(DiffID)
-        self.result_gist_grouper = Grouper(ResultID)
+        self.diff_grouper = Grouper[DiffID, str](DiffID)
+        self.result_gist_grouper = Grouper[ResultID, ResultGist](ResultID)
         if not self.first_task_started:
             self.first_task_started = True
 
-    @beartype
     def __runner_start(self, host: Host, task: Task):
         hostname = host.get_name()
         if not task.loop:
+            assert self.running_hosts is not None
             self.running_hosts.add(hostname)
         self.__update_status_totals()
 
-    @beartype
     def __maybe_task_end(self):
         """
         The ansible callback API does not have any notion of task end.
@@ -355,6 +360,9 @@ class DedupeCallback(CallbackBase):
         """
         if (not self.first_task_started) or self.task_end_done:
             return
+        assert self.result_gist_grouper is not None
+        assert self.diff_grouper is not None
+        assert self.status2result_ids is not None
         self.task_end_done = True
         self.deduped_task_end(
             self.result_gist_grouper.export(),
@@ -367,8 +375,12 @@ class DedupeCallback(CallbackBase):
         output = self._get_item_label(result._result)
         return output if output is None else str(output)
 
-    @beartype
     def __process_result(self, result: TaskResult, status: str):
+        assert self.result_gist_grouper is not None
+        assert self.diff_grouper is not None
+        assert self.status2result_ids is not None
+        assert self.running_hosts is not None
+        assert self.result_id2status is not None
         hostname = CallbackBase.host_label(result)
         item_label = self._make_item_label(result)
         result_id = ResultID(hostname, item_label)
@@ -445,8 +457,9 @@ class DedupeCallback(CallbackBase):
         self.deduped_result(result_id, stripped_result_dict, gist, gist_dupes)
         self.__update_status_totals()
 
-    @beartype
     def __update_status_totals(self, final=False):
+        assert self.status2result_ids is not None
+        assert self.running_hosts is not None
         status_totals = {
             status: str(len(result_ids)) for status, result_ids in self.status2result_ids.items()
         }
@@ -461,7 +474,6 @@ class DedupeCallback(CallbackBase):
             status_totals["running"] = str(len(self.running_hosts))
         self.deduped_update_status_totals(status_totals, final=final)
 
-    @beartype
     def __play_start(self, play: Play):
         strategy_fqcn = add_internal_fqcns([play.strategy])[0]
         if strategy_fqcn not in add_internal_fqcns(("linear", "debug")):
@@ -469,102 +481,84 @@ class DedupeCallback(CallbackBase):
                 f'Unsupported strategy: "{play.strategy}". Supported strategies are "linear" and "debug".'
             )
 
-    @beartype
     def __check_diff_always(self) -> None:
-        if not C.DIFF_ALWAYS:
+        if not C.DIFF_ALWAYS:  # ty:ignore[unresolved-attribute]
             self._display.warning(
                 "DIFF_ALWAYS is not enabled. It is highly recommended that you enable it!"
                 + " The whole point of using the deduped_callback API is to make diff information manageable."
             )
 
     # V2 API #######################################################################################
-    @beartype
+
     def v2_runner_on_start(self, host: Host, task: Task) -> None:
         self.__runner_start(host, task)
         self.deduped_runner_on_start(host, task)
 
-    @beartype
     def v2_runner_on_unreachable(self, result: TaskResult) -> None:
         self.__process_result(result, "unreachable")
 
-    @beartype
     def v2_runner_on_skipped(self, result: TaskResult) -> None:
         self.__process_result(result, "skipped")
 
-    @beartype
     def v2_runner_item_on_skipped(self, result: TaskResult) -> None:
         self.__process_result(result, "skipped")
 
-    @beartype
     def v2_runner_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
             self.__process_result(result, "changed")
         else:
             self.__process_result(result, "ok")
 
-    @beartype
     def v2_runner_item_on_ok(self, result: TaskResult) -> None:
         if result._result.get("changed", False):
             self.__process_result(result, "changed")
         else:
             self.__process_result(result, "ok")
 
-    @beartype
     def v2_runner_on_failed(self, result: TaskResult, ignore_errors=False) -> None:
         if ignore_errors:
             self.__process_result(result, "ignored")
         else:
             self.__process_result(result, "failed")
 
-    @beartype
     def v2_runner_item_on_failed(self, result: TaskResult) -> None:
         self.__process_result(result, "failed")
 
-    @beartype
     def v2_runner_retry(self, result: TaskResult) -> None:
         self.deduped_runner_retry(result)
 
-    @beartype
     def v2_on_file_diff(self, result) -> None:
         # I need to replace empty diffs with a "no diff" message, and this is not called
         # for empty diffs. instead I handle diffs during __process_result
         pass
 
-    @beartype
     def v2_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_task_start(task, is_conditional)
 
-    @beartype
     def v2_playbook_on_handler_task_start(self, task: Task) -> None:
         self.__task_start(task)
         self.deduped_playbook_on_handler_task_start(task)
 
-    @beartype
     def v2_playbook_on_play_start(self, play: Play) -> None:
         self.__maybe_task_end()  # weird edge case
         self.__play_start(play)
         self.deduped_playbook_on_play_start(play)
 
-    @beartype
     def v2_playbook_on_start(self, playbook: Playbook) -> None:
         self.__check_diff_always()
         self.deduped_playbook_on_start(playbook)
 
-    @beartype
     def v2_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         self.deduped_playbook_on_notify(handler, host)
 
-    @beartype
     def v2_playbook_on_include(self, included_file: IncludedFile) -> None:
         hosts = format_hostnames(included_file._hosts)
         self.deduped_playbook_on_include(included_file, hosts)
 
-    @beartype
     def v2_playbook_on_no_hosts_matched(self) -> None:
         self.deduped_playbook_on_no_hosts_matched()
 
-    @beartype
     def v2_playbook_on_no_hosts_remaining(self) -> None:
         self.deduped_playbook_on_no_hosts_remaining()
 
@@ -600,55 +594,43 @@ class DedupeCallback(CallbackBase):
         raise NotImplementedError("dedupe_callback does not support async!")
 
     # DEDUPED API ##################################################################################
-    @beartype
+
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_start"
 
-    @beartype
     def deduped_playbook_on_play_start(self, play: Play) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_play_start"
 
-    @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_task_start"
 
-    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_handler_task_start"
 
-    @beartype
     def deduped_runner_on_start(self, host: Host, task: Task) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_on_start"
 
-    @beartype
     def deduped_playbook_on_stats(self, stats: AggregateStats) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_stats"
 
-    @beartype
     def deduped_runner_retry(self, result: TaskResult) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_runner_retry"
 
-    @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_notify"
 
-    @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile, hosts: str) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_include"
 
-    @beartype
     def deduped_playbook_on_no_hosts_matched(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_matched"
 
-    @beartype
     def deduped_playbook_on_no_hosts_remaining(self) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_no_hosts_remaining"
 
-    @beartype
     def deduped_playbook_on_end(self) -> None:
         """comes right after playbook_on_stats, or after SIGINT"""
 
-    @beartype
     def deduped_playbook_on_vars_prompt(
         self,
         varname,
@@ -663,7 +645,6 @@ class DedupeCallback(CallbackBase):
     ) -> None:
         "see ansible.plugins.callback.CallbackBase.v2_playbook_on_vars_prompt"
 
-    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str], final=False) -> None:
         """
         status_totals: dictionary from status to a string representing the total number of runners
@@ -671,7 +652,6 @@ class DedupeCallback(CallbackBase):
         the value "?" when using a loop. see dedupe_callback.VALID_STATUSES
         """
 
-    @beartype
     def deduped_result(
         self,
         result_id: ResultID,
@@ -691,14 +671,12 @@ class DedupeCallback(CallbackBase):
         gist_dupes: a list of ResultIDs that have an identical gist
         """
 
-    @beartype
     def deduped_diff(self, diff: dict, result_id: ResultID, dupe_of: list[ResultID]):
         """
         use this if you need to print diffs immediately rather than waiting until end of task
         hostnames and items are ignored when checking for dupes/groupings
         """
 
-    @beartype
     def deduped_task_end(
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],

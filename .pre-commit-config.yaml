@@ -13,10 +13,6 @@ repos:
         exclude: .*\.patch$
       - id: end-of-file-fixer
         exclude: .*\.patch$
-  # - repo: https://github.com/scop/pre-commit-shfmt.git
-  #   rev: v3.10.0-2
-  #   hooks:
-  #     - id: shfmt
   - repo: local
     hooks:
       - id: prettier
@@ -25,10 +21,12 @@ repos:
         additional_dependencies: ["prettier@3.9.10"]
         entry: prettier --write --ignore-unknown
         types: [yaml]
-  # - repo: https://github.com/psf/black.git
-  #   rev: 24.10.0
-  #   hooks:
-  #     - id: black
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
 
   # linters (work required) ########################################################################
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -37,23 +35,22 @@ repos:
       - id: check-yaml
         exclude: "^tests/.*"
       - id: check-json
+        exclude: .vscode/settings.json
       - id: check-xml
       - id: check-added-large-files
       - id: check-executables-have-shebangs
-  # TODO fix the many errors and enable this
-  # - repo: https://github.com/shellcheck-py/shellcheck-py.git
-  #   rev: v0.10.0.1
-  #   hooks:
-  #     - id: shellcheck
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
       - id: gitleaks
-  # TODO fix the many errors and enable this
   # - repo: https://github.com/ansible/ansible-lint.git
   #   rev: v24.10.0
   #   hooks:
   #     - id: ansible-lint
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.89
+    hooks:
+      - id: ty
 
   - repo: local
     hooks:

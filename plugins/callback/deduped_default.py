@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import textwrap
+from datetime import UTC
 
 from ansible import constants as C
 from ansible.executor.stats import AggregateStats
@@ -15,17 +16,10 @@ from ansible.playbook.included_file import IncludedFile
 from ansible.playbook.play import Play
 from ansible.playbook.task import Task
 from ansible.plugins.callback.default import CallbackModule as DefaultCallback
-from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
-from ansible_collections.unity.general.plugins.plugin_utils.dedupe_callback import (
-    DedupeCallback,
-    DiffID,
-    ResultGist,
-    ResultID,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.format_diff_callback import (
-    FormatDiffCallback,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.hostlist import format_hostnames
+
+from ..plugin_utils.dedupe_callback import DedupeCallback, DiffID, ResultGist, ResultID
+from ..plugin_utils.format_diff_callback import FormatDiffCallback
+from ..plugin_utils.hostlist import format_hostnames
 
 DOCUMENTATION = r"""
   name: deduped_default
@@ -72,14 +66,14 @@ DOCUMENTATION = r"""
 """
 
 _STATUS_COLORS = {
-    "changed": C.COLOR_CHANGED,
-    "failed": C.COLOR_ERROR,
-    "ignored": C.COLOR_ERROR,
-    "interrupted": C.COLOR_ERROR,
-    "ok": C.COLOR_OK,
+    "changed": C.COLOR_CHANGED,  # ty: ignore[unresolved-attribute]
+    "failed": C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
+    "ignored": C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
+    "interrupted": C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
+    "ok": C.COLOR_OK,  # ty: ignore[unresolved-attribute]
     "running": "normal",
-    "skipped": C.COLOR_SKIP,
-    "unreachable": C.COLOR_UNREACHABLE,
+    "skipped": C.COLOR_SKIP,  # ty: ignore[unresolved-attribute]
+    "unreachable": C.COLOR_UNREACHABLE,  # ty: ignore[unresolved-attribute]
 }
 
 STATUSES_PRINT_IMMEDIATELY = ["failed", "ignored", "unreachable"]
@@ -91,22 +85,19 @@ def _hash_object_dirty(x) -> str:
     return hashlib.md5(json_bytes).hexdigest()
 
 
-@beartype
 class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "unity.general.deduped_default"
     CALLBACK_NEEDS_WHITELIST = True
 
-    @beartype
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.textwrapper = textwrap.TextWrapper(replace_whitespace=False)
         self.task_start_time = None  # defined in __task_start
 
-    @beartype
     def __task_start(self, task: Task):
-        self.task_start_time = datetime.datetime.now()
+        self.task_start_time = datetime.datetime.now(UTC)
         self._task = task
 
     def _is_this_task_banner_printed(self):
@@ -118,8 +109,7 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         if not self._is_this_task_banner_printed():
             self._print_task_banner(self._task)
 
-    @beartype
-    def _indent_and_maybe_wrap(self, x: str, width: int = None, indent="  "):
+    def _indent_and_maybe_wrap(self, x: str, width: int | None = None, indent="  "):
         if not (self.get_option("wrap_text") and sys.stdout.isatty()):
             return textwrap.indent(x, prefix=indent)
         if width is None:
@@ -133,7 +123,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             output_chunks.append("\n".join(self.textwrapper.wrap(line)))
         return "\n".join(output_chunks)
 
-    @beartype
     def _result_ids2str(
         self,
         result_ids: list[ResultID],
@@ -176,7 +165,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             return "\n".join(output_groupings)
         return oneline_output
 
-    @beartype
     def format_status_result_ids_msg(
         self,
         status: str,
@@ -234,18 +222,14 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         msg_wrapped = self._indent_and_maybe_wrap(msg, indent="    ", width=preferred_max_width)
         return f"{status}:\n{result_ids_str_wrapped} =>\n{msg_wrapped}"
 
-    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str], final=False):
         pass
 
     def _is_result_printed_immediately(self, gist: ResultGist) -> bool:
         if gist["status"] in STATUSES_PRINT_IMMEDIATELY:
             return True
-        if gist["is_verbose"]:
-            return True
-        return False
+        return gist["is_verbose"]
 
-    @beartype
     def deduped_result(
         self,
         result_id: ResultID,
@@ -283,7 +267,6 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             stderr=(status == "failed" and self.get_option("display_failed_stderr")),
         )
 
-    @beartype
     def deduped_task_end(
         self,
         result_gists_and_groupings: list[tuple[ResultGist, list[ResultID]]],
@@ -299,14 +282,15 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
             self._display.display(diff)
             self._display.display(
                 self.format_status_result_ids_msg("changed", result_ids),
-                color=C.COLOR_CHANGED,
+                color=C.COLOR_CHANGED,  # ty: ignore[unresolved-attribute]
             )
             if diff != sorted_diffs_and_groupings[-1][0]:  # if not the last diff
                 self._display.display("")  # extra line to separate diffs
 
         # sort by status, then by grouping size, then by first resultID in grouping
         sorted_gists_and_groupings = sorted(
-            result_gists_and_groupings, key=lambda x: [x[0]["status"], len(x[1]), str(x[1][0])]
+            result_gists_and_groupings,
+            key=lambda x: [x[0]["status"], len(x[1]), str(x[1][0])],
         )
         for result_gist, result_ids in sorted_gists_and_groupings:
             # diffs already printed, and result messages are copied into diffs
@@ -334,67 +318,56 @@ class CallbackModule(DedupeCallback, FormatDiffCallback, DefaultCallback):
         if len(interrupted) > 0:
             self._display.display(
                 self.format_status_result_ids_msg("interrupted", interrupted),
-                color=C.COLOR_ERROR,
+                color=C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
             )
 
-        elapsed = datetime.datetime.now() - self.task_start_time
+        assert self.task_start_time is not None
+        elapsed = datetime.datetime.now(UTC) - self.task_start_time
         self.task_start_time = None
         # don't print elapsed time if nothing else has been printed for this task
         if self._is_this_task_banner_printed():
             self._display.display(f"elapsed: {elapsed.total_seconds():.1f} seconds")
 
-    @beartype
     def deduped_playbook_on_play_start(self, play: Play):
         DefaultCallback.v2_playbook_on_play_start(self, play)
 
-    @beartype
     def deduped_playbook_on_stats(self, stats: AggregateStats):
         DefaultCallback.v2_playbook_on_stats(self, stats)
 
-    @beartype
     def deduped_playbook_on_start(self, playbook: Playbook):
         DefaultCallback.v2_playbook_on_start(self, playbook)
 
-    @beartype
     def deduped_playbook_on_task_start(self, task: Task, is_conditional):
         DefaultCallback.v2_playbook_on_task_start(self, task, is_conditional)
         self.__task_start(task)
 
-    @beartype
     def deduped_playbook_on_handler_task_start(self, task: Task):
         DefaultCallback.v2_playbook_on_handler_task_start(self, task)
         self.__task_start(task)
 
-    @beartype
     def deduped_runner_on_start(self, host: Host, task: Task):
         DefaultCallback.v2_runner_on_start(self, host, task)
 
-    @beartype
     def deduped_runner_retry(self, result: TaskResult):
         DefaultCallback.v2_runner_retry(self, result)
 
-    @beartype
     def deduped_playbook_on_notify(self, handler: Handler, host: Host):
         DefaultCallback.v2_playbook_on_notify(self, handler, host)
 
-    @beartype
     def deduped_playbook_on_include(self, included_file: IncludedFile, hosts: str):
         # TODO upgrade ansible and start using this new option
         # if self.get_option("display_included_hosts"):
         msg = f"included: {included_file._filename} for {hosts}"
         if label := self._get_item_label(included_file._vars):
             msg += f" => (item={label})"
-        self._display.display(msg, color=C.COLOR_INCLUDED)
+        self._display.display(msg, color=C.COLOR_INCLUDED)  # ty: ignore[unresolved-attribute]
 
-    @beartype
     def deduped_playbook_on_no_hosts_matched(self):
         DefaultCallback.v2_playbook_on_no_hosts_matched(self)
 
-    @beartype
     def deduped_playbook_on_no_hosts_remaining(self):
         DefaultCallback.v2_playbook_on_no_hosts_remaining(self)
 
-    @beartype
     def deduped_playbook_on_vars_prompt(
         self,
         varname,

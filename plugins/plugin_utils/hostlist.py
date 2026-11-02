@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from ansible.inventory.host import Host
 from ansible.utils.display import Display
 
@@ -14,9 +16,9 @@ except ImportError:
     DO_NODESET = False
 
 
-def format_hostnames(hosts: list[str | Host]) -> str:
-    hosts = [str(x) for x in hosts]
+def format_hostnames(hosts: Sequence[str | Host]) -> str:
+    names = sorted(str(x) for x in hosts)
     if DO_NODESET:
-        return str(NodeSet.fromlist(sorted(list(hosts))))
+        return str(NodeSet.fromlist(names))
     else:
-        return ",".join(sorted(list(hosts)))
+        return ",".join(names)

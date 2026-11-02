@@ -1,8 +1,9 @@
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from ansible.utils.display import Display
+
 from ansible.plugins.callback import CallbackBase
-from contextlib import redirect_stdout, redirect_stderr
+from ansible.utils.display import Display
 
 
 def capture(func, *args, **kwargs):
@@ -12,9 +13,8 @@ def capture(func, *args, **kwargs):
         func(*args, **kwargs)
         return ""
     buffer = StringIO()
-    with redirect_stdout(buffer):
-        with redirect_stderr(buffer):
-            func(*args, **kwargs)
+    with redirect_stdout(buffer), redirect_stderr(buffer):
+        func(*args, **kwargs)
     buffer.flush()
     buffer.seek(0)
     return buffer.read()
@@ -82,7 +82,9 @@ class Display2Buffer:
 
     def _make_property(self, attr_name):
         setattr(
-            self.__class__, attr_name, property(lambda _self: getattr(_self._display, attr_name))
+            self.__class__,
+            attr_name,
+            property(lambda _self: getattr(_self._display, attr_name)),
         )
 
 
@@ -93,9 +95,10 @@ class BufferedCallback(CallbackBase):
     """
 
     def __init__(self):
-        super(BufferedCallback, self).__init__()
-        self._real_display = self._display
-        self._display = Display2Buffer()
+        super().__init__()
+        assert isinstance(self._display, Display)
+        self._real_display: Display = self._display
+        self._display: Display2Buffer = Display2Buffer()
 
     def display_buffer(self):
         self._real_display.display(self._display.buffer)

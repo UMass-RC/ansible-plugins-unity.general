@@ -1,9 +1,10 @@
 import re
+
 from ansible.errors import AnsibleFilterError
 
 
 def parse_ibstat(_input: str) -> list[dict]:
-    output = []
+    output: list[dict] = []
     for i, line in enumerate(_input.splitlines()):
         if not line.strip():
             continue
@@ -26,6 +27,6 @@ def parse_ibstat(_input: str) -> list[dict]:
     return output
 
 
-class FilterModule(object):
+class FilterModule:
     def filters(self):
         return {"parse_ibstat": parse_ibstat}

@@ -1,33 +1,23 @@
-import pwd
 import os
+import pwd
 import re
-import sys
-import socket
 import shutil
-import traceback
+import socket
 import subprocess
+import traceback
+from datetime import UTC, datetime
 from io import BytesIO
-from datetime import datetime, timezone
-from requests.exceptions import SSLError
 
 import requests
-
+from ansible.errors import AnsibleError
 from ansible.playbook import Playbook
 from ansible.playbook.play import Play
-from ansible.errors import AnsibleError
-from ansible.executor.task_result import TaskResult
-from ansible_collections.unity.general.plugins.plugin_utils import slack_report_cache
-from ansible_collections.unity.general.plugins.plugin_utils.bitwarden_redact import (
-    bitwarden_redact,
-)
-from ansible_collections.unity.general.plugins.callback.deduped_default import (
-    CallbackModule as DedupedDefaultCallback,
-    ResultID,
-    ResultGist,
-)
-from ansible_collections.unity.general.plugins.plugin_utils.buffered_callback import (
-    BufferedCallback,
-)
+from requests.exceptions import SSLError
+
+from ..plugin_utils.bitwarden_redact import bitwarden_redact
+from ..plugin_utils.buffered_callback import BufferedCallback
+from .deduped_default import CallbackModule as DedupedDefaultCallback
+from .deduped_default import ResultGist, ResultID
 
 DOCUMENTATION = r"""
   name: http_post
@@ -178,12 +168,14 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
         token = self.get_option("slack_bot_user_oauth_token")
         channel_id = self.get_option("slack_channel_id")
-        assert token is not None, (
-            "slack_bot_user_oauth_token option is required when slack_message option is defined"
-        )
-        assert channel_id is not None, (
-            "slack_channel_id option is required when slack_message option is defined"
-        )
+        if token is None:
+            raise AnsibleError(
+                "slack_bot_user_oauth_token option is required when slack_message option is defined"
+            )
+        if channel_id is None:
+            raise AnsibleError(
+                "slack_channel_id option is required when slack_message option is defined"
+            )
         try:
             web_client = WebClient(token=token)
             web_client.chat_postMessage(channel=channel_id, text=msg)
@@ -194,7 +186,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             )
 
     def __init__(self):
-        super(CallbackModule, self).__init__()
+        super().__init__()
         self._playbook_name = None
         self._all_plays_check_mode = True
 
@@ -224,7 +216,7 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             )
             return
         filename = self.get_option("upload_filename").format(
-            timestamp=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC).timestamp(),
             playbook_name=self._playbook_name,
             username=pwd.getpwuid(os.getuid())[0],
             hostname=socket.gethostname().split(".", 1)[0],
@@ -254,10 +246,11 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             )
         except SSLError as e:
             if "SSLCertVerificationError" in str(e):
-                raise type(e)(
-                    'http_post: failed to verify SSL certificate of "%s". You might want to set REQUESTS_CA_BUNDLE=/path/to/root-ca-cert in your .envrc using direnv. %s'
-                    % (self.get_option("upload_url"), str(e))
-                ).with_traceback(sys.exc_info()[2])
+                e.add_note(
+                    f'http_post: failed to verify SSL certificate of "{self.get_option("upload_url")}". '
+                    "You might want to set REQUESTS_CA_BUNDLE=/path/to/root-ca-cert in your .envrc using direnv"
+                )
+                raise
             else:
                 raise
         if response.status_code != 200:
@@ -274,9 +267,9 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             self._send_slack_message(msg)
 
     def deduped_playbook_on_start(self, playbook: Playbook) -> None:
-        super(CallbackModule, self).deduped_playbook_on_start(playbook)
-        self._playbook_name = os.path.basename(playbook._file_name)
+        super().deduped_playbook_on_start(playbook)
+        self._playbook_name = os.path.basename(playbook._file_name)  # type: ignore
 
     def deduped_playbook_on_play_start(self, play: Play) -> None:
-        super(CallbackModule, self).deduped_playbook_on_play_start(play)
+        super().deduped_playbook_on_play_start(play)
         self._all_plays_check_mode &= bool(play.check_mode)

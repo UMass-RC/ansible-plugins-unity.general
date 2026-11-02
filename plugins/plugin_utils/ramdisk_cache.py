@@ -1,11 +1,10 @@
-import os
-import json
-import time
 import fcntl
 import getpass
+import json
+import os
 import platform
 import threading
-
+import time
 from typing import IO
 
 from ansible.errors import AnsibleError
@@ -50,7 +49,7 @@ def get_cache_path(basename: str, plugin_options: dict) -> str:
                         f'"{ramdisk_path}" is not a directory! create it with [tmpdisk](https://github.com/imothee/tmpdisk)'
                     )
             else:
-                raise AnsibleError(f"ramdisk_cache: unsupported OS: {OS}")
+                raise AnsibleError(f"ramdisk_cache: unsupported OS: {_os!r}")
     return os.path.join(ramdisk_path, basename)
 
 
@@ -106,7 +105,7 @@ class RamdiskCacheContextManager:
             if (cache_timeout_seconds > 0) and (
                 (time.time() - os.path.getmtime(self.cache_path)) > cache_timeout_seconds
             ):
-                self.display_verbose(f"cache timed out, truncating...")
+                self.display_verbose("cache timed out, truncating...")
                 open(self.cache_path, "w").close()
         else:
             open(self.cache_path, "w").close()
@@ -120,6 +119,7 @@ class RamdiskCacheContextManager:
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.display_verbose(f"releasing {self.lock_type} lock on file '{self.cache_path}'... ")
+        assert self.cache_file is not None
         fcntl.flock(self.cache_file, fcntl.LOCK_UN)
         self.cache_file.flush()
         self.cache_file.close()
@@ -141,7 +141,7 @@ def cache_lambda(key, basename: str, id: str, lambda_func, plugin_options: dict)
     both the key and the return value of the lambda_func must be JSON serializable!
     """
     if plugin_options["enable_cache"] is False:
-        display_verbose(f"cache is disabled", key)
+        display_verbose("cache is disabled", key)
         return lambda_func()
     # One might be tempted to use a read-only lock for checking cache hit or cache miss
     # and then a write lock for populating the cache.
@@ -158,9 +158,9 @@ def cache_lambda(key, basename: str, id: str, lambda_func, plugin_options: dict)
             display_verbose(f"failed to parse '{cache_contents}', will be overwritten.\n{e}", key)
             cache = {}
         if key in cache:
-            display_verbose(f"cache hit", key)
+            display_verbose("cache hit", key)
             return cache[key]
-        display_verbose(f"cache miss", key)
+        display_verbose("cache miss", key)
         result = lambda_func()
         cache[key] = result
         cache_file.seek(0)

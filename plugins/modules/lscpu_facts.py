@@ -1,3 +1,4 @@
+#!/usr/bin/python
 DOCUMENTATION = r"""
 name: lscpu_facts
 short_description: contains the output from the lscpu command
@@ -18,6 +19,7 @@ lscpu:
 
 import re
 import subprocess
+
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -27,7 +29,9 @@ def main():
     lscpu_out = subprocess.check_output("lscpu", text=True)
     for line in lscpu_out.splitlines():
         try:
-            k, v = re.fullmatch(r"(.*?):\s+(.*)", line).group(1, 2)
+            match = re.fullmatch(r"(.*?):\s+(.*)", line)
+            assert match is not None, f"failed to parse line from `lscpu`: {line!r}"
+            k, v = match.group(1, 2)
             lscpu[k] = v
         except AttributeError:
             module.fail_json(msg="failed to parse output from lscpu")

@@ -1,10 +1,7 @@
-import traceback
-
-from ansible.errors import AnsibleError
+from ansible.errors import AnsibleActionFail, AnsibleError
 from ansible.plugins.action import ActionBase
 from ansible.plugins.loader import lookup_loader
 from ansible.utils.display import Display
-from ansible_collections.unity.general.plugins.plugin_utils.action import failed
 
 display = Display()
 
@@ -25,24 +22,30 @@ class ActionModule(ActionBase):
         if validate_args_result["failed"]:
             return validate_args_result
         params = validate_args_result["params"]
-
+        lookup_kwargs = {
+            k: v
+            for k, v in params.items()
+            if k in ["item_name", "attachment_filename", "collection_id"]
+        }
+        lookup = lookup_loader.get(
+            "unity.general.bitwarden_attachment_download",
+            loader=self._loader,
+            templar=self._templar,
+        )
         try:
-            lookup_kwargs = {
-                k: v
-                for k, v in params.items()
-                if k in ["item_name", "attachment_filename", "collection_id"]
-            }
-            lookup = lookup_loader.get(
-                "unity.general.bitwarden_attachment_download",
-                loader=self._loader,
-                templar=self._templar,
-            )
             lookup_result = lookup.run([], **lookup_kwargs)
-            assert len(lookup_result) == 1
-            attachment_download_path = lookup_result[0]
         except AnsibleError as e:
-            display.v(traceback.format_exception(e))
-            return failed(f"Error fetching attachment: {str(e)}")
+            raise AnsibleActionFail(
+                f"bitwarden_attachment_download({lookup_kwargs!r}) failed: {e!s}"
+            ) from e
+        display.v(
+            f"bitwarden_copy_attachment: bitwarden_attachment_download result: {lookup_result!r}"
+        )
+        if len(lookup_result) != 1:
+            raise AnsibleActionFail(
+                f"expected lookup to return one value, but it returned {len(lookup_result)}"
+            )
+        attachment_download_path = lookup_result[0]
 
         copy_task = self._task.copy()
         del copy_task.args

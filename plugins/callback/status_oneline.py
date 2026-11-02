@@ -2,10 +2,10 @@ import shutil
 
 from ansible import constants as C
 from ansible.utils.color import stringc
-from ansible_collections.unity.general.plugins.callback.deduped_default import (
+
+from .deduped_default import (
     CallbackModule as DedupedDefaultCallback,
 )
-from ansible_collections.unity.general.plugins.plugin_utils.beartype import beartype
 
 DOCUMENTATION = r"""
   name: status_oneline
@@ -49,38 +49,33 @@ DOCUMENTATION = r"""
 """
 
 _STATUS_COLORS = {
-    "changed": C.COLOR_CHANGED,
-    "failed": C.COLOR_ERROR,
-    "ignored": C.COLOR_WARN,
-    "interrupted": C.COLOR_ERROR,
-    "ok": C.COLOR_OK,
+    "changed": C.COLOR_CHANGED,  # ty: ignore[unresolved-attribute]
+    "failed": C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
+    "ignored": C.COLOR_WARN,  # ty: ignore[unresolved-attribute]
+    "interrupted": C.COLOR_ERROR,  # ty: ignore[unresolved-attribute]
+    "ok": C.COLOR_OK,  # ty: ignore[unresolved-attribute]
     "running": "normal",
-    "skipped": C.COLOR_SKIP,
-    "unreachable": C.COLOR_UNREACHABLE,
+    "skipped": C.COLOR_SKIP,  # ty: ignore[unresolved-attribute]
+    "unreachable": C.COLOR_UNREACHABLE,  # ty: ignore[unresolved-attribute]
 }
 
 
-@beartype
 def _tty_width() -> int:
     output, _ = shutil.get_terminal_size()
     return output
 
 
-@beartype
 class CallbackModule(DedupedDefaultCallback):
     CALLBACK_VERSION = 1.0
     CALLBACK_TYPE = "stdout"
     CALLBACK_NAME = "status_oneline"
 
-    @beartype
     def __init__(self):
-        super(CallbackModule, self).__init__()
+        super().__init__()
 
-    @beartype
     def _clear_line(self):
         self._display.display(f"\r{' ' * _tty_width()}\r", newline=False)
 
-    @beartype
     def deduped_update_status_totals(self, status_totals: dict[str, str], final=False):
         components = []
         statuses_to_ignore = []
@@ -127,12 +122,10 @@ class CallbackModule(DedupedDefaultCallback):
         output += "\n" if final else "\r"
         self._display.display(output, newline=False)
 
-    @beartype
     def deduped_result(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_result(self, *args, **kwargs)
 
-    @beartype
     def deduped_task_end(self, *args, **kwargs):
         self._clear_line()  # destroy last status line
         DedupedDefaultCallback.deduped_task_end(self, *args, **kwargs)

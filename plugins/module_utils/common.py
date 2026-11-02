@@ -1,6 +1,6 @@
 import re
-import jc
 
+import jc
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -17,11 +17,6 @@ def all_elements_equal(x: list) -> bool:
 def _check_output(argv: list[str], _module: AnsibleModule, timeout_sec=0) -> str:
     _, stdout, _ = _module.run_command(["timeout", "-v", str(timeout_sec)] + argv, check_rc=True)
     return stdout
-
-
-def _assert(_module: AnsibleModule, condition: bool, msg: str):
-    if not condition:
-        _module.fail_json(msg=msg)
 
 
 NVIDIA_PCI_VENDOR_ID = "10de:"
@@ -75,6 +70,7 @@ def get_gpu_model_and_count(_module: AnsibleModule) -> tuple[str, int]:
     )
     # raw=True because `physlot_int` is broken for some nodes (ex: gpu042)
     nvidia_pci_devices = jc.parse("lspci", stdout, raw=True)
+    assert isinstance(nvidia_pci_devices, list)
     nvidia_gpus = [
         x
         for x in nvidia_pci_devices
@@ -83,10 +79,8 @@ def get_gpu_model_and_count(_module: AnsibleModule) -> tuple[str, int]:
     # extract from square brackets - example: "GH100 [H200 NVL]"
     nvidia_gpu_models = [re.sub(r"^.*\[(.*)\].*", r"\1", x["device"]) for x in nvidia_gpus]
     nvidia_gpu_models = [translate_nvidia_gpu_model_name(x) for x in nvidia_gpu_models]
-    _assert(
-        _module,
-        all_elements_equal(nvidia_gpu_models),
-        f"mismatched GPU models! found: {list(set(nvidia_gpu_models))}",
-    )
-    _assert(_module, len(nvidia_gpu_models) > 0, "no nvidia GPUs found!")
+    if not all_elements_equal(nvidia_gpu_models):
+        _module.fail_json(msg=f"mismatched GPU models! found: {list(set(nvidia_gpu_models))}")
+    if not nvidia_gpu_models:
+        _module.fail_json(msg="no nvidia GPUs found!")
     return nvidia_gpu_models[0], len(nvidia_gpu_models)

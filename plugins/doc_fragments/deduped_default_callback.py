@@ -1,4 +1,4 @@
-class ModuleDocFragment(object):
+class ModuleDocFragment:
     DOCUMENTATION = r"""
       options:
         check_mode_markers:

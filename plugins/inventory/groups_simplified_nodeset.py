@@ -27,8 +27,8 @@ groups:
 
 import yaml
 from ansible.errors import AnsibleError
-from ClusterShell.NodeSet import NodeSet
 from ansible.plugins.inventory import BaseInventoryPlugin
+from ClusterShell.NodeSet import NodeSet
 
 
 class InventoryModule(BaseInventoryPlugin):
@@ -36,24 +36,24 @@ class InventoryModule(BaseInventoryPlugin):
 
     def verify_file(self, path):
         """Return the possibly of a file being consumable by this plugin."""
-        return super(InventoryModule, self).verify_file(path) and path.endswith((".yaml", ".yml"))
+        return super().verify_file(path) and path.endswith((".yaml", ".yml"))
 
     def validate(self, data) -> None:
-        if set(data.keys()) != set(["groups", "plugin"]):
+        if set(data.keys()) != {"groups", "plugin"}:
             raise AnsibleError(f'expected keys "groups" and "plugin". found keys "{data.keys()}"')
-        for group_name, group_data in data["groups"].items():
+        for i, (group_name, group_data) in enumerate(data["groups"].items()):
             if not isinstance(group_name, str):
                 raise AnsibleError(
                     f'expected string. found groups.keys()[{i}] = "{group_name}" of type {type(group_name)}'
                 )
-            for i, (key, val) in enumerate(group_data.items()):
+            for j, (key, val) in enumerate(group_data.items()):
                 if not isinstance(key, str):
                     raise AnsibleError(
-                        f'expected string. found groups["{group_name}"].keys()[{i}] = "{key}" of type {type(key)}'
+                        f'expected string. found groups["{group_name}"].keys()[{j}] = "{key}" of type {type(key)}'
                     )
                 if key not in ["hosts", "children"]:
                     raise AnsibleError(
-                        f'expected "hosts" or "children". found groups["{group_name}"].keys()[{i}] = "{key}" of type {type(key)}'
+                        f'expected "hosts" or "children". found groups["{group_name}"].keys()[{j}] = "{key}" of type {type(key)}'
                     )
                 if not isinstance(val, list):
                     raise AnsibleError(
@@ -67,10 +67,11 @@ class InventoryModule(BaseInventoryPlugin):
                             )
 
     def parse(self, inventory, loader, path, cache=True):
-        super(InventoryModule, self).parse(inventory, loader, path, cache)
+        super().parse(inventory, loader, path, cache)
         with open(path, "r", encoding="utf8") as fp:
             data = yaml.safe_load(fp)
         self.validate(data)
+        assert self.inventory is not None
         for group_name, group_data in data["groups"].items():
             self.inventory.add_group(group_name)
             for child in group_data.get("children", []):
