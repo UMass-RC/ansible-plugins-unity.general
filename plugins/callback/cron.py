@@ -125,10 +125,6 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
             f"invalid statuses in `statuses_enable_print`: {invalid_statuses}"
         )
 
-    # https://github.com/ansible/ansible/pull/84496
-    def get_options(self):
-        return self._plugin_options
-
     def deduped_result(
         self,
         result_id: ResultID,

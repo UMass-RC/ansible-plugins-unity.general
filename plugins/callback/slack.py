@@ -55,10 +55,6 @@ class CallbackModule(DedupeCallback):
         super(CallbackModule, self).__init__()
         self._text_buffer = []
 
-    # https://github.com/ansible/ansible/pull/84496
-    def get_options(self):
-        return self._plugin_options
-
     def _get_report(self) -> str:
         report_lines = slack_report_cache.get_lines(self.get_options())
         slack_report_cache.flush(self.get_options())

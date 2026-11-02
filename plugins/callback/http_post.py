@@ -178,12 +178,12 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
 
         token = self.get_option("slack_bot_user_oauth_token")
         channel_id = self.get_option("slack_channel_id")
-        assert (
-            token is not None
-        ), "slack_bot_user_oauth_token option is required when slack_message option is defined"
-        assert (
-            channel_id is not None
-        ), "slack_channel_id option is required when slack_message option is defined"
+        assert token is not None, (
+            "slack_bot_user_oauth_token option is required when slack_message option is defined"
+        )
+        assert channel_id is not None, (
+            "slack_channel_id option is required when slack_message option is defined"
+        )
         try:
             web_client = WebClient(token=token)
             web_client.chat_postMessage(channel=channel_id, text=msg)
@@ -197,10 +197,6 @@ class CallbackModule(DedupedDefaultCallback, BufferedCallback):
         super(CallbackModule, self).__init__()
         self._playbook_name = None
         self._all_plays_check_mode = True
-
-    # https://github.com/ansible/ansible/pull/84496
-    def get_options(self):
-        return self._plugin_options
 
     def deduped_result(
         self,
