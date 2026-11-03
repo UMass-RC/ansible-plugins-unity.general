@@ -515,9 +515,11 @@ def slurm_node_specs_feature_groups(node_specs: NodeSpecsPacked) -> dict:
                 group_name = group_name.replace(forbidden_char, "_")
             inventory["groups"].setdefault(group_name, {"hosts": []})
             inventory["groups"][group_name]["hosts"].append(specs["NodeName"])
-    for group_name, group_data in inventory["groups"].items():
-        nodeset = _fold_node_set(group_data["hosts"])
-        inventory["groups"][group_name]["hosts"] = [nodeset]
+    sorted_groups = {}
+    for group_name in sorted(inventory["groups"], key=_make_string_sortable_numerically):
+        nodeset = _fold_node_set(inventory["groups"][group_name]["hosts"])
+        sorted_groups[group_name] = {"hosts": [nodeset]}
+    inventory["groups"] = sorted_groups
     return inventory
 
 
